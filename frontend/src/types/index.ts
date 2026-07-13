@@ -286,6 +286,43 @@ export interface UpdateSubscriptionRequest {
   is_active?: boolean
 }
 
+// ==================== Ticket Types ====================
+
+export type TicketStatus = 'pending' | 'in_progress' | 'resolved' | 'closed'
+export type TicketCategory = 'account' | 'billing' | 'api' | 'usage' | 'other'
+export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
+
+export interface TicketMessage {
+  id: number
+  ticket_id: number
+  sender_user_id: number
+  sender_role: 'user' | 'admin'
+  content: string
+  created_at: string
+}
+
+export interface Ticket {
+  id: number
+  user_id: number
+  subject: string
+  category: TicketCategory
+  priority: TicketPriority
+  status: TicketStatus
+  last_activity_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TicketDetail extends Ticket {
+  messages: TicketMessage[]
+}
+
+export interface CreateTicketRequest {
+  subject: string
+  category: TicketCategory
+  content: string
+}
+
 // ==================== Announcement Types ====================
 
 export type AnnouncementStatus = 'draft' | 'active' | 'archived'

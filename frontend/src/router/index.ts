@@ -278,6 +278,7 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'profile.description'
     }
   },
+  { path: '/tickets', name: 'Tickets', component: () => import('@/views/user/TicketsView.vue'), meta: { requiresAuth: true, requiresAdmin: false, title: 'Tickets' } },
   {
     path: '/subscriptions',
     name: 'Subscriptions',
@@ -514,6 +515,7 @@ const routes: RouteRecordRaw[] = [
       descriptionKey: 'admin.announcements.description'
     }
   },
+  { path: '/admin/tickets', name: 'AdminTickets', component: () => import('@/views/admin/TicketsView.vue'), meta: { requiresAuth: true, requiresAdmin: true, title: 'Ticket Management' } },
   {
     path: '/admin/proxies',
     name: 'AdminProxies',

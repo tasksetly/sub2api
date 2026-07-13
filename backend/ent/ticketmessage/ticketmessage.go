@@ -69,6 +69,8 @@ func ValidColumn(column string) bool {
 var (
 	// SenderRoleValidator is a validator for the "sender_role" field. It is called by the builders before save.
 	SenderRoleValidator func(string) error
+	// ContentValidator is a validator for the "content" field. It is called by the builders before save.
+	ContentValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )

@@ -16,8 +16,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/repository"
 	"github.com/Wei-Shaw/sub2api/internal/server"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	middleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	service "github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/google/wire"
 	"github.com/redis/go-redis/v9"

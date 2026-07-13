@@ -349,6 +349,14 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 }
 
 func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	tickets := admin.Group("/tickets")
+	{
+		tickets.GET("", h.Admin.Ticket.List)
+		tickets.GET("/:id", h.Admin.Ticket.Get)
+		tickets.POST("/:id/messages", h.Admin.Ticket.AddMessage)
+		tickets.PATCH("/:id", h.Admin.Ticket.Update)
+	}
+
 	announcements := admin.Group("/announcements")
 	{
 		announcements.GET("", h.Admin.Announcement.List)

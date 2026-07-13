@@ -138,6 +138,11 @@ func (_c *TicketMessageCreate) check() error {
 	if _, ok := _c.mutation.Content(); !ok {
 		return &ValidationError{Name: "content", err: errors.New(`ent: missing required field "TicketMessage.content"`)}
 	}
+	if v, ok := _c.mutation.Content(); ok {
+		if err := ticketmessage.ContentValidator(v); err != nil {
+			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "TicketMessage.content": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "TicketMessage.created_at"`)}
 	}
@@ -272,30 +277,6 @@ type (
 	}
 )
 
-// SetTicketID sets the "ticket_id" field.
-func (u *TicketMessageUpsert) SetTicketID(v int64) *TicketMessageUpsert {
-	u.Set(ticketmessage.FieldTicketID, v)
-	return u
-}
-
-// UpdateTicketID sets the "ticket_id" field to the value that was provided on create.
-func (u *TicketMessageUpsert) UpdateTicketID() *TicketMessageUpsert {
-	u.SetExcluded(ticketmessage.FieldTicketID)
-	return u
-}
-
-// SetSenderUserID sets the "sender_user_id" field.
-func (u *TicketMessageUpsert) SetSenderUserID(v int64) *TicketMessageUpsert {
-	u.Set(ticketmessage.FieldSenderUserID, v)
-	return u
-}
-
-// UpdateSenderUserID sets the "sender_user_id" field to the value that was provided on create.
-func (u *TicketMessageUpsert) UpdateSenderUserID() *TicketMessageUpsert {
-	u.SetExcluded(ticketmessage.FieldSenderUserID)
-	return u
-}
-
 // SetSenderRole sets the "sender_role" field.
 func (u *TicketMessageUpsert) SetSenderRole(v string) *TicketMessageUpsert {
 	u.Set(ticketmessage.FieldSenderRole, v)
@@ -331,6 +312,12 @@ func (u *TicketMessageUpsert) UpdateContent() *TicketMessageUpsert {
 func (u *TicketMessageUpsertOne) UpdateNewValues() *TicketMessageUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.TicketID(); exists {
+			s.SetIgnore(ticketmessage.FieldTicketID)
+		}
+		if _, exists := u.create.mutation.SenderUserID(); exists {
+			s.SetIgnore(ticketmessage.FieldSenderUserID)
+		}
 		if _, exists := u.create.mutation.CreatedAt(); exists {
 			s.SetIgnore(ticketmessage.FieldCreatedAt)
 		}
@@ -363,34 +350,6 @@ func (u *TicketMessageUpsertOne) Update(set func(*TicketMessageUpsert)) *TicketM
 		set(&TicketMessageUpsert{UpdateSet: update})
 	}))
 	return u
-}
-
-// SetTicketID sets the "ticket_id" field.
-func (u *TicketMessageUpsertOne) SetTicketID(v int64) *TicketMessageUpsertOne {
-	return u.Update(func(s *TicketMessageUpsert) {
-		s.SetTicketID(v)
-	})
-}
-
-// UpdateTicketID sets the "ticket_id" field to the value that was provided on create.
-func (u *TicketMessageUpsertOne) UpdateTicketID() *TicketMessageUpsertOne {
-	return u.Update(func(s *TicketMessageUpsert) {
-		s.UpdateTicketID()
-	})
-}
-
-// SetSenderUserID sets the "sender_user_id" field.
-func (u *TicketMessageUpsertOne) SetSenderUserID(v int64) *TicketMessageUpsertOne {
-	return u.Update(func(s *TicketMessageUpsert) {
-		s.SetSenderUserID(v)
-	})
-}
-
-// UpdateSenderUserID sets the "sender_user_id" field to the value that was provided on create.
-func (u *TicketMessageUpsertOne) UpdateSenderUserID() *TicketMessageUpsertOne {
-	return u.Update(func(s *TicketMessageUpsert) {
-		s.UpdateSenderUserID()
-	})
 }
 
 // SetSenderRole sets the "sender_role" field.
@@ -597,6 +556,12 @@ func (u *TicketMessageUpsertBulk) UpdateNewValues() *TicketMessageUpsertBulk {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
 		for _, b := range u.create.builders {
+			if _, exists := b.mutation.TicketID(); exists {
+				s.SetIgnore(ticketmessage.FieldTicketID)
+			}
+			if _, exists := b.mutation.SenderUserID(); exists {
+				s.SetIgnore(ticketmessage.FieldSenderUserID)
+			}
 			if _, exists := b.mutation.CreatedAt(); exists {
 				s.SetIgnore(ticketmessage.FieldCreatedAt)
 			}
@@ -630,34 +595,6 @@ func (u *TicketMessageUpsertBulk) Update(set func(*TicketMessageUpsert)) *Ticket
 		set(&TicketMessageUpsert{UpdateSet: update})
 	}))
 	return u
-}
-
-// SetTicketID sets the "ticket_id" field.
-func (u *TicketMessageUpsertBulk) SetTicketID(v int64) *TicketMessageUpsertBulk {
-	return u.Update(func(s *TicketMessageUpsert) {
-		s.SetTicketID(v)
-	})
-}
-
-// UpdateTicketID sets the "ticket_id" field to the value that was provided on create.
-func (u *TicketMessageUpsertBulk) UpdateTicketID() *TicketMessageUpsertBulk {
-	return u.Update(func(s *TicketMessageUpsert) {
-		s.UpdateTicketID()
-	})
-}
-
-// SetSenderUserID sets the "sender_user_id" field.
-func (u *TicketMessageUpsertBulk) SetSenderUserID(v int64) *TicketMessageUpsertBulk {
-	return u.Update(func(s *TicketMessageUpsert) {
-		s.SetSenderUserID(v)
-	})
-}
-
-// UpdateSenderUserID sets the "sender_user_id" field to the value that was provided on create.
-func (u *TicketMessageUpsertBulk) UpdateSenderUserID() *TicketMessageUpsertBulk {
-	return u.Update(func(s *TicketMessageUpsert) {
-		s.UpdateSenderUserID()
-	})
 }
 
 // SetSenderRole sets the "sender_role" field.

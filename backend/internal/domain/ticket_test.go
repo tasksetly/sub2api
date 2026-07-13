@@ -7,10 +7,49 @@ import (
 )
 
 func TestTicketStateHelpers(t *testing.T) {
-	assert.True(t, IsTicketStatus(TicketStatusPending))
-	assert.True(t, IsTicketCategory("billing"))
-	assert.True(t, IsTicketPriority("urgent"))
+	t.Parallel()
+
+	statusCases := []struct {
+		status       string
+		canUserReply bool
+	}{
+		{TicketStatusPending, true},
+		{TicketStatusInProgress, true},
+		{TicketStatusResolved, true},
+		{TicketStatusClosed, false},
+	}
+	for _, tc := range statusCases {
+		t.Run(tc.status, func(t *testing.T) {
+			assert.True(t, IsTicketStatus(tc.status))
+			assert.Equal(t, tc.canUserReply, CanUserReply(tc.status))
+		})
+	}
+
+	for _, category := range []string{
+		TicketCategoryAccount,
+		TicketCategoryBilling,
+		TicketCategoryAPI,
+		TicketCategoryUsage,
+		TicketCategoryOther,
+	} {
+		t.Run("category_"+category, func(t *testing.T) {
+			assert.True(t, IsTicketCategory(category))
+		})
+	}
+
+	for _, priority := range []string{
+		TicketPriorityLow,
+		TicketPriorityNormal,
+		TicketPriorityHigh,
+		TicketPriorityUrgent,
+	} {
+		t.Run("priority_"+priority, func(t *testing.T) {
+			assert.True(t, IsTicketPriority(priority))
+		})
+	}
+
 	assert.False(t, IsTicketStatus("reopened"))
-	assert.False(t, CanUserReply(TicketStatusClosed))
-	assert.True(t, CanUserReply(TicketStatusResolved))
+	assert.False(t, IsTicketCategory("support"))
+	assert.False(t, IsTicketPriority("critical"))
+	assert.False(t, CanUserReply("reopened"))
 }

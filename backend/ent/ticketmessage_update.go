@@ -11,9 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/ent/ticket"
 	"github.com/Wei-Shaw/sub2api/ent/ticketmessage"
-	"github.com/Wei-Shaw/sub2api/ent/user"
 )
 
 // TicketMessageUpdate is the builder for updating TicketMessage entities.
@@ -26,34 +24,6 @@ type TicketMessageUpdate struct {
 // Where appends a list predicates to the TicketMessageUpdate builder.
 func (_u *TicketMessageUpdate) Where(ps ...predicate.TicketMessage) *TicketMessageUpdate {
 	_u.mutation.Where(ps...)
-	return _u
-}
-
-// SetTicketID sets the "ticket_id" field.
-func (_u *TicketMessageUpdate) SetTicketID(v int64) *TicketMessageUpdate {
-	_u.mutation.SetTicketID(v)
-	return _u
-}
-
-// SetNillableTicketID sets the "ticket_id" field if the given value is not nil.
-func (_u *TicketMessageUpdate) SetNillableTicketID(v *int64) *TicketMessageUpdate {
-	if v != nil {
-		_u.SetTicketID(*v)
-	}
-	return _u
-}
-
-// SetSenderUserID sets the "sender_user_id" field.
-func (_u *TicketMessageUpdate) SetSenderUserID(v int64) *TicketMessageUpdate {
-	_u.mutation.SetSenderUserID(v)
-	return _u
-}
-
-// SetNillableSenderUserID sets the "sender_user_id" field if the given value is not nil.
-func (_u *TicketMessageUpdate) SetNillableSenderUserID(v *int64) *TicketMessageUpdate {
-	if v != nil {
-		_u.SetSenderUserID(*v)
-	}
 	return _u
 }
 
@@ -85,37 +55,9 @@ func (_u *TicketMessageUpdate) SetNillableContent(v *string) *TicketMessageUpdat
 	return _u
 }
 
-// SetTicket sets the "ticket" edge to the Ticket entity.
-func (_u *TicketMessageUpdate) SetTicket(v *Ticket) *TicketMessageUpdate {
-	return _u.SetTicketID(v.ID)
-}
-
-// SetSenderID sets the "sender" edge to the User entity by ID.
-func (_u *TicketMessageUpdate) SetSenderID(id int64) *TicketMessageUpdate {
-	_u.mutation.SetSenderID(id)
-	return _u
-}
-
-// SetSender sets the "sender" edge to the User entity.
-func (_u *TicketMessageUpdate) SetSender(v *User) *TicketMessageUpdate {
-	return _u.SetSenderID(v.ID)
-}
-
 // Mutation returns the TicketMessageMutation object of the builder.
 func (_u *TicketMessageUpdate) Mutation() *TicketMessageMutation {
 	return _u.mutation
-}
-
-// ClearTicket clears the "ticket" edge to the Ticket entity.
-func (_u *TicketMessageUpdate) ClearTicket() *TicketMessageUpdate {
-	_u.mutation.ClearTicket()
-	return _u
-}
-
-// ClearSender clears the "sender" edge to the User entity.
-func (_u *TicketMessageUpdate) ClearSender() *TicketMessageUpdate {
-	_u.mutation.ClearSender()
-	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -152,6 +94,11 @@ func (_u *TicketMessageUpdate) check() error {
 			return &ValidationError{Name: "sender_role", err: fmt.Errorf(`ent: validator failed for field "TicketMessage.sender_role": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Content(); ok {
+		if err := ticketmessage.ContentValidator(v); err != nil {
+			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "TicketMessage.content": %w`, err)}
+		}
+	}
 	if _u.mutation.TicketCleared() && len(_u.mutation.TicketIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "TicketMessage.ticket"`)
 	}
@@ -179,64 +126,6 @@ func (_u *TicketMessageUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if value, ok := _u.mutation.Content(); ok {
 		_spec.SetField(ticketmessage.FieldContent, field.TypeString, value)
 	}
-	if _u.mutation.TicketCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketmessage.TicketTable,
-			Columns: []string{ticketmessage.TicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeInt64),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.TicketIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketmessage.TicketTable,
-			Columns: []string{ticketmessage.TicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.SenderCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketmessage.SenderTable,
-			Columns: []string{ticketmessage.SenderColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt64),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.SenderIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketmessage.SenderTable,
-			Columns: []string{ticketmessage.SenderColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{ticketmessage.Label}
@@ -255,34 +144,6 @@ type TicketMessageUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *TicketMessageMutation
-}
-
-// SetTicketID sets the "ticket_id" field.
-func (_u *TicketMessageUpdateOne) SetTicketID(v int64) *TicketMessageUpdateOne {
-	_u.mutation.SetTicketID(v)
-	return _u
-}
-
-// SetNillableTicketID sets the "ticket_id" field if the given value is not nil.
-func (_u *TicketMessageUpdateOne) SetNillableTicketID(v *int64) *TicketMessageUpdateOne {
-	if v != nil {
-		_u.SetTicketID(*v)
-	}
-	return _u
-}
-
-// SetSenderUserID sets the "sender_user_id" field.
-func (_u *TicketMessageUpdateOne) SetSenderUserID(v int64) *TicketMessageUpdateOne {
-	_u.mutation.SetSenderUserID(v)
-	return _u
-}
-
-// SetNillableSenderUserID sets the "sender_user_id" field if the given value is not nil.
-func (_u *TicketMessageUpdateOne) SetNillableSenderUserID(v *int64) *TicketMessageUpdateOne {
-	if v != nil {
-		_u.SetSenderUserID(*v)
-	}
-	return _u
 }
 
 // SetSenderRole sets the "sender_role" field.
@@ -313,37 +174,9 @@ func (_u *TicketMessageUpdateOne) SetNillableContent(v *string) *TicketMessageUp
 	return _u
 }
 
-// SetTicket sets the "ticket" edge to the Ticket entity.
-func (_u *TicketMessageUpdateOne) SetTicket(v *Ticket) *TicketMessageUpdateOne {
-	return _u.SetTicketID(v.ID)
-}
-
-// SetSenderID sets the "sender" edge to the User entity by ID.
-func (_u *TicketMessageUpdateOne) SetSenderID(id int64) *TicketMessageUpdateOne {
-	_u.mutation.SetSenderID(id)
-	return _u
-}
-
-// SetSender sets the "sender" edge to the User entity.
-func (_u *TicketMessageUpdateOne) SetSender(v *User) *TicketMessageUpdateOne {
-	return _u.SetSenderID(v.ID)
-}
-
 // Mutation returns the TicketMessageMutation object of the builder.
 func (_u *TicketMessageUpdateOne) Mutation() *TicketMessageMutation {
 	return _u.mutation
-}
-
-// ClearTicket clears the "ticket" edge to the Ticket entity.
-func (_u *TicketMessageUpdateOne) ClearTicket() *TicketMessageUpdateOne {
-	_u.mutation.ClearTicket()
-	return _u
-}
-
-// ClearSender clears the "sender" edge to the User entity.
-func (_u *TicketMessageUpdateOne) ClearSender() *TicketMessageUpdateOne {
-	_u.mutation.ClearSender()
-	return _u
 }
 
 // Where appends a list predicates to the TicketMessageUpdate builder.
@@ -393,6 +226,11 @@ func (_u *TicketMessageUpdateOne) check() error {
 			return &ValidationError{Name: "sender_role", err: fmt.Errorf(`ent: validator failed for field "TicketMessage.sender_role": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Content(); ok {
+		if err := ticketmessage.ContentValidator(v); err != nil {
+			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "TicketMessage.content": %w`, err)}
+		}
+	}
 	if _u.mutation.TicketCleared() && len(_u.mutation.TicketIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "TicketMessage.ticket"`)
 	}
@@ -436,64 +274,6 @@ func (_u *TicketMessageUpdateOne) sqlSave(ctx context.Context) (_node *TicketMes
 	}
 	if value, ok := _u.mutation.Content(); ok {
 		_spec.SetField(ticketmessage.FieldContent, field.TypeString, value)
-	}
-	if _u.mutation.TicketCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketmessage.TicketTable,
-			Columns: []string{ticketmessage.TicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeInt64),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.TicketIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketmessage.TicketTable,
-			Columns: []string{ticketmessage.TicketColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(ticket.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
-	}
-	if _u.mutation.SenderCleared() {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketmessage.SenderTable,
-			Columns: []string{ticketmessage.SenderColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt64),
-			},
-		}
-		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
-	}
-	if nodes := _u.mutation.SenderIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   ticketmessage.SenderTable,
-			Columns: []string{ticketmessage.SenderColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &TicketMessage{config: _u.config}
 	_spec.Assign = _node.assignValues

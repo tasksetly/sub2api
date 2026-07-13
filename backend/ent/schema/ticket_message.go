@@ -24,12 +24,15 @@ func (TicketMessage) Annotations() []schema.Annotation {
 
 func (TicketMessage) Fields() []ent.Field {
 	return []ent.Field{
-		field.Int64("ticket_id"),
-		field.Int64("sender_user_id"),
+		field.Int64("ticket_id").
+			Immutable(),
+		field.Int64("sender_user_id").
+			Immutable(),
 		field.String("sender_role").
 			MaxLen(20),
 		field.String("content").
-			SchemaType(map[string]string{dialect.Postgres: "text"}),
+			SchemaType(map[string]string{dialect.Postgres: "text"}).
+			NotEmpty(),
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now).
@@ -43,12 +46,14 @@ func (TicketMessage) Edges() []ent.Edge {
 			Ref("messages").
 			Field("ticket_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 		edge.From("sender", User.Type).
 			Ref("ticket_messages").
 			Field("sender_user_id").
 			Unique().
-			Required(),
+			Required().
+			Immutable(),
 	}
 }
 

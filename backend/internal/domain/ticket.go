@@ -25,24 +25,24 @@ const (
 )
 
 type Ticket struct {
-	ID             int64
-	UserID         int64
-	Subject        string
-	Category       string
-	Priority       string
-	Status         string
-	LastActivityAt time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID             int64     `json:"id"`
+	UserID         int64     `json:"user_id"`
+	Subject        string    `json:"subject"`
+	Category       string    `json:"category"`
+	Priority       string    `json:"priority"`
+	Status         string    `json:"status"`
+	LastActivityAt time.Time `json:"last_activity_at"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type TicketMessage struct {
-	ID           int64
-	TicketID     int64
-	SenderUserID int64
-	SenderRole   string
-	Content      string
-	CreatedAt    time.Time
+	ID           int64     `json:"id"`
+	TicketID     int64     `json:"ticket_id"`
+	SenderUserID int64     `json:"sender_user_id"`
+	SenderRole   string    `json:"sender_role"`
+	Content      string    `json:"content"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func IsTicketStatus(status string) bool {
@@ -73,5 +73,5 @@ func IsTicketPriority(priority string) bool {
 }
 
 func CanUserReply(status string) bool {
-	return status != TicketStatusClosed
+	return IsTicketStatus(status) && status != TicketStatusClosed
 }

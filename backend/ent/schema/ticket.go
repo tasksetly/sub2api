@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -28,15 +29,34 @@ func (Ticket) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int64("user_id"),
 		field.String("subject").
-			MaxLen(200),
+			MaxLen(200).
+			NotEmpty(),
 		field.String("category").
-			MaxLen(32),
+			MaxLen(32).
+			Validate(func(value string) error {
+				if !domain.IsTicketCategory(value) {
+					return fmt.Errorf("invalid ticket category: %q", value)
+				}
+				return nil
+			}),
 		field.String("priority").
 			MaxLen(20).
-			Default(domain.TicketPriorityNormal),
+			Default(domain.TicketPriorityNormal).
+			Validate(func(value string) error {
+				if !domain.IsTicketPriority(value) {
+					return fmt.Errorf("invalid ticket priority: %q", value)
+				}
+				return nil
+			}),
 		field.String("status").
 			MaxLen(20).
-			Default(domain.TicketStatusPending),
+			Default(domain.TicketStatusPending).
+			Validate(func(value string) error {
+				if !domain.IsTicketStatus(value) {
+					return fmt.Errorf("invalid ticket status: %q", value)
+				}
+				return nil
+			}),
 		field.Time("last_activity_at").
 			Default(time.Now).
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
