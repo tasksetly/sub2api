@@ -40,6 +40,7 @@ func (SupportTicket) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("user", User.Type).Ref("support_tickets").Field("user_id").Unique().Required(),
 		edge.To("messages", SupportTicketMessage.Type),
+		edge.To("attachments", SupportTicketAttachment.Type),
 	}
 }
 

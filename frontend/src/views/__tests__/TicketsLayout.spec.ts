@@ -22,4 +22,11 @@ describe('ticket page layout integration', () => {
     expect(workspace).toContain('<BaseDialog')
     expect(workspace).toContain('<Icon')
   })
+
+  it('keeps image attachments inside the shared ticket workspace controls', () => {
+    expect(workspace).toContain('accept="image/jpeg,image/png,image/gif,image/webp"')
+    expect(workspace).toContain('name="paperclip"')
+    expect(workspace).toContain('message.attachments')
+    expect(workspace).toContain('attachmentPolicy.enabled')
+  })
 })

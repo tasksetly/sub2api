@@ -7,6 +7,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -55,6 +56,9 @@ func (r *supportTicketRepository) Create(ctx context.Context, ticket *service.Su
 		ticket.UpdatedAt = created.UpdatedAt
 		initialMessage.ID = message.ID
 		initialMessage.TicketID = created.ID
+		if err := createSupportTicketAttachments(txCtx, client, created.ID, message.ID, initialMessage.Attachments); err != nil {
+			return err
+		}
 		ticket.Messages = []service.SupportTicketMessage{*initialMessage}
 		return nil
 	})
@@ -65,6 +69,9 @@ func (r *supportTicketRepository) GetByID(ctx context.Context, id int64) (*servi
 		Where(supportticket.IDEQ(id)).
 		WithUser().
 		WithMessages(func(q *dbent.SupportTicketMessageQuery) {
+			q.WithAttachments(func(aq *dbent.SupportTicketAttachmentQuery) {
+				aq.Order(dbent.Asc(supportticketattachment.FieldCreatedAt), dbent.Asc(supportticketattachment.FieldID))
+			})
 			q.Order(dbent.Asc(supportticketmessage.FieldCreatedAt), dbent.Asc(supportticketmessage.FieldID))
 		}).
 		Only(ctx)
@@ -130,9 +137,35 @@ func (r *supportTicketRepository) AddMessage(ctx context.Context, ticket *servic
 		}
 		message.ID = created.ID
 		message.TicketID = created.TicketID
+		if err := createSupportTicketAttachments(txCtx, client, ticket.ID, created.ID, message.Attachments); err != nil {
+			return err
+		}
 		ticket.Messages = append(ticket.Messages, *message)
 		return nil
 	})
+}
+
+func createSupportTicketAttachments(ctx context.Context, client *dbent.Client, ticketID, messageID int64, attachments []service.SupportTicketAttachment) error {
+	for i := range attachments {
+		attachment := &attachments[i]
+		created, err := client.SupportTicketAttachment.Create().
+			SetTicketID(ticketID).
+			SetMessageID(messageID).
+			SetUploaderID(attachment.UploaderID).
+			SetObjectKey(attachment.ObjectKey).
+			SetFileName(attachment.FileName).
+			SetContentType(attachment.ContentType).
+			SetSizeBytes(attachment.SizeBytes).
+			SetCreatedAt(attachment.CreatedAt).
+			Save(ctx)
+		if err != nil {
+			return err
+		}
+		attachment.ID = created.ID
+		attachment.TicketID = ticketID
+		attachment.MessageID = messageID
+	}
+	return nil
 }
 
 func (r *supportTicketRepository) Update(ctx context.Context, ticket *service.SupportTicket) error {
@@ -224,10 +257,21 @@ func supportTicketEntityToService(model *dbent.SupportTicket) *service.SupportTi
 	if len(model.Edges.Messages) > 0 {
 		item.Messages = make([]service.SupportTicketMessage, 0, len(model.Edges.Messages))
 		for _, message := range model.Edges.Messages {
-			item.Messages = append(item.Messages, service.SupportTicketMessage{
+			converted := service.SupportTicketMessage{
 				ID: message.ID, TicketID: message.TicketID, SenderID: message.SenderID,
 				SenderRole: message.SenderRole, Content: message.Content, CreatedAt: message.CreatedAt,
-			})
+			}
+			if len(message.Edges.Attachments) > 0 {
+				converted.Attachments = make([]service.SupportTicketAttachment, 0, len(message.Edges.Attachments))
+				for _, attachment := range message.Edges.Attachments {
+					converted.Attachments = append(converted.Attachments, service.SupportTicketAttachment{
+						ID: attachment.ID, TicketID: attachment.TicketID, MessageID: attachment.MessageID,
+						UploaderID: attachment.UploaderID, ObjectKey: attachment.ObjectKey, FileName: attachment.FileName,
+						ContentType: attachment.ContentType, SizeBytes: attachment.SizeBytes, CreatedAt: attachment.CreatedAt,
+					})
+				}
+			}
+			item.Messages = append(item.Messages, converted)
 		}
 	}
 	return item

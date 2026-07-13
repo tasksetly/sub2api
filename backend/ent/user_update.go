@@ -21,6 +21,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -643,6 +644,21 @@ func (_u *UserUpdate) AddSupportTickets(v ...*SupportTicket) *UserUpdate {
 	return _u.AddSupportTicketIDs(ids...)
 }
 
+// AddSupportTicketAttachmentIDs adds the "support_ticket_attachments" edge to the SupportTicketAttachment entity by IDs.
+func (_u *UserUpdate) AddSupportTicketAttachmentIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddSupportTicketAttachmentIDs(ids...)
+	return _u
+}
+
+// AddSupportTicketAttachments adds the "support_ticket_attachments" edges to the SupportTicketAttachment entity.
+func (_u *UserUpdate) AddSupportTicketAttachments(v ...*SupportTicketAttachment) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSupportTicketAttachmentIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -940,6 +956,27 @@ func (_u *UserUpdate) RemoveSupportTickets(v ...*SupportTicket) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSupportTicketIDs(ids...)
+}
+
+// ClearSupportTicketAttachments clears all "support_ticket_attachments" edges to the SupportTicketAttachment entity.
+func (_u *UserUpdate) ClearSupportTicketAttachments() *UserUpdate {
+	_u.mutation.ClearSupportTicketAttachments()
+	return _u
+}
+
+// RemoveSupportTicketAttachmentIDs removes the "support_ticket_attachments" edge to SupportTicketAttachment entities by IDs.
+func (_u *UserUpdate) RemoveSupportTicketAttachmentIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveSupportTicketAttachmentIDs(ids...)
+	return _u
+}
+
+// RemoveSupportTicketAttachments removes "support_ticket_attachments" edges to SupportTicketAttachment entities.
+func (_u *UserUpdate) RemoveSupportTicketAttachments(v ...*SupportTicketAttachment) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSupportTicketAttachmentIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1778,6 +1815,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.SupportTicketAttachmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SupportTicketAttachmentsTable,
+			Columns: []string{user.SupportTicketAttachmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(supportticketattachment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSupportTicketAttachmentsIDs(); len(nodes) > 0 && !_u.mutation.SupportTicketAttachmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SupportTicketAttachmentsTable,
+			Columns: []string{user.SupportTicketAttachmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(supportticketattachment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SupportTicketAttachmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SupportTicketAttachmentsTable,
+			Columns: []string{user.SupportTicketAttachmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(supportticketattachment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -2400,6 +2482,21 @@ func (_u *UserUpdateOne) AddSupportTickets(v ...*SupportTicket) *UserUpdateOne {
 	return _u.AddSupportTicketIDs(ids...)
 }
 
+// AddSupportTicketAttachmentIDs adds the "support_ticket_attachments" edge to the SupportTicketAttachment entity by IDs.
+func (_u *UserUpdateOne) AddSupportTicketAttachmentIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddSupportTicketAttachmentIDs(ids...)
+	return _u
+}
+
+// AddSupportTicketAttachments adds the "support_ticket_attachments" edges to the SupportTicketAttachment entity.
+func (_u *UserUpdateOne) AddSupportTicketAttachments(v ...*SupportTicketAttachment) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSupportTicketAttachmentIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -2697,6 +2794,27 @@ func (_u *UserUpdateOne) RemoveSupportTickets(v ...*SupportTicket) *UserUpdateOn
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSupportTicketIDs(ids...)
+}
+
+// ClearSupportTicketAttachments clears all "support_ticket_attachments" edges to the SupportTicketAttachment entity.
+func (_u *UserUpdateOne) ClearSupportTicketAttachments() *UserUpdateOne {
+	_u.mutation.ClearSupportTicketAttachments()
+	return _u
+}
+
+// RemoveSupportTicketAttachmentIDs removes the "support_ticket_attachments" edge to SupportTicketAttachment entities by IDs.
+func (_u *UserUpdateOne) RemoveSupportTicketAttachmentIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveSupportTicketAttachmentIDs(ids...)
+	return _u
+}
+
+// RemoveSupportTicketAttachments removes "support_ticket_attachments" edges to SupportTicketAttachment entities.
+func (_u *UserUpdateOne) RemoveSupportTicketAttachments(v ...*SupportTicketAttachment) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSupportTicketAttachmentIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -3558,6 +3676,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(supportticket.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SupportTicketAttachmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SupportTicketAttachmentsTable,
+			Columns: []string{user.SupportTicketAttachmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(supportticketattachment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSupportTicketAttachmentsIDs(); len(nodes) > 0 && !_u.mutation.SupportTicketAttachmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SupportTicketAttachmentsTable,
+			Columns: []string{user.SupportTicketAttachmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(supportticketattachment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SupportTicketAttachmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SupportTicketAttachmentsTable,
+			Columns: []string{user.SupportTicketAttachmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(supportticketattachment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

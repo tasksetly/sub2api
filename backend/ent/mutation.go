@@ -43,6 +43,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -95,6 +96,7 @@ const (
 	TypeSetting                       = "Setting"
 	TypeSubscriptionPlan              = "SubscriptionPlan"
 	TypeSupportTicket                 = "SupportTicket"
+	TypeSupportTicketAttachment       = "SupportTicketAttachment"
 	TypeSupportTicketMessage          = "SupportTicketMessage"
 	TypeTLSFingerprintProfile         = "TLSFingerprintProfile"
 	TypeUsageCleanupTask              = "UsageCleanupTask"
@@ -39203,28 +39205,31 @@ func (m *SubscriptionPlanMutation) ResetEdge(name string) error {
 // SupportTicketMutation represents an operation that mutates the SupportTicket nodes in the graph.
 type SupportTicketMutation struct {
 	config
-	op              Op
-	typ             string
-	id              *int64
-	subject         *string
-	category        *string
-	priority        *string
-	status          *string
-	admin_unread    *bool
-	user_unread     *bool
-	last_message_at *time.Time
-	closed_at       *time.Time
-	created_at      *time.Time
-	updated_at      *time.Time
-	clearedFields   map[string]struct{}
-	user            *int64
-	cleareduser     bool
-	messages        map[int64]struct{}
-	removedmessages map[int64]struct{}
-	clearedmessages bool
-	done            bool
-	oldValue        func(context.Context) (*SupportTicket, error)
-	predicates      []predicate.SupportTicket
+	op                 Op
+	typ                string
+	id                 *int64
+	subject            *string
+	category           *string
+	priority           *string
+	status             *string
+	admin_unread       *bool
+	user_unread        *bool
+	last_message_at    *time.Time
+	closed_at          *time.Time
+	created_at         *time.Time
+	updated_at         *time.Time
+	clearedFields      map[string]struct{}
+	user               *int64
+	cleareduser        bool
+	messages           map[int64]struct{}
+	removedmessages    map[int64]struct{}
+	clearedmessages    bool
+	attachments        map[int64]struct{}
+	removedattachments map[int64]struct{}
+	clearedattachments bool
+	done               bool
+	oldValue           func(context.Context) (*SupportTicket, error)
+	predicates         []predicate.SupportTicket
 }
 
 var _ ent.Mutation = (*SupportTicketMutation)(nil)
@@ -39815,6 +39820,60 @@ func (m *SupportTicketMutation) ResetMessages() {
 	m.removedmessages = nil
 }
 
+// AddAttachmentIDs adds the "attachments" edge to the SupportTicketAttachment entity by ids.
+func (m *SupportTicketMutation) AddAttachmentIDs(ids ...int64) {
+	if m.attachments == nil {
+		m.attachments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.attachments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAttachments clears the "attachments" edge to the SupportTicketAttachment entity.
+func (m *SupportTicketMutation) ClearAttachments() {
+	m.clearedattachments = true
+}
+
+// AttachmentsCleared reports if the "attachments" edge to the SupportTicketAttachment entity was cleared.
+func (m *SupportTicketMutation) AttachmentsCleared() bool {
+	return m.clearedattachments
+}
+
+// RemoveAttachmentIDs removes the "attachments" edge to the SupportTicketAttachment entity by IDs.
+func (m *SupportTicketMutation) RemoveAttachmentIDs(ids ...int64) {
+	if m.removedattachments == nil {
+		m.removedattachments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.attachments, ids[i])
+		m.removedattachments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAttachments returns the removed IDs of the "attachments" edge to the SupportTicketAttachment entity.
+func (m *SupportTicketMutation) RemovedAttachmentsIDs() (ids []int64) {
+	for id := range m.removedattachments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AttachmentsIDs returns the "attachments" edge IDs in the mutation.
+func (m *SupportTicketMutation) AttachmentsIDs() (ids []int64) {
+	for id := range m.attachments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAttachments resets all changes to the "attachments" edge.
+func (m *SupportTicketMutation) ResetAttachments() {
+	m.attachments = nil
+	m.clearedattachments = false
+	m.removedattachments = nil
+}
+
 // Where appends a list predicates to the SupportTicketMutation builder.
 func (m *SupportTicketMutation) Where(ps ...predicate.SupportTicket) {
 	m.predicates = append(m.predicates, ps...)
@@ -40130,12 +40189,15 @@ func (m *SupportTicketMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SupportTicketMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.user != nil {
 		edges = append(edges, supportticket.EdgeUser)
 	}
 	if m.messages != nil {
 		edges = append(edges, supportticket.EdgeMessages)
+	}
+	if m.attachments != nil {
+		edges = append(edges, supportticket.EdgeAttachments)
 	}
 	return edges
 }
@@ -40154,15 +40216,24 @@ func (m *SupportTicketMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case supportticket.EdgeAttachments:
+		ids := make([]ent.Value, 0, len(m.attachments))
+		for id := range m.attachments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SupportTicketMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.removedmessages != nil {
 		edges = append(edges, supportticket.EdgeMessages)
+	}
+	if m.removedattachments != nil {
+		edges = append(edges, supportticket.EdgeAttachments)
 	}
 	return edges
 }
@@ -40177,18 +40248,27 @@ func (m *SupportTicketMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case supportticket.EdgeAttachments:
+		ids := make([]ent.Value, 0, len(m.removedattachments))
+		for id := range m.removedattachments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SupportTicketMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.cleareduser {
 		edges = append(edges, supportticket.EdgeUser)
 	}
 	if m.clearedmessages {
 		edges = append(edges, supportticket.EdgeMessages)
+	}
+	if m.clearedattachments {
+		edges = append(edges, supportticket.EdgeAttachments)
 	}
 	return edges
 }
@@ -40201,6 +40281,8 @@ func (m *SupportTicketMutation) EdgeCleared(name string) bool {
 		return m.cleareduser
 	case supportticket.EdgeMessages:
 		return m.clearedmessages
+	case supportticket.EdgeAttachments:
+		return m.clearedattachments
 	}
 	return false
 }
@@ -40226,27 +40308,919 @@ func (m *SupportTicketMutation) ResetEdge(name string) error {
 	case supportticket.EdgeMessages:
 		m.ResetMessages()
 		return nil
+	case supportticket.EdgeAttachments:
+		m.ResetAttachments()
+		return nil
 	}
 	return fmt.Errorf("unknown SupportTicket edge %s", name)
+}
+
+// SupportTicketAttachmentMutation represents an operation that mutates the SupportTicketAttachment nodes in the graph.
+type SupportTicketAttachmentMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int64
+	object_key      *string
+	file_name       *string
+	content_type    *string
+	size_bytes      *int64
+	addsize_bytes   *int64
+	created_at      *time.Time
+	clearedFields   map[string]struct{}
+	ticket          *int64
+	clearedticket   bool
+	message         *int64
+	clearedmessage  bool
+	uploader        *int64
+	cleareduploader bool
+	done            bool
+	oldValue        func(context.Context) (*SupportTicketAttachment, error)
+	predicates      []predicate.SupportTicketAttachment
+}
+
+var _ ent.Mutation = (*SupportTicketAttachmentMutation)(nil)
+
+// supportticketattachmentOption allows management of the mutation configuration using functional options.
+type supportticketattachmentOption func(*SupportTicketAttachmentMutation)
+
+// newSupportTicketAttachmentMutation creates new mutation for the SupportTicketAttachment entity.
+func newSupportTicketAttachmentMutation(c config, op Op, opts ...supportticketattachmentOption) *SupportTicketAttachmentMutation {
+	m := &SupportTicketAttachmentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSupportTicketAttachment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSupportTicketAttachmentID sets the ID field of the mutation.
+func withSupportTicketAttachmentID(id int64) supportticketattachmentOption {
+	return func(m *SupportTicketAttachmentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SupportTicketAttachment
+		)
+		m.oldValue = func(ctx context.Context) (*SupportTicketAttachment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SupportTicketAttachment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSupportTicketAttachment sets the old SupportTicketAttachment of the mutation.
+func withSupportTicketAttachment(node *SupportTicketAttachment) supportticketattachmentOption {
+	return func(m *SupportTicketAttachmentMutation) {
+		m.oldValue = func(context.Context) (*SupportTicketAttachment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SupportTicketAttachmentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SupportTicketAttachmentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SupportTicketAttachmentMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SupportTicketAttachmentMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SupportTicketAttachment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTicketID sets the "ticket_id" field.
+func (m *SupportTicketAttachmentMutation) SetTicketID(i int64) {
+	m.ticket = &i
+}
+
+// TicketID returns the value of the "ticket_id" field in the mutation.
+func (m *SupportTicketAttachmentMutation) TicketID() (r int64, exists bool) {
+	v := m.ticket
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTicketID returns the old "ticket_id" field's value of the SupportTicketAttachment entity.
+// If the SupportTicketAttachment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SupportTicketAttachmentMutation) OldTicketID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTicketID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTicketID: %w", err)
+	}
+	return oldValue.TicketID, nil
+}
+
+// ResetTicketID resets all changes to the "ticket_id" field.
+func (m *SupportTicketAttachmentMutation) ResetTicketID() {
+	m.ticket = nil
+}
+
+// SetMessageID sets the "message_id" field.
+func (m *SupportTicketAttachmentMutation) SetMessageID(i int64) {
+	m.message = &i
+}
+
+// MessageID returns the value of the "message_id" field in the mutation.
+func (m *SupportTicketAttachmentMutation) MessageID() (r int64, exists bool) {
+	v := m.message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMessageID returns the old "message_id" field's value of the SupportTicketAttachment entity.
+// If the SupportTicketAttachment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SupportTicketAttachmentMutation) OldMessageID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMessageID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMessageID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMessageID: %w", err)
+	}
+	return oldValue.MessageID, nil
+}
+
+// ResetMessageID resets all changes to the "message_id" field.
+func (m *SupportTicketAttachmentMutation) ResetMessageID() {
+	m.message = nil
+}
+
+// SetUploaderID sets the "uploader_id" field.
+func (m *SupportTicketAttachmentMutation) SetUploaderID(i int64) {
+	m.uploader = &i
+}
+
+// UploaderID returns the value of the "uploader_id" field in the mutation.
+func (m *SupportTicketAttachmentMutation) UploaderID() (r int64, exists bool) {
+	v := m.uploader
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUploaderID returns the old "uploader_id" field's value of the SupportTicketAttachment entity.
+// If the SupportTicketAttachment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SupportTicketAttachmentMutation) OldUploaderID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUploaderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUploaderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUploaderID: %w", err)
+	}
+	return oldValue.UploaderID, nil
+}
+
+// ResetUploaderID resets all changes to the "uploader_id" field.
+func (m *SupportTicketAttachmentMutation) ResetUploaderID() {
+	m.uploader = nil
+}
+
+// SetObjectKey sets the "object_key" field.
+func (m *SupportTicketAttachmentMutation) SetObjectKey(s string) {
+	m.object_key = &s
+}
+
+// ObjectKey returns the value of the "object_key" field in the mutation.
+func (m *SupportTicketAttachmentMutation) ObjectKey() (r string, exists bool) {
+	v := m.object_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldObjectKey returns the old "object_key" field's value of the SupportTicketAttachment entity.
+// If the SupportTicketAttachment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SupportTicketAttachmentMutation) OldObjectKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldObjectKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldObjectKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldObjectKey: %w", err)
+	}
+	return oldValue.ObjectKey, nil
+}
+
+// ResetObjectKey resets all changes to the "object_key" field.
+func (m *SupportTicketAttachmentMutation) ResetObjectKey() {
+	m.object_key = nil
+}
+
+// SetFileName sets the "file_name" field.
+func (m *SupportTicketAttachmentMutation) SetFileName(s string) {
+	m.file_name = &s
+}
+
+// FileName returns the value of the "file_name" field in the mutation.
+func (m *SupportTicketAttachmentMutation) FileName() (r string, exists bool) {
+	v := m.file_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileName returns the old "file_name" field's value of the SupportTicketAttachment entity.
+// If the SupportTicketAttachment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SupportTicketAttachmentMutation) OldFileName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileName: %w", err)
+	}
+	return oldValue.FileName, nil
+}
+
+// ResetFileName resets all changes to the "file_name" field.
+func (m *SupportTicketAttachmentMutation) ResetFileName() {
+	m.file_name = nil
+}
+
+// SetContentType sets the "content_type" field.
+func (m *SupportTicketAttachmentMutation) SetContentType(s string) {
+	m.content_type = &s
+}
+
+// ContentType returns the value of the "content_type" field in the mutation.
+func (m *SupportTicketAttachmentMutation) ContentType() (r string, exists bool) {
+	v := m.content_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentType returns the old "content_type" field's value of the SupportTicketAttachment entity.
+// If the SupportTicketAttachment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SupportTicketAttachmentMutation) OldContentType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentType: %w", err)
+	}
+	return oldValue.ContentType, nil
+}
+
+// ResetContentType resets all changes to the "content_type" field.
+func (m *SupportTicketAttachmentMutation) ResetContentType() {
+	m.content_type = nil
+}
+
+// SetSizeBytes sets the "size_bytes" field.
+func (m *SupportTicketAttachmentMutation) SetSizeBytes(i int64) {
+	m.size_bytes = &i
+	m.addsize_bytes = nil
+}
+
+// SizeBytes returns the value of the "size_bytes" field in the mutation.
+func (m *SupportTicketAttachmentMutation) SizeBytes() (r int64, exists bool) {
+	v := m.size_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSizeBytes returns the old "size_bytes" field's value of the SupportTicketAttachment entity.
+// If the SupportTicketAttachment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SupportTicketAttachmentMutation) OldSizeBytes(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSizeBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSizeBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSizeBytes: %w", err)
+	}
+	return oldValue.SizeBytes, nil
+}
+
+// AddSizeBytes adds i to the "size_bytes" field.
+func (m *SupportTicketAttachmentMutation) AddSizeBytes(i int64) {
+	if m.addsize_bytes != nil {
+		*m.addsize_bytes += i
+	} else {
+		m.addsize_bytes = &i
+	}
+}
+
+// AddedSizeBytes returns the value that was added to the "size_bytes" field in this mutation.
+func (m *SupportTicketAttachmentMutation) AddedSizeBytes() (r int64, exists bool) {
+	v := m.addsize_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSizeBytes resets all changes to the "size_bytes" field.
+func (m *SupportTicketAttachmentMutation) ResetSizeBytes() {
+	m.size_bytes = nil
+	m.addsize_bytes = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SupportTicketAttachmentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SupportTicketAttachmentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SupportTicketAttachment entity.
+// If the SupportTicketAttachment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SupportTicketAttachmentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SupportTicketAttachmentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearTicket clears the "ticket" edge to the SupportTicket entity.
+func (m *SupportTicketAttachmentMutation) ClearTicket() {
+	m.clearedticket = true
+	m.clearedFields[supportticketattachment.FieldTicketID] = struct{}{}
+}
+
+// TicketCleared reports if the "ticket" edge to the SupportTicket entity was cleared.
+func (m *SupportTicketAttachmentMutation) TicketCleared() bool {
+	return m.clearedticket
+}
+
+// TicketIDs returns the "ticket" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TicketID instead. It exists only for internal usage by the builders.
+func (m *SupportTicketAttachmentMutation) TicketIDs() (ids []int64) {
+	if id := m.ticket; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTicket resets all changes to the "ticket" edge.
+func (m *SupportTicketAttachmentMutation) ResetTicket() {
+	m.ticket = nil
+	m.clearedticket = false
+}
+
+// ClearMessage clears the "message" edge to the SupportTicketMessage entity.
+func (m *SupportTicketAttachmentMutation) ClearMessage() {
+	m.clearedmessage = true
+	m.clearedFields[supportticketattachment.FieldMessageID] = struct{}{}
+}
+
+// MessageCleared reports if the "message" edge to the SupportTicketMessage entity was cleared.
+func (m *SupportTicketAttachmentMutation) MessageCleared() bool {
+	return m.clearedmessage
+}
+
+// MessageIDs returns the "message" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MessageID instead. It exists only for internal usage by the builders.
+func (m *SupportTicketAttachmentMutation) MessageIDs() (ids []int64) {
+	if id := m.message; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMessage resets all changes to the "message" edge.
+func (m *SupportTicketAttachmentMutation) ResetMessage() {
+	m.message = nil
+	m.clearedmessage = false
+}
+
+// ClearUploader clears the "uploader" edge to the User entity.
+func (m *SupportTicketAttachmentMutation) ClearUploader() {
+	m.cleareduploader = true
+	m.clearedFields[supportticketattachment.FieldUploaderID] = struct{}{}
+}
+
+// UploaderCleared reports if the "uploader" edge to the User entity was cleared.
+func (m *SupportTicketAttachmentMutation) UploaderCleared() bool {
+	return m.cleareduploader
+}
+
+// UploaderIDs returns the "uploader" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UploaderID instead. It exists only for internal usage by the builders.
+func (m *SupportTicketAttachmentMutation) UploaderIDs() (ids []int64) {
+	if id := m.uploader; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUploader resets all changes to the "uploader" edge.
+func (m *SupportTicketAttachmentMutation) ResetUploader() {
+	m.uploader = nil
+	m.cleareduploader = false
+}
+
+// Where appends a list predicates to the SupportTicketAttachmentMutation builder.
+func (m *SupportTicketAttachmentMutation) Where(ps ...predicate.SupportTicketAttachment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SupportTicketAttachmentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SupportTicketAttachmentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SupportTicketAttachment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SupportTicketAttachmentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SupportTicketAttachmentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SupportTicketAttachment).
+func (m *SupportTicketAttachmentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SupportTicketAttachmentMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.ticket != nil {
+		fields = append(fields, supportticketattachment.FieldTicketID)
+	}
+	if m.message != nil {
+		fields = append(fields, supportticketattachment.FieldMessageID)
+	}
+	if m.uploader != nil {
+		fields = append(fields, supportticketattachment.FieldUploaderID)
+	}
+	if m.object_key != nil {
+		fields = append(fields, supportticketattachment.FieldObjectKey)
+	}
+	if m.file_name != nil {
+		fields = append(fields, supportticketattachment.FieldFileName)
+	}
+	if m.content_type != nil {
+		fields = append(fields, supportticketattachment.FieldContentType)
+	}
+	if m.size_bytes != nil {
+		fields = append(fields, supportticketattachment.FieldSizeBytes)
+	}
+	if m.created_at != nil {
+		fields = append(fields, supportticketattachment.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SupportTicketAttachmentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case supportticketattachment.FieldTicketID:
+		return m.TicketID()
+	case supportticketattachment.FieldMessageID:
+		return m.MessageID()
+	case supportticketattachment.FieldUploaderID:
+		return m.UploaderID()
+	case supportticketattachment.FieldObjectKey:
+		return m.ObjectKey()
+	case supportticketattachment.FieldFileName:
+		return m.FileName()
+	case supportticketattachment.FieldContentType:
+		return m.ContentType()
+	case supportticketattachment.FieldSizeBytes:
+		return m.SizeBytes()
+	case supportticketattachment.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SupportTicketAttachmentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case supportticketattachment.FieldTicketID:
+		return m.OldTicketID(ctx)
+	case supportticketattachment.FieldMessageID:
+		return m.OldMessageID(ctx)
+	case supportticketattachment.FieldUploaderID:
+		return m.OldUploaderID(ctx)
+	case supportticketattachment.FieldObjectKey:
+		return m.OldObjectKey(ctx)
+	case supportticketattachment.FieldFileName:
+		return m.OldFileName(ctx)
+	case supportticketattachment.FieldContentType:
+		return m.OldContentType(ctx)
+	case supportticketattachment.FieldSizeBytes:
+		return m.OldSizeBytes(ctx)
+	case supportticketattachment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SupportTicketAttachment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SupportTicketAttachmentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case supportticketattachment.FieldTicketID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTicketID(v)
+		return nil
+	case supportticketattachment.FieldMessageID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMessageID(v)
+		return nil
+	case supportticketattachment.FieldUploaderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUploaderID(v)
+		return nil
+	case supportticketattachment.FieldObjectKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetObjectKey(v)
+		return nil
+	case supportticketattachment.FieldFileName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileName(v)
+		return nil
+	case supportticketattachment.FieldContentType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentType(v)
+		return nil
+	case supportticketattachment.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSizeBytes(v)
+		return nil
+	case supportticketattachment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SupportTicketAttachment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SupportTicketAttachmentMutation) AddedFields() []string {
+	var fields []string
+	if m.addsize_bytes != nil {
+		fields = append(fields, supportticketattachment.FieldSizeBytes)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SupportTicketAttachmentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case supportticketattachment.FieldSizeBytes:
+		return m.AddedSizeBytes()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SupportTicketAttachmentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case supportticketattachment.FieldSizeBytes:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSizeBytes(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SupportTicketAttachment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SupportTicketAttachmentMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SupportTicketAttachmentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SupportTicketAttachmentMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown SupportTicketAttachment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SupportTicketAttachmentMutation) ResetField(name string) error {
+	switch name {
+	case supportticketattachment.FieldTicketID:
+		m.ResetTicketID()
+		return nil
+	case supportticketattachment.FieldMessageID:
+		m.ResetMessageID()
+		return nil
+	case supportticketattachment.FieldUploaderID:
+		m.ResetUploaderID()
+		return nil
+	case supportticketattachment.FieldObjectKey:
+		m.ResetObjectKey()
+		return nil
+	case supportticketattachment.FieldFileName:
+		m.ResetFileName()
+		return nil
+	case supportticketattachment.FieldContentType:
+		m.ResetContentType()
+		return nil
+	case supportticketattachment.FieldSizeBytes:
+		m.ResetSizeBytes()
+		return nil
+	case supportticketattachment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SupportTicketAttachment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SupportTicketAttachmentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.ticket != nil {
+		edges = append(edges, supportticketattachment.EdgeTicket)
+	}
+	if m.message != nil {
+		edges = append(edges, supportticketattachment.EdgeMessage)
+	}
+	if m.uploader != nil {
+		edges = append(edges, supportticketattachment.EdgeUploader)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SupportTicketAttachmentMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case supportticketattachment.EdgeTicket:
+		if id := m.ticket; id != nil {
+			return []ent.Value{*id}
+		}
+	case supportticketattachment.EdgeMessage:
+		if id := m.message; id != nil {
+			return []ent.Value{*id}
+		}
+	case supportticketattachment.EdgeUploader:
+		if id := m.uploader; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SupportTicketAttachmentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SupportTicketAttachmentMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SupportTicketAttachmentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedticket {
+		edges = append(edges, supportticketattachment.EdgeTicket)
+	}
+	if m.clearedmessage {
+		edges = append(edges, supportticketattachment.EdgeMessage)
+	}
+	if m.cleareduploader {
+		edges = append(edges, supportticketattachment.EdgeUploader)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SupportTicketAttachmentMutation) EdgeCleared(name string) bool {
+	switch name {
+	case supportticketattachment.EdgeTicket:
+		return m.clearedticket
+	case supportticketattachment.EdgeMessage:
+		return m.clearedmessage
+	case supportticketattachment.EdgeUploader:
+		return m.cleareduploader
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SupportTicketAttachmentMutation) ClearEdge(name string) error {
+	switch name {
+	case supportticketattachment.EdgeTicket:
+		m.ClearTicket()
+		return nil
+	case supportticketattachment.EdgeMessage:
+		m.ClearMessage()
+		return nil
+	case supportticketattachment.EdgeUploader:
+		m.ClearUploader()
+		return nil
+	}
+	return fmt.Errorf("unknown SupportTicketAttachment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SupportTicketAttachmentMutation) ResetEdge(name string) error {
+	switch name {
+	case supportticketattachment.EdgeTicket:
+		m.ResetTicket()
+		return nil
+	case supportticketattachment.EdgeMessage:
+		m.ResetMessage()
+		return nil
+	case supportticketattachment.EdgeUploader:
+		m.ResetUploader()
+		return nil
+	}
+	return fmt.Errorf("unknown SupportTicketAttachment edge %s", name)
 }
 
 // SupportTicketMessageMutation represents an operation that mutates the SupportTicketMessage nodes in the graph.
 type SupportTicketMessageMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int64
-	sender_id     *int64
-	addsender_id  *int64
-	sender_role   *string
-	content       *string
-	created_at    *time.Time
-	clearedFields map[string]struct{}
-	ticket        *int64
-	clearedticket bool
-	done          bool
-	oldValue      func(context.Context) (*SupportTicketMessage, error)
-	predicates    []predicate.SupportTicketMessage
+	op                 Op
+	typ                string
+	id                 *int64
+	sender_id          *int64
+	addsender_id       *int64
+	sender_role        *string
+	content            *string
+	created_at         *time.Time
+	clearedFields      map[string]struct{}
+	ticket             *int64
+	clearedticket      bool
+	attachments        map[int64]struct{}
+	removedattachments map[int64]struct{}
+	clearedattachments bool
+	done               bool
+	oldValue           func(context.Context) (*SupportTicketMessage, error)
+	predicates         []predicate.SupportTicketMessage
 }
 
 var _ ent.Mutation = (*SupportTicketMessageMutation)(nil)
@@ -40574,6 +41548,60 @@ func (m *SupportTicketMessageMutation) ResetTicket() {
 	m.clearedticket = false
 }
 
+// AddAttachmentIDs adds the "attachments" edge to the SupportTicketAttachment entity by ids.
+func (m *SupportTicketMessageMutation) AddAttachmentIDs(ids ...int64) {
+	if m.attachments == nil {
+		m.attachments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.attachments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAttachments clears the "attachments" edge to the SupportTicketAttachment entity.
+func (m *SupportTicketMessageMutation) ClearAttachments() {
+	m.clearedattachments = true
+}
+
+// AttachmentsCleared reports if the "attachments" edge to the SupportTicketAttachment entity was cleared.
+func (m *SupportTicketMessageMutation) AttachmentsCleared() bool {
+	return m.clearedattachments
+}
+
+// RemoveAttachmentIDs removes the "attachments" edge to the SupportTicketAttachment entity by IDs.
+func (m *SupportTicketMessageMutation) RemoveAttachmentIDs(ids ...int64) {
+	if m.removedattachments == nil {
+		m.removedattachments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.attachments, ids[i])
+		m.removedattachments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAttachments returns the removed IDs of the "attachments" edge to the SupportTicketAttachment entity.
+func (m *SupportTicketMessageMutation) RemovedAttachmentsIDs() (ids []int64) {
+	for id := range m.removedattachments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AttachmentsIDs returns the "attachments" edge IDs in the mutation.
+func (m *SupportTicketMessageMutation) AttachmentsIDs() (ids []int64) {
+	for id := range m.attachments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAttachments resets all changes to the "attachments" edge.
+func (m *SupportTicketMessageMutation) ResetAttachments() {
+	m.attachments = nil
+	m.clearedattachments = false
+	m.removedattachments = nil
+}
+
 // Where appends a list predicates to the SupportTicketMessageMutation builder.
 func (m *SupportTicketMessageMutation) Where(ps ...predicate.SupportTicketMessage) {
 	m.predicates = append(m.predicates, ps...)
@@ -40790,9 +41818,12 @@ func (m *SupportTicketMessageMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SupportTicketMessageMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.ticket != nil {
 		edges = append(edges, supportticketmessage.EdgeTicket)
+	}
+	if m.attachments != nil {
+		edges = append(edges, supportticketmessage.EdgeAttachments)
 	}
 	return edges
 }
@@ -40805,27 +41836,47 @@ func (m *SupportTicketMessageMutation) AddedIDs(name string) []ent.Value {
 		if id := m.ticket; id != nil {
 			return []ent.Value{*id}
 		}
+	case supportticketmessage.EdgeAttachments:
+		ids := make([]ent.Value, 0, len(m.attachments))
+		for id := range m.attachments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SupportTicketMessageMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
+	if m.removedattachments != nil {
+		edges = append(edges, supportticketmessage.EdgeAttachments)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *SupportTicketMessageMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case supportticketmessage.EdgeAttachments:
+		ids := make([]ent.Value, 0, len(m.removedattachments))
+		for id := range m.removedattachments {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SupportTicketMessageMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedticket {
 		edges = append(edges, supportticketmessage.EdgeTicket)
+	}
+	if m.clearedattachments {
+		edges = append(edges, supportticketmessage.EdgeAttachments)
 	}
 	return edges
 }
@@ -40836,6 +41887,8 @@ func (m *SupportTicketMessageMutation) EdgeCleared(name string) bool {
 	switch name {
 	case supportticketmessage.EdgeTicket:
 		return m.clearedticket
+	case supportticketmessage.EdgeAttachments:
+		return m.clearedattachments
 	}
 	return false
 }
@@ -40857,6 +41910,9 @@ func (m *SupportTicketMessageMutation) ResetEdge(name string) error {
 	switch name {
 	case supportticketmessage.EdgeTicket:
 		m.ResetTicket()
+		return nil
+	case supportticketmessage.EdgeAttachments:
+		m.ResetAttachments()
 		return nil
 	}
 	return fmt.Errorf("unknown SupportTicketMessage edge %s", name)
@@ -47292,85 +48348,88 @@ func (m *UsageLogMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *int64
-	created_at                    *time.Time
-	updated_at                    *time.Time
-	deleted_at                    *time.Time
-	email                         *string
-	password_hash                 *string
-	role                          *string
-	balance                       *float64
-	addbalance                    *float64
-	frozen_balance                *float64
-	addfrozen_balance             *float64
-	concurrency                   *int
-	addconcurrency                *int
-	status                        *string
-	username                      *string
-	notes                         *string
-	totp_secret_encrypted         *string
-	totp_enabled                  *bool
-	totp_enabled_at               *time.Time
-	signup_source                 *string
-	last_login_at                 *time.Time
-	last_active_at                *time.Time
-	balance_notify_enabled        *bool
-	balance_notify_threshold_type *string
-	balance_notify_threshold      *float64
-	addbalance_notify_threshold   *float64
-	balance_notify_extra_emails   *string
-	total_recharged               *float64
-	addtotal_recharged            *float64
-	rpm_limit                     *int
-	addrpm_limit                  *int
-	clearedFields                 map[string]struct{}
-	api_keys                      map[int64]struct{}
-	removedapi_keys               map[int64]struct{}
-	clearedapi_keys               bool
-	redeem_codes                  map[int64]struct{}
-	removedredeem_codes           map[int64]struct{}
-	clearedredeem_codes           bool
-	subscriptions                 map[int64]struct{}
-	removedsubscriptions          map[int64]struct{}
-	clearedsubscriptions          bool
-	assigned_subscriptions        map[int64]struct{}
-	removedassigned_subscriptions map[int64]struct{}
-	clearedassigned_subscriptions bool
-	announcement_reads            map[int64]struct{}
-	removedannouncement_reads     map[int64]struct{}
-	clearedannouncement_reads     bool
-	allowed_groups                map[int64]struct{}
-	removedallowed_groups         map[int64]struct{}
-	clearedallowed_groups         bool
-	usage_logs                    map[int64]struct{}
-	removedusage_logs             map[int64]struct{}
-	clearedusage_logs             bool
-	attribute_values              map[int64]struct{}
-	removedattribute_values       map[int64]struct{}
-	clearedattribute_values       bool
-	promo_code_usages             map[int64]struct{}
-	removedpromo_code_usages      map[int64]struct{}
-	clearedpromo_code_usages      bool
-	payment_orders                map[int64]struct{}
-	removedpayment_orders         map[int64]struct{}
-	clearedpayment_orders         bool
-	auth_identities               map[int64]struct{}
-	removedauth_identities        map[int64]struct{}
-	clearedauth_identities        bool
-	pending_auth_sessions         map[int64]struct{}
-	removedpending_auth_sessions  map[int64]struct{}
-	clearedpending_auth_sessions  bool
-	platform_quotas               map[int64]struct{}
-	removedplatform_quotas        map[int64]struct{}
-	clearedplatform_quotas        bool
-	support_tickets               map[int64]struct{}
-	removedsupport_tickets        map[int64]struct{}
-	clearedsupport_tickets        bool
-	done                          bool
-	oldValue                      func(context.Context) (*User, error)
-	predicates                    []predicate.User
+	op                                Op
+	typ                               string
+	id                                *int64
+	created_at                        *time.Time
+	updated_at                        *time.Time
+	deleted_at                        *time.Time
+	email                             *string
+	password_hash                     *string
+	role                              *string
+	balance                           *float64
+	addbalance                        *float64
+	frozen_balance                    *float64
+	addfrozen_balance                 *float64
+	concurrency                       *int
+	addconcurrency                    *int
+	status                            *string
+	username                          *string
+	notes                             *string
+	totp_secret_encrypted             *string
+	totp_enabled                      *bool
+	totp_enabled_at                   *time.Time
+	signup_source                     *string
+	last_login_at                     *time.Time
+	last_active_at                    *time.Time
+	balance_notify_enabled            *bool
+	balance_notify_threshold_type     *string
+	balance_notify_threshold          *float64
+	addbalance_notify_threshold       *float64
+	balance_notify_extra_emails       *string
+	total_recharged                   *float64
+	addtotal_recharged                *float64
+	rpm_limit                         *int
+	addrpm_limit                      *int
+	clearedFields                     map[string]struct{}
+	api_keys                          map[int64]struct{}
+	removedapi_keys                   map[int64]struct{}
+	clearedapi_keys                   bool
+	redeem_codes                      map[int64]struct{}
+	removedredeem_codes               map[int64]struct{}
+	clearedredeem_codes               bool
+	subscriptions                     map[int64]struct{}
+	removedsubscriptions              map[int64]struct{}
+	clearedsubscriptions              bool
+	assigned_subscriptions            map[int64]struct{}
+	removedassigned_subscriptions     map[int64]struct{}
+	clearedassigned_subscriptions     bool
+	announcement_reads                map[int64]struct{}
+	removedannouncement_reads         map[int64]struct{}
+	clearedannouncement_reads         bool
+	allowed_groups                    map[int64]struct{}
+	removedallowed_groups             map[int64]struct{}
+	clearedallowed_groups             bool
+	usage_logs                        map[int64]struct{}
+	removedusage_logs                 map[int64]struct{}
+	clearedusage_logs                 bool
+	attribute_values                  map[int64]struct{}
+	removedattribute_values           map[int64]struct{}
+	clearedattribute_values           bool
+	promo_code_usages                 map[int64]struct{}
+	removedpromo_code_usages          map[int64]struct{}
+	clearedpromo_code_usages          bool
+	payment_orders                    map[int64]struct{}
+	removedpayment_orders             map[int64]struct{}
+	clearedpayment_orders             bool
+	auth_identities                   map[int64]struct{}
+	removedauth_identities            map[int64]struct{}
+	clearedauth_identities            bool
+	pending_auth_sessions             map[int64]struct{}
+	removedpending_auth_sessions      map[int64]struct{}
+	clearedpending_auth_sessions      bool
+	platform_quotas                   map[int64]struct{}
+	removedplatform_quotas            map[int64]struct{}
+	clearedplatform_quotas            bool
+	support_tickets                   map[int64]struct{}
+	removedsupport_tickets            map[int64]struct{}
+	clearedsupport_tickets            bool
+	support_ticket_attachments        map[int64]struct{}
+	removedsupport_ticket_attachments map[int64]struct{}
+	clearedsupport_ticket_attachments bool
+	done                              bool
+	oldValue                          func(context.Context) (*User, error)
+	predicates                        []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -49290,6 +50349,60 @@ func (m *UserMutation) ResetSupportTickets() {
 	m.removedsupport_tickets = nil
 }
 
+// AddSupportTicketAttachmentIDs adds the "support_ticket_attachments" edge to the SupportTicketAttachment entity by ids.
+func (m *UserMutation) AddSupportTicketAttachmentIDs(ids ...int64) {
+	if m.support_ticket_attachments == nil {
+		m.support_ticket_attachments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.support_ticket_attachments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSupportTicketAttachments clears the "support_ticket_attachments" edge to the SupportTicketAttachment entity.
+func (m *UserMutation) ClearSupportTicketAttachments() {
+	m.clearedsupport_ticket_attachments = true
+}
+
+// SupportTicketAttachmentsCleared reports if the "support_ticket_attachments" edge to the SupportTicketAttachment entity was cleared.
+func (m *UserMutation) SupportTicketAttachmentsCleared() bool {
+	return m.clearedsupport_ticket_attachments
+}
+
+// RemoveSupportTicketAttachmentIDs removes the "support_ticket_attachments" edge to the SupportTicketAttachment entity by IDs.
+func (m *UserMutation) RemoveSupportTicketAttachmentIDs(ids ...int64) {
+	if m.removedsupport_ticket_attachments == nil {
+		m.removedsupport_ticket_attachments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.support_ticket_attachments, ids[i])
+		m.removedsupport_ticket_attachments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSupportTicketAttachments returns the removed IDs of the "support_ticket_attachments" edge to the SupportTicketAttachment entity.
+func (m *UserMutation) RemovedSupportTicketAttachmentsIDs() (ids []int64) {
+	for id := range m.removedsupport_ticket_attachments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SupportTicketAttachmentsIDs returns the "support_ticket_attachments" edge IDs in the mutation.
+func (m *UserMutation) SupportTicketAttachmentsIDs() (ids []int64) {
+	for id := range m.support_ticket_attachments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSupportTicketAttachments resets all changes to the "support_ticket_attachments" edge.
+func (m *UserMutation) ResetSupportTicketAttachments() {
+	m.support_ticket_attachments = nil
+	m.clearedsupport_ticket_attachments = false
+	m.removedsupport_ticket_attachments = nil
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -49928,7 +51041,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -49970,6 +51083,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.support_tickets != nil {
 		edges = append(edges, user.EdgeSupportTickets)
+	}
+	if m.support_ticket_attachments != nil {
+		edges = append(edges, user.EdgeSupportTicketAttachments)
 	}
 	return edges
 }
@@ -50062,13 +51178,19 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeSupportTicketAttachments:
+		ids := make([]ent.Value, 0, len(m.support_ticket_attachments))
+		for id := range m.support_ticket_attachments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -50110,6 +51232,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedsupport_tickets != nil {
 		edges = append(edges, user.EdgeSupportTickets)
+	}
+	if m.removedsupport_ticket_attachments != nil {
+		edges = append(edges, user.EdgeSupportTicketAttachments)
 	}
 	return edges
 }
@@ -50202,13 +51327,19 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeSupportTicketAttachments:
+		ids := make([]ent.Value, 0, len(m.removedsupport_ticket_attachments))
+		for id := range m.removedsupport_ticket_attachments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -50251,6 +51382,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	if m.clearedsupport_tickets {
 		edges = append(edges, user.EdgeSupportTickets)
 	}
+	if m.clearedsupport_ticket_attachments {
+		edges = append(edges, user.EdgeSupportTicketAttachments)
+	}
 	return edges
 }
 
@@ -50286,6 +51420,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedplatform_quotas
 	case user.EdgeSupportTickets:
 		return m.clearedsupport_tickets
+	case user.EdgeSupportTicketAttachments:
+		return m.clearedsupport_ticket_attachments
 	}
 	return false
 }
@@ -50343,6 +51479,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeSupportTickets:
 		m.ResetSupportTickets()
+		return nil
+	case user.EdgeSupportTicketAttachments:
+		m.ResetSupportTicketAttachments()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)

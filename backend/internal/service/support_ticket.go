@@ -1,10 +1,18 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net/http"
+	"path"
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
@@ -37,11 +45,16 @@ var (
 		"SUPPORT_TICKET_INVALID_TRANSITION",
 		"support ticket status transition is not allowed",
 	)
-	ErrSupportTicketInvalidSubject  = infraerrors.BadRequest("SUPPORT_TICKET_SUBJECT_INVALID", "support ticket subject is invalid")
-	ErrSupportTicketInvalidContent  = infraerrors.BadRequest("SUPPORT_TICKET_CONTENT_INVALID", "support ticket content is invalid")
-	ErrSupportTicketInvalidStatus   = infraerrors.BadRequest("SUPPORT_TICKET_STATUS_INVALID", "support ticket status is invalid")
-	ErrSupportTicketInvalidPriority = infraerrors.BadRequest("SUPPORT_TICKET_PRIORITY_INVALID", "support ticket priority is invalid")
-	ErrSupportTicketInvalidCategory = infraerrors.BadRequest("SUPPORT_TICKET_CATEGORY_INVALID", "support ticket category is invalid")
+	ErrSupportTicketInvalidSubject      = infraerrors.BadRequest("SUPPORT_TICKET_SUBJECT_INVALID", "support ticket subject is invalid")
+	ErrSupportTicketInvalidContent      = infraerrors.BadRequest("SUPPORT_TICKET_CONTENT_INVALID", "support ticket content is invalid")
+	ErrSupportTicketInvalidStatus       = infraerrors.BadRequest("SUPPORT_TICKET_STATUS_INVALID", "support ticket status is invalid")
+	ErrSupportTicketInvalidPriority     = infraerrors.BadRequest("SUPPORT_TICKET_PRIORITY_INVALID", "support ticket priority is invalid")
+	ErrSupportTicketInvalidCategory     = infraerrors.BadRequest("SUPPORT_TICKET_CATEGORY_INVALID", "support ticket category is invalid")
+	ErrSupportTicketAttachmentsDisabled = infraerrors.ServiceUnavailable("SUPPORT_TICKET_ATTACHMENTS_DISABLED", "support ticket image attachments are not configured")
+	ErrSupportTicketTooManyAttachments  = infraerrors.BadRequest("SUPPORT_TICKET_ATTACHMENTS_TOO_MANY", "too many support ticket attachments")
+	ErrSupportTicketAttachmentTooLarge  = infraerrors.BadRequest("SUPPORT_TICKET_ATTACHMENT_TOO_LARGE", "support ticket attachment is too large")
+	ErrSupportTicketAttachmentType      = infraerrors.BadRequest("SUPPORT_TICKET_ATTACHMENT_TYPE_INVALID", "support ticket attachment must be a JPEG, PNG, GIF, or WebP image")
+	ErrSupportTicketAttachmentUpload    = infraerrors.ServiceUnavailable("SUPPORT_TICKET_ATTACHMENT_UPLOAD_FAILED", "support ticket attachment upload failed")
 )
 
 type SupportTicket struct {
@@ -63,12 +76,37 @@ type SupportTicket struct {
 }
 
 type SupportTicketMessage struct {
-	ID         int64     `json:"id"`
-	TicketID   int64     `json:"ticket_id"`
-	SenderID   int64     `json:"sender_id"`
-	SenderRole string    `json:"sender_role"`
-	Content    string    `json:"content"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID          int64                     `json:"id"`
+	TicketID    int64                     `json:"ticket_id"`
+	SenderID    int64                     `json:"sender_id"`
+	SenderRole  string                    `json:"sender_role"`
+	Content     string                    `json:"content"`
+	CreatedAt   time.Time                 `json:"created_at"`
+	Attachments []SupportTicketAttachment `json:"attachments,omitempty"`
+}
+
+type SupportTicketAttachment struct {
+	ID          int64     `json:"id"`
+	TicketID    int64     `json:"ticket_id"`
+	MessageID   int64     `json:"message_id"`
+	UploaderID  int64     `json:"uploader_id"`
+	ObjectKey   string    `json:"-"`
+	FileName    string    `json:"file_name"`
+	ContentType string    `json:"content_type"`
+	SizeBytes   int64     `json:"size_bytes"`
+	URL         string    `json:"url,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type SupportTicketAttachmentUpload struct {
+	FileName string
+	Data     []byte
+}
+
+type SupportTicketAttachmentPolicy struct {
+	Enabled                  bool  `json:"enabled"`
+	MaxFileSizeBytes         int64 `json:"max_file_size_bytes"`
+	MaxAttachmentsPerMessage int   `json:"max_attachments_per_message"`
 }
 
 type SupportTicketListFilters struct {
@@ -80,10 +118,11 @@ type SupportTicketListFilters struct {
 }
 
 type CreateSupportTicketInput struct {
-	Subject  string
-	Category string
-	Priority string
-	Content  string
+	Subject     string
+	Category    string
+	Priority    string
+	Content     string
+	Attachments []SupportTicketAttachmentUpload
 }
 
 type UpdateSupportTicketInput struct {
@@ -100,13 +139,41 @@ type SupportTicketRepository interface {
 	MarkRead(ctx context.Context, ticketID int64, readerRole string) error
 }
 
-type SupportTicketService struct {
-	repo SupportTicketRepository
-	now  func() time.Time
+type SupportTicketAttachmentStore interface {
+	Upload(ctx context.Context, key string, body io.Reader, size int64, contentType string) error
+	Delete(ctx context.Context, key string) error
+	PresignURL(ctx context.Context, key string, expiry time.Duration) (string, error)
 }
 
-func NewSupportTicketService(repo SupportTicketRepository) *SupportTicketService {
-	return &SupportTicketService{repo: repo, now: time.Now}
+type SupportTicketService struct {
+	repo            SupportTicketRepository
+	attachmentStore SupportTicketAttachmentStore
+	attachmentCfg   config.SupportTicketAttachmentConfig
+	now             func() time.Time
+}
+
+func NewSupportTicketService(repo SupportTicketRepository, attachmentStore SupportTicketAttachmentStore, cfg *config.Config) *SupportTicketService {
+	attachmentCfg := config.SupportTicketAttachmentConfig{}
+	if cfg != nil {
+		attachmentCfg = cfg.SupportTicket.Attachments
+	}
+	return &SupportTicketService{repo: repo, attachmentStore: attachmentStore, attachmentCfg: attachmentCfg, now: time.Now}
+}
+
+func (s *SupportTicketService) AttachmentPolicy() SupportTicketAttachmentPolicy {
+	maxFileSizeMB := s.attachmentCfg.MaxFileSizeMB
+	if maxFileSizeMB <= 0 {
+		maxFileSizeMB = 10
+	}
+	maxAttachments := s.attachmentCfg.MaxAttachmentsMessage
+	if maxAttachments <= 0 {
+		maxAttachments = 4
+	}
+	return SupportTicketAttachmentPolicy{
+		Enabled:                  s.attachmentCfg.Enabled && s.attachmentStore != nil,
+		MaxFileSizeBytes:         int64(maxFileSizeMB) * 1024 * 1024,
+		MaxAttachmentsPerMessage: maxAttachments,
+	}
 }
 
 func (s *SupportTicketService) CreateForUser(ctx context.Context, userID int64, input CreateSupportTicketInput) (*SupportTicket, error) {
@@ -117,7 +184,7 @@ func (s *SupportTicketService) CreateForUser(ctx context.Context, userID int64, 
 	if subject == "" || len([]rune(subject)) > 200 {
 		return nil, ErrSupportTicketInvalidSubject
 	}
-	if !validSupportTicketContent(content) {
+	if !validSupportTicketContent(content, len(input.Attachments) > 0) {
 		return nil, ErrSupportTicketInvalidContent
 	}
 	if category == "" {
@@ -143,10 +210,16 @@ func (s *SupportTicketService) CreateForUser(ctx context.Context, userID int64, 
 		AdminUnread:   true,
 		LastMessageAt: now,
 	}
-	message := &SupportTicketMessage{SenderID: userID, SenderRole: SupportTicketSenderUser, Content: content, CreatedAt: now}
-	if err := s.repo.Create(ctx, ticket, message); err != nil {
+	attachments, err := s.uploadAttachments(ctx, userID, input.Attachments, now)
+	if err != nil {
 		return nil, err
 	}
+	message := &SupportTicketMessage{SenderID: userID, SenderRole: SupportTicketSenderUser, Content: content, CreatedAt: now, Attachments: attachments}
+	if err := s.repo.Create(ctx, ticket, message); err != nil {
+		s.deleteAttachments(ctx, attachments)
+		return nil, err
+	}
+	s.hydrateAttachmentURLs(ctx, ticket)
 	return ticket, nil
 }
 
@@ -173,6 +246,7 @@ func (s *SupportTicketService) GetForUser(ctx context.Context, userID, ticketID 
 		}
 		ticket.UserUnread = false
 	}
+	s.hydrateAttachmentURLs(ctx, ticket)
 	return ticket, nil
 }
 
@@ -187,10 +261,15 @@ func (s *SupportTicketService) GetForAdmin(ctx context.Context, ticketID int64) 
 		}
 		ticket.AdminUnread = false
 	}
+	s.hydrateAttachmentURLs(ctx, ticket)
 	return ticket, nil
 }
 
 func (s *SupportTicketService) ReplyAsUser(ctx context.Context, userID, ticketID int64, content string) (*SupportTicket, error) {
+	return s.ReplyAsUserWithAttachments(ctx, userID, ticketID, content, nil)
+}
+
+func (s *SupportTicketService) ReplyAsUserWithAttachments(ctx context.Context, userID, ticketID int64, content string, uploads []SupportTicketAttachmentUpload) (*SupportTicket, error) {
 	ticket, err := s.repo.GetByID(ctx, ticketID)
 	if err != nil {
 		return nil, err
@@ -202,7 +281,7 @@ func (s *SupportTicketService) ReplyAsUser(ctx context.Context, userID, ticketID
 		return nil, ErrSupportTicketClosed
 	}
 	content = strings.TrimSpace(content)
-	if !validSupportTicketContent(content) {
+	if !validSupportTicketContent(content, len(uploads) > 0) {
 		return nil, ErrSupportTicketInvalidContent
 	}
 	if ticket.Status == SupportTicketStatusWaitingUser || ticket.Status == SupportTicketStatusResolved {
@@ -210,17 +289,27 @@ func (s *SupportTicketService) ReplyAsUser(ctx context.Context, userID, ticketID
 		ticket.ClosedAt = nil
 	}
 	now := s.now().UTC()
+	attachments, err := s.uploadAttachments(ctx, userID, uploads, now)
+	if err != nil {
+		return nil, err
+	}
 	ticket.LastMessageAt = now
 	ticket.AdminUnread = true
 	ticket.UserUnread = false
-	message := &SupportTicketMessage{TicketID: ticketID, SenderID: userID, SenderRole: SupportTicketSenderUser, Content: content, CreatedAt: now}
+	message := &SupportTicketMessage{TicketID: ticketID, SenderID: userID, SenderRole: SupportTicketSenderUser, Content: content, CreatedAt: now, Attachments: attachments}
 	if err := s.repo.AddMessage(ctx, ticket, message); err != nil {
+		s.deleteAttachments(ctx, attachments)
 		return nil, err
 	}
+	s.hydrateAttachmentURLs(ctx, ticket)
 	return ticket, nil
 }
 
 func (s *SupportTicketService) ReplyAsAdmin(ctx context.Context, adminID, ticketID int64, content string) (*SupportTicket, error) {
+	return s.ReplyAsAdminWithAttachments(ctx, adminID, ticketID, content, nil)
+}
+
+func (s *SupportTicketService) ReplyAsAdminWithAttachments(ctx context.Context, adminID, ticketID int64, content string, uploads []SupportTicketAttachmentUpload) (*SupportTicket, error) {
 	ticket, err := s.repo.GetByID(ctx, ticketID)
 	if err != nil {
 		return nil, err
@@ -229,19 +318,25 @@ func (s *SupportTicketService) ReplyAsAdmin(ctx context.Context, adminID, ticket
 		return nil, ErrSupportTicketClosed
 	}
 	content = strings.TrimSpace(content)
-	if !validSupportTicketContent(content) {
+	if !validSupportTicketContent(content, len(uploads) > 0) {
 		return nil, ErrSupportTicketInvalidContent
 	}
 	now := s.now().UTC()
+	attachments, err := s.uploadAttachments(ctx, adminID, uploads, now)
+	if err != nil {
+		return nil, err
+	}
 	ticket.Status = SupportTicketStatusWaitingUser
 	ticket.ClosedAt = nil
 	ticket.LastMessageAt = now
 	ticket.UserUnread = true
 	ticket.AdminUnread = false
-	message := &SupportTicketMessage{TicketID: ticketID, SenderID: adminID, SenderRole: SupportTicketSenderAdmin, Content: content, CreatedAt: now}
+	message := &SupportTicketMessage{TicketID: ticketID, SenderID: adminID, SenderRole: SupportTicketSenderAdmin, Content: content, CreatedAt: now, Attachments: attachments}
 	if err := s.repo.AddMessage(ctx, ticket, message); err != nil {
+		s.deleteAttachments(ctx, attachments)
 		return nil, err
 	}
+	s.hydrateAttachmentURLs(ctx, ticket)
 	return ticket, nil
 }
 
@@ -324,9 +419,119 @@ func (s *SupportTicketService) UpdateAsAdmin(ctx context.Context, _ int64, ticke
 	return ticket, nil
 }
 
-func validSupportTicketContent(content string) bool {
+func validSupportTicketContent(content string, hasAttachments bool) bool {
 	length := len([]rune(content))
-	return length > 0 && length <= 10000
+	return length <= 10000 && (length > 0 || hasAttachments)
+}
+
+func (s *SupportTicketService) uploadAttachments(ctx context.Context, uploaderID int64, uploads []SupportTicketAttachmentUpload, createdAt time.Time) ([]SupportTicketAttachment, error) {
+	if len(uploads) == 0 {
+		return nil, nil
+	}
+	policy := s.AttachmentPolicy()
+	if !policy.Enabled {
+		return nil, ErrSupportTicketAttachmentsDisabled
+	}
+	if len(uploads) > policy.MaxAttachmentsPerMessage {
+		return nil, ErrSupportTicketTooManyAttachments
+	}
+
+	attachments := make([]SupportTicketAttachment, 0, len(uploads))
+	for _, upload := range uploads {
+		if int64(len(upload.Data)) == 0 || int64(len(upload.Data)) > policy.MaxFileSizeBytes {
+			s.deleteAttachments(ctx, attachments)
+			return nil, ErrSupportTicketAttachmentTooLarge
+		}
+		contentType := http.DetectContentType(upload.Data)
+		extension, ok := supportTicketImageExtension(contentType)
+		if !ok {
+			s.deleteAttachments(ctx, attachments)
+			return nil, ErrSupportTicketAttachmentType
+		}
+		objectKey, err := s.newAttachmentObjectKey(uploaderID, extension, createdAt)
+		if err != nil {
+			s.deleteAttachments(ctx, attachments)
+			return nil, ErrSupportTicketAttachmentUpload
+		}
+		if err := s.attachmentStore.Upload(ctx, objectKey, bytes.NewReader(upload.Data), int64(len(upload.Data)), contentType); err != nil {
+			s.deleteAttachments(ctx, attachments)
+			return nil, fmt.Errorf("%w: %v", ErrSupportTicketAttachmentUpload, err)
+		}
+		attachments = append(attachments, SupportTicketAttachment{
+			UploaderID: uploaderID, ObjectKey: objectKey, FileName: normalizeAttachmentFileName(upload.FileName, extension),
+			ContentType: contentType, SizeBytes: int64(len(upload.Data)), CreatedAt: createdAt,
+		})
+	}
+	return attachments, nil
+}
+
+func (s *SupportTicketService) deleteAttachments(ctx context.Context, attachments []SupportTicketAttachment) {
+	if s.attachmentStore == nil {
+		return
+	}
+	for _, attachment := range attachments {
+		_ = s.attachmentStore.Delete(ctx, attachment.ObjectKey)
+	}
+}
+
+func (s *SupportTicketService) hydrateAttachmentURLs(ctx context.Context, ticket *SupportTicket) {
+	if ticket == nil || s.attachmentStore == nil || !s.attachmentCfg.Enabled {
+		return
+	}
+	expiryMinutes := s.attachmentCfg.URLExpiryMinutes
+	if expiryMinutes <= 0 {
+		expiryMinutes = 15
+	}
+	for messageIndex := range ticket.Messages {
+		for attachmentIndex := range ticket.Messages[messageIndex].Attachments {
+			attachment := &ticket.Messages[messageIndex].Attachments[attachmentIndex]
+			url, err := s.attachmentStore.PresignURL(ctx, attachment.ObjectKey, time.Duration(expiryMinutes)*time.Minute)
+			if err == nil {
+				attachment.URL = url
+			}
+		}
+	}
+}
+
+func (s *SupportTicketService) newAttachmentObjectKey(uploaderID int64, extension string, createdAt time.Time) (string, error) {
+	randomBytes := make([]byte, 16)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", err
+	}
+	prefix := strings.Trim(strings.TrimSpace(s.attachmentCfg.Prefix), "/")
+	fileName := hex.EncodeToString(randomBytes) + extension
+	key := path.Join(createdAt.UTC().Format("2006/01/02"), fmt.Sprintf("%d", uploaderID), fileName)
+	if prefix != "" {
+		key = path.Join(prefix, key)
+	}
+	return key, nil
+}
+
+func supportTicketImageExtension(contentType string) (string, bool) {
+	switch contentType {
+	case "image/jpeg":
+		return ".jpg", true
+	case "image/png":
+		return ".png", true
+	case "image/gif":
+		return ".gif", true
+	case "image/webp":
+		return ".webp", true
+	default:
+		return "", false
+	}
+}
+
+func normalizeAttachmentFileName(fileName, extension string) string {
+	fileName = path.Base(strings.ReplaceAll(strings.TrimSpace(fileName), "\\", "/"))
+	if fileName == "" || fileName == "." {
+		fileName = "image" + extension
+	}
+	runes := []rune(fileName)
+	if len(runes) > 255 {
+		fileName = string(runes[:255])
+	}
+	return fileName
 }
 
 func isValidSupportTicketStatus(status string) bool {

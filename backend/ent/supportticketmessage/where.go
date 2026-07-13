@@ -333,6 +333,29 @@ func HasTicketWith(preds ...predicate.SupportTicket) predicate.SupportTicketMess
 	})
 }
 
+// HasAttachments applies the HasEdge predicate on the "attachments" edge.
+func HasAttachments() predicate.SupportTicketMessage {
+	return predicate.SupportTicketMessage(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AttachmentsTable, AttachmentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAttachmentsWith applies the HasEdge predicate on the "attachments" edge with a given conditions (other predicates).
+func HasAttachmentsWith(preds ...predicate.SupportTicketAttachment) predicate.SupportTicketMessage {
+	return predicate.SupportTicketMessage(func(s *sql.Selector) {
+		step := newAttachmentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.SupportTicketMessage) predicate.SupportTicketMessage {
 	return predicate.SupportTicketMessage(sql.AndPredicates(predicates...))

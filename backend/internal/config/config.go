@@ -94,6 +94,25 @@ type Config struct {
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
+	SupportTicket           SupportTicketConfig           `mapstructure:"support_ticket"`
+}
+
+type SupportTicketConfig struct {
+	Attachments SupportTicketAttachmentConfig `mapstructure:"attachments"`
+}
+
+type SupportTicketAttachmentConfig struct {
+	Enabled               bool   `mapstructure:"enabled"`
+	Endpoint              string `mapstructure:"endpoint"`
+	Region                string `mapstructure:"region"`
+	Bucket                string `mapstructure:"bucket"`
+	AccessKeyID           string `mapstructure:"access_key_id"`
+	SecretAccessKey       string `mapstructure:"secret_access_key"`
+	Prefix                string `mapstructure:"prefix"`
+	ForcePathStyle        bool   `mapstructure:"force_path_style"`
+	MaxFileSizeMB         int    `mapstructure:"max_file_size_mb"`
+	MaxAttachmentsMessage int    `mapstructure:"max_attachments_per_message"`
+	URLExpiryMinutes      int    `mapstructure:"url_expiry_minutes"`
 }
 
 type LogConfig struct {
@@ -1829,6 +1848,19 @@ func setDefaults() {
 	viper.SetDefault("batch_image.vertex_output_retention_hours", 72)
 	viper.SetDefault("batch_image.vertex_batch_prediction_base_url", "")
 	viper.SetDefault("batch_image.vertex_gcs_base_url", "")
+
+	// Support ticket image attachments (S3-compatible, including Cloudflare R2).
+	viper.SetDefault("support_ticket.attachments.enabled", false)
+	viper.SetDefault("support_ticket.attachments.endpoint", "")
+	viper.SetDefault("support_ticket.attachments.region", "auto")
+	viper.SetDefault("support_ticket.attachments.bucket", "")
+	viper.SetDefault("support_ticket.attachments.access_key_id", "")
+	viper.SetDefault("support_ticket.attachments.secret_access_key", "")
+	viper.SetDefault("support_ticket.attachments.prefix", "support-tickets")
+	viper.SetDefault("support_ticket.attachments.force_path_style", true)
+	viper.SetDefault("support_ticket.attachments.max_file_size_mb", 10)
+	viper.SetDefault("support_ticket.attachments.max_attachments_per_message", 4)
+	viper.SetDefault("support_ticket.attachments.url_expiry_minutes", 15)
 
 	// Ops (vNext)
 	viper.SetDefault("ops.enabled", true)

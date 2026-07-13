@@ -3,6 +3,24 @@ export type SupportTicketPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type SupportTicketCategory = 'technical' | 'billing' | 'account' | 'other'
 export type SupportTicketSenderRole = 'user' | 'admin'
 
+export interface SupportTicketAttachment {
+  id: number
+  ticket_id: number
+  message_id: number
+  uploader_id: number
+  file_name: string
+  content_type: string
+  size_bytes: number
+  url?: string
+  created_at: string
+}
+
+export interface SupportTicketAttachmentPolicy {
+  enabled: boolean
+  max_file_size_bytes: number
+  max_attachments_per_message: number
+}
+
 export interface SupportTicketMessage {
   id: number
   ticket_id: number
@@ -10,6 +28,7 @@ export interface SupportTicketMessage {
   sender_role: SupportTicketSenderRole
   content: string
   created_at: string
+  attachments?: SupportTicketAttachment[]
 }
 
 export interface SupportTicket {

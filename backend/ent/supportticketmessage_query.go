@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -14,18 +15,20 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
 )
 
 // SupportTicketMessageQuery is the builder for querying SupportTicketMessage entities.
 type SupportTicketMessageQuery struct {
 	config
-	ctx        *QueryContext
-	order      []supportticketmessage.OrderOption
-	inters     []Interceptor
-	predicates []predicate.SupportTicketMessage
-	withTicket *SupportTicketQuery
-	modifiers  []func(*sql.Selector)
+	ctx             *QueryContext
+	order           []supportticketmessage.OrderOption
+	inters          []Interceptor
+	predicates      []predicate.SupportTicketMessage
+	withTicket      *SupportTicketQuery
+	withAttachments *SupportTicketAttachmentQuery
+	modifiers       []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -77,6 +80,28 @@ func (_q *SupportTicketMessageQuery) QueryTicket() *SupportTicketQuery {
 			sqlgraph.From(supportticketmessage.Table, supportticketmessage.FieldID, selector),
 			sqlgraph.To(supportticket.Table, supportticket.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, supportticketmessage.TicketTable, supportticketmessage.TicketColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAttachments chains the current query on the "attachments" edge.
+func (_q *SupportTicketMessageQuery) QueryAttachments() *SupportTicketAttachmentQuery {
+	query := (&SupportTicketAttachmentClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(supportticketmessage.Table, supportticketmessage.FieldID, selector),
+			sqlgraph.To(supportticketattachment.Table, supportticketattachment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, supportticketmessage.AttachmentsTable, supportticketmessage.AttachmentsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -271,12 +296,13 @@ func (_q *SupportTicketMessageQuery) Clone() *SupportTicketMessageQuery {
 		return nil
 	}
 	return &SupportTicketMessageQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]supportticketmessage.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.SupportTicketMessage{}, _q.predicates...),
-		withTicket: _q.withTicket.Clone(),
+		config:          _q.config,
+		ctx:             _q.ctx.Clone(),
+		order:           append([]supportticketmessage.OrderOption{}, _q.order...),
+		inters:          append([]Interceptor{}, _q.inters...),
+		predicates:      append([]predicate.SupportTicketMessage{}, _q.predicates...),
+		withTicket:      _q.withTicket.Clone(),
+		withAttachments: _q.withAttachments.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -291,6 +317,17 @@ func (_q *SupportTicketMessageQuery) WithTicket(opts ...func(*SupportTicketQuery
 		opt(query)
 	}
 	_q.withTicket = query
+	return _q
+}
+
+// WithAttachments tells the query-builder to eager-load the nodes that are connected to
+// the "attachments" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SupportTicketMessageQuery) WithAttachments(opts ...func(*SupportTicketAttachmentQuery)) *SupportTicketMessageQuery {
+	query := (&SupportTicketAttachmentClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAttachments = query
 	return _q
 }
 
@@ -372,8 +409,9 @@ func (_q *SupportTicketMessageQuery) sqlAll(ctx context.Context, hooks ...queryH
 	var (
 		nodes       = []*SupportTicketMessage{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			_q.withTicket != nil,
+			_q.withAttachments != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -400,6 +438,15 @@ func (_q *SupportTicketMessageQuery) sqlAll(ctx context.Context, hooks ...queryH
 	if query := _q.withTicket; query != nil {
 		if err := _q.loadTicket(ctx, query, nodes, nil,
 			func(n *SupportTicketMessage, e *SupportTicket) { n.Edges.Ticket = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAttachments; query != nil {
+		if err := _q.loadAttachments(ctx, query, nodes,
+			func(n *SupportTicketMessage) { n.Edges.Attachments = []*SupportTicketAttachment{} },
+			func(n *SupportTicketMessage, e *SupportTicketAttachment) {
+				n.Edges.Attachments = append(n.Edges.Attachments, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -432,6 +479,36 @@ func (_q *SupportTicketMessageQuery) loadTicket(ctx context.Context, query *Supp
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *SupportTicketMessageQuery) loadAttachments(ctx context.Context, query *SupportTicketAttachmentQuery, nodes []*SupportTicketMessage, init func(*SupportTicketMessage), assign func(*SupportTicketMessage, *SupportTicketAttachment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*SupportTicketMessage)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(supportticketattachment.FieldMessageID)
+	}
+	query.Where(predicate.SupportTicketAttachment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(supportticketmessage.AttachmentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.MessageID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "message_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

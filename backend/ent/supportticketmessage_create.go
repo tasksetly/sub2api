@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
 )
 
@@ -47,6 +48,14 @@ func (_c *SupportTicketMessageCreate) SetContent(v string) *SupportTicketMessage
 	return _c
 }
 
+// SetNillableContent sets the "content" field if the given value is not nil.
+func (_c *SupportTicketMessageCreate) SetNillableContent(v *string) *SupportTicketMessageCreate {
+	if v != nil {
+		_c.SetContent(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *SupportTicketMessageCreate) SetCreatedAt(v time.Time) *SupportTicketMessageCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -64,6 +73,21 @@ func (_c *SupportTicketMessageCreate) SetNillableCreatedAt(v *time.Time) *Suppor
 // SetTicket sets the "ticket" edge to the SupportTicket entity.
 func (_c *SupportTicketMessageCreate) SetTicket(v *SupportTicket) *SupportTicketMessageCreate {
 	return _c.SetTicketID(v.ID)
+}
+
+// AddAttachmentIDs adds the "attachments" edge to the SupportTicketAttachment entity by IDs.
+func (_c *SupportTicketMessageCreate) AddAttachmentIDs(ids ...int64) *SupportTicketMessageCreate {
+	_c.mutation.AddAttachmentIDs(ids...)
+	return _c
+}
+
+// AddAttachments adds the "attachments" edges to the SupportTicketAttachment entity.
+func (_c *SupportTicketMessageCreate) AddAttachments(v ...*SupportTicketAttachment) *SupportTicketMessageCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAttachmentIDs(ids...)
 }
 
 // Mutation returns the SupportTicketMessageMutation object of the builder.
@@ -101,6 +125,10 @@ func (_c *SupportTicketMessageCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *SupportTicketMessageCreate) defaults() {
+	if _, ok := _c.mutation.Content(); !ok {
+		v := supportticketmessage.DefaultContent
+		_c.mutation.SetContent(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := supportticketmessage.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -125,11 +153,6 @@ func (_c *SupportTicketMessageCreate) check() error {
 	}
 	if _, ok := _c.mutation.Content(); !ok {
 		return &ValidationError{Name: "content", err: errors.New(`ent: missing required field "SupportTicketMessage.content"`)}
-	}
-	if v, ok := _c.mutation.Content(); ok {
-		if err := supportticketmessage.ContentValidator(v); err != nil {
-			return &ValidationError{Name: "content", err: fmt.Errorf(`ent: validator failed for field "SupportTicketMessage.content": %w`, err)}
-		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "SupportTicketMessage.created_at"`)}
@@ -195,6 +218,22 @@ func (_c *SupportTicketMessageCreate) createSpec() (*SupportTicketMessage, *sqlg
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.TicketID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AttachmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   supportticketmessage.AttachmentsTable,
+			Columns: []string{supportticketmessage.AttachmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(supportticketattachment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

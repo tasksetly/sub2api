@@ -2,6 +2,7 @@ import { apiClient } from './client'
 import type { BasePaginationResponse } from '@/types'
 import type {
   CreateSupportTicketRequest,
+  SupportTicketAttachmentPolicy,
   SupportTicket,
   SupportTicketFilters
 } from '@/types/supportTicket'
@@ -22,13 +23,27 @@ export async function getTicket(id: number): Promise<SupportTicket> {
   return data
 }
 
-export async function createTicket(request: CreateSupportTicketRequest): Promise<SupportTicket> {
-  const { data } = await apiClient.post<SupportTicket>('/tickets', request)
+function ticketFormData(request: CreateSupportTicketRequest | { content: string }, attachments: File[]): FormData {
+  const form = new FormData()
+  Object.entries(request).forEach(([key, value]) => form.append(key, value))
+  attachments.forEach((file) => form.append('attachments', file))
+  return form
+}
+
+export async function getAttachmentPolicy(): Promise<SupportTicketAttachmentPolicy> {
+  const { data } = await apiClient.get<SupportTicketAttachmentPolicy>('/tickets/attachment-policy')
   return data
 }
 
-export async function replyTicket(id: number, content: string): Promise<SupportTicket> {
-  const { data } = await apiClient.post<SupportTicket>(`/tickets/${id}/messages`, { content })
+export async function createTicket(request: CreateSupportTicketRequest, attachments: File[] = []): Promise<SupportTicket> {
+  const body = attachments.length > 0 ? ticketFormData(request, attachments) : request
+  const { data } = await apiClient.post<SupportTicket>('/tickets', body)
+  return data
+}
+
+export async function replyTicket(id: number, content: string, attachments: File[] = []): Promise<SupportTicket> {
+  const body = attachments.length > 0 ? ticketFormData({ content }, attachments) : { content }
+  const { data } = await apiClient.post<SupportTicket>(`/tickets/${id}/messages`, body)
   return data
 }
 
@@ -44,6 +59,7 @@ export async function reopenTicket(id: number): Promise<SupportTicket> {
 
 export const ticketsAPI = {
   list: listTickets,
+  attachmentPolicy: getAttachmentPolicy,
   get: getTicket,
   create: createTicket,
   reply: replyTicket,

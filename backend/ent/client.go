@@ -45,6 +45,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -124,6 +125,8 @@ type Client struct {
 	SubscriptionPlan *SubscriptionPlanClient
 	// SupportTicket is the client for interacting with the SupportTicket builders.
 	SupportTicket *SupportTicketClient
+	// SupportTicketAttachment is the client for interacting with the SupportTicketAttachment builders.
+	SupportTicketAttachment *SupportTicketAttachmentClient
 	// SupportTicketMessage is the client for interacting with the SupportTicketMessage builders.
 	SupportTicketMessage *SupportTicketMessageClient
 	// TLSFingerprintProfile is the client for interacting with the TLSFingerprintProfile builders.
@@ -185,6 +188,7 @@ func (c *Client) init() {
 	c.Setting = NewSettingClient(c.config)
 	c.SubscriptionPlan = NewSubscriptionPlanClient(c.config)
 	c.SupportTicket = NewSupportTicketClient(c.config)
+	c.SupportTicketAttachment = NewSupportTicketAttachmentClient(c.config)
 	c.SupportTicketMessage = NewSupportTicketMessageClient(c.config)
 	c.TLSFingerprintProfile = NewTLSFingerprintProfileClient(c.config)
 	c.UsageCleanupTask = NewUsageCleanupTaskClient(c.config)
@@ -317,6 +321,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
 		SupportTicket:                 NewSupportTicketClient(cfg),
+		SupportTicketAttachment:       NewSupportTicketAttachmentClient(cfg),
 		SupportTicketMessage:          NewSupportTicketMessageClient(cfg),
 		TLSFingerprintProfile:         NewTLSFingerprintProfileClient(cfg),
 		UsageCleanupTask:              NewUsageCleanupTaskClient(cfg),
@@ -376,6 +381,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
 		SupportTicket:                 NewSupportTicketClient(cfg),
+		SupportTicketAttachment:       NewSupportTicketAttachmentClient(cfg),
 		SupportTicketMessage:          NewSupportTicketMessageClient(cfg),
 		TLSFingerprintProfile:         NewTLSFingerprintProfileClient(cfg),
 		UsageCleanupTask:              NewUsageCleanupTaskClient(cfg),
@@ -423,10 +429,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
 		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.SupportTicket, c.SupportTicketMessage, c.TLSFingerprintProfile,
-		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
-		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
-		c.UserSubscription,
+		c.SupportTicket, c.SupportTicketAttachment, c.SupportTicketMessage,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -444,10 +450,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
 		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
 		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.SupportTicket, c.SupportTicketMessage, c.TLSFingerprintProfile,
-		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
-		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
-		c.UserSubscription,
+		c.SupportTicket, c.SupportTicketAttachment, c.SupportTicketMessage,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -516,6 +522,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.SubscriptionPlan.mutate(ctx, m)
 	case *SupportTicketMutation:
 		return c.SupportTicket.mutate(ctx, m)
+	case *SupportTicketAttachmentMutation:
+		return c.SupportTicketAttachment.mutate(ctx, m)
 	case *SupportTicketMessageMutation:
 		return c.SupportTicketMessage.mutate(ctx, m)
 	case *TLSFingerprintProfileMutation:
@@ -5201,6 +5209,22 @@ func (c *SupportTicketClient) QueryMessages(_m *SupportTicket) *SupportTicketMes
 	return query
 }
 
+// QueryAttachments queries the attachments edge of a SupportTicket.
+func (c *SupportTicketClient) QueryAttachments(_m *SupportTicket) *SupportTicketAttachmentQuery {
+	query := (&SupportTicketAttachmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(supportticket.Table, supportticket.FieldID, id),
+			sqlgraph.To(supportticketattachment.Table, supportticketattachment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, supportticket.AttachmentsTable, supportticket.AttachmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SupportTicketClient) Hooks() []Hook {
 	return c.hooks.SupportTicket
@@ -5223,6 +5247,187 @@ func (c *SupportTicketClient) mutate(ctx context.Context, m *SupportTicketMutati
 		return (&SupportTicketDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown SupportTicket mutation op: %q", m.Op())
+	}
+}
+
+// SupportTicketAttachmentClient is a client for the SupportTicketAttachment schema.
+type SupportTicketAttachmentClient struct {
+	config
+}
+
+// NewSupportTicketAttachmentClient returns a client for the SupportTicketAttachment from the given config.
+func NewSupportTicketAttachmentClient(c config) *SupportTicketAttachmentClient {
+	return &SupportTicketAttachmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `supportticketattachment.Hooks(f(g(h())))`.
+func (c *SupportTicketAttachmentClient) Use(hooks ...Hook) {
+	c.hooks.SupportTicketAttachment = append(c.hooks.SupportTicketAttachment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `supportticketattachment.Intercept(f(g(h())))`.
+func (c *SupportTicketAttachmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SupportTicketAttachment = append(c.inters.SupportTicketAttachment, interceptors...)
+}
+
+// Create returns a builder for creating a SupportTicketAttachment entity.
+func (c *SupportTicketAttachmentClient) Create() *SupportTicketAttachmentCreate {
+	mutation := newSupportTicketAttachmentMutation(c.config, OpCreate)
+	return &SupportTicketAttachmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SupportTicketAttachment entities.
+func (c *SupportTicketAttachmentClient) CreateBulk(builders ...*SupportTicketAttachmentCreate) *SupportTicketAttachmentCreateBulk {
+	return &SupportTicketAttachmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SupportTicketAttachmentClient) MapCreateBulk(slice any, setFunc func(*SupportTicketAttachmentCreate, int)) *SupportTicketAttachmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SupportTicketAttachmentCreateBulk{err: fmt.Errorf("calling to SupportTicketAttachmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SupportTicketAttachmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SupportTicketAttachmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SupportTicketAttachment.
+func (c *SupportTicketAttachmentClient) Update() *SupportTicketAttachmentUpdate {
+	mutation := newSupportTicketAttachmentMutation(c.config, OpUpdate)
+	return &SupportTicketAttachmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SupportTicketAttachmentClient) UpdateOne(_m *SupportTicketAttachment) *SupportTicketAttachmentUpdateOne {
+	mutation := newSupportTicketAttachmentMutation(c.config, OpUpdateOne, withSupportTicketAttachment(_m))
+	return &SupportTicketAttachmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SupportTicketAttachmentClient) UpdateOneID(id int64) *SupportTicketAttachmentUpdateOne {
+	mutation := newSupportTicketAttachmentMutation(c.config, OpUpdateOne, withSupportTicketAttachmentID(id))
+	return &SupportTicketAttachmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SupportTicketAttachment.
+func (c *SupportTicketAttachmentClient) Delete() *SupportTicketAttachmentDelete {
+	mutation := newSupportTicketAttachmentMutation(c.config, OpDelete)
+	return &SupportTicketAttachmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SupportTicketAttachmentClient) DeleteOne(_m *SupportTicketAttachment) *SupportTicketAttachmentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SupportTicketAttachmentClient) DeleteOneID(id int64) *SupportTicketAttachmentDeleteOne {
+	builder := c.Delete().Where(supportticketattachment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SupportTicketAttachmentDeleteOne{builder}
+}
+
+// Query returns a query builder for SupportTicketAttachment.
+func (c *SupportTicketAttachmentClient) Query() *SupportTicketAttachmentQuery {
+	return &SupportTicketAttachmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSupportTicketAttachment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SupportTicketAttachment entity by its id.
+func (c *SupportTicketAttachmentClient) Get(ctx context.Context, id int64) (*SupportTicketAttachment, error) {
+	return c.Query().Where(supportticketattachment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SupportTicketAttachmentClient) GetX(ctx context.Context, id int64) *SupportTicketAttachment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryTicket queries the ticket edge of a SupportTicketAttachment.
+func (c *SupportTicketAttachmentClient) QueryTicket(_m *SupportTicketAttachment) *SupportTicketQuery {
+	query := (&SupportTicketClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(supportticketattachment.Table, supportticketattachment.FieldID, id),
+			sqlgraph.To(supportticket.Table, supportticket.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, supportticketattachment.TicketTable, supportticketattachment.TicketColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMessage queries the message edge of a SupportTicketAttachment.
+func (c *SupportTicketAttachmentClient) QueryMessage(_m *SupportTicketAttachment) *SupportTicketMessageQuery {
+	query := (&SupportTicketMessageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(supportticketattachment.Table, supportticketattachment.FieldID, id),
+			sqlgraph.To(supportticketmessage.Table, supportticketmessage.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, supportticketattachment.MessageTable, supportticketattachment.MessageColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUploader queries the uploader edge of a SupportTicketAttachment.
+func (c *SupportTicketAttachmentClient) QueryUploader(_m *SupportTicketAttachment) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(supportticketattachment.Table, supportticketattachment.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, supportticketattachment.UploaderTable, supportticketattachment.UploaderColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SupportTicketAttachmentClient) Hooks() []Hook {
+	return c.hooks.SupportTicketAttachment
+}
+
+// Interceptors returns the client interceptors.
+func (c *SupportTicketAttachmentClient) Interceptors() []Interceptor {
+	return c.inters.SupportTicketAttachment
+}
+
+func (c *SupportTicketAttachmentClient) mutate(ctx context.Context, m *SupportTicketAttachmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SupportTicketAttachmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SupportTicketAttachmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SupportTicketAttachmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SupportTicketAttachmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SupportTicketAttachment mutation op: %q", m.Op())
 	}
 }
 
@@ -5343,6 +5548,22 @@ func (c *SupportTicketMessageClient) QueryTicket(_m *SupportTicketMessage) *Supp
 			sqlgraph.From(supportticketmessage.Table, supportticketmessage.FieldID, id),
 			sqlgraph.To(supportticket.Table, supportticket.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, supportticketmessage.TicketTable, supportticketmessage.TicketColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAttachments queries the attachments edge of a SupportTicketMessage.
+func (c *SupportTicketMessageClient) QueryAttachments(_m *SupportTicketMessage) *SupportTicketAttachmentQuery {
+	query := (&SupportTicketAttachmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(supportticketmessage.Table, supportticketmessage.FieldID, id),
+			sqlgraph.To(supportticketattachment.Table, supportticketattachment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, supportticketmessage.AttachmentsTable, supportticketmessage.AttachmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -6186,6 +6407,22 @@ func (c *UserClient) QuerySupportTickets(_m *User) *SupportTicketQuery {
 	return query
 }
 
+// QuerySupportTicketAttachments queries the support_ticket_attachments edge of a User.
+func (c *UserClient) QuerySupportTicketAttachments(_m *User) *SupportTicketAttachmentQuery {
+	query := (&SupportTicketAttachmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(supportticketattachment.Table, supportticketattachment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SupportTicketAttachmentsTable, user.SupportTicketAttachmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryUserAllowedGroups queries the user_allowed_groups edge of a User.
 func (c *UserClient) QueryUserAllowedGroups(_m *User) *UserAllowedGroupQuery {
 	query := (&UserAllowedGroupClient{config: c.config}).Query()
@@ -7021,9 +7258,9 @@ type (
 		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
 		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, SupportTicket,
-		SupportTicketMessage, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Hook
+		SupportTicketAttachment, SupportTicketMessage, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
@@ -7033,9 +7270,9 @@ type (
 		IdentityAdoptionDecision, PaymentAuditLog, PaymentOrder,
 		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
 		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, SupportTicket,
-		SupportTicketMessage, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserPlatformQuota, UserSubscription []ent.Interceptor
+		SupportTicketAttachment, SupportTicketMessage, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

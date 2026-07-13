@@ -91,6 +91,8 @@ const (
 	EdgePlatformQuotas = "platform_quotas"
 	// EdgeSupportTickets holds the string denoting the support_tickets edge name in mutations.
 	EdgeSupportTickets = "support_tickets"
+	// EdgeSupportTicketAttachments holds the string denoting the support_ticket_attachments edge name in mutations.
+	EdgeSupportTicketAttachments = "support_ticket_attachments"
 	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
 	EdgeUserAllowedGroups = "user_allowed_groups"
 	// Table holds the table name of the user in the database.
@@ -191,6 +193,13 @@ const (
 	SupportTicketsInverseTable = "support_tickets"
 	// SupportTicketsColumn is the table column denoting the support_tickets relation/edge.
 	SupportTicketsColumn = "user_id"
+	// SupportTicketAttachmentsTable is the table that holds the support_ticket_attachments relation/edge.
+	SupportTicketAttachmentsTable = "support_ticket_attachments"
+	// SupportTicketAttachmentsInverseTable is the table name for the SupportTicketAttachment entity.
+	// It exists in this package in order to avoid circular dependency with the "supportticketattachment" package.
+	SupportTicketAttachmentsInverseTable = "support_ticket_attachments"
+	// SupportTicketAttachmentsColumn is the table column denoting the support_ticket_attachments relation/edge.
+	SupportTicketAttachmentsColumn = "uploader_id"
 	// UserAllowedGroupsTable is the table that holds the user_allowed_groups relation/edge.
 	UserAllowedGroupsTable = "user_allowed_groups"
 	// UserAllowedGroupsInverseTable is the table name for the UserAllowedGroup entity.
@@ -625,6 +634,20 @@ func BySupportTickets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// BySupportTicketAttachmentsCount orders the results by support_ticket_attachments count.
+func BySupportTicketAttachmentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSupportTicketAttachmentsStep(), opts...)
+	}
+}
+
+// BySupportTicketAttachments orders the results by support_ticket_attachments terms.
+func BySupportTicketAttachments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSupportTicketAttachmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUserAllowedGroupsCount orders the results by user_allowed_groups count.
 func ByUserAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -734,6 +757,13 @@ func newSupportTicketsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SupportTicketsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SupportTicketsTable, SupportTicketsColumn),
+	)
+}
+func newSupportTicketAttachmentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SupportTicketAttachmentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SupportTicketAttachmentsTable, SupportTicketAttachmentsColumn),
 	)
 }
 func newUserAllowedGroupsStep() *sqlgraph.Step {

@@ -369,6 +369,18 @@ func (f SupportTicketFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SupportTicketMutation", m)
 }
 
+// The SupportTicketAttachmentFunc type is an adapter to allow the use of ordinary
+// function as SupportTicketAttachment mutator.
+type SupportTicketAttachmentFunc func(context.Context, *ent.SupportTicketAttachmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SupportTicketAttachmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SupportTicketAttachmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SupportTicketAttachmentMutation", m)
+}
+
 // The SupportTicketMessageFunc type is an adapter to allow the use of ordinary
 // function as SupportTicketMessage mutator.
 type SupportTicketMessageFunc func(context.Context, *ent.SupportTicketMessageMutation) (ent.Value, error)

@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/handler/ticketupload"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -20,7 +21,11 @@ func NewSupportTicketHandler(ticketService *service.SupportTicketService) *Suppo
 }
 
 type adminSupportTicketReplyRequest struct {
-	Content string `json:"content" binding:"required"`
+	Content string `json:"content"`
+}
+
+func (h *SupportTicketHandler) AttachmentPolicy(c *gin.Context) {
+	response.Success(c, h.service.AttachmentPolicy())
 }
 
 type adminSupportTicketUpdateRequest struct {
@@ -59,16 +64,27 @@ func (h *SupportTicketHandler) Reply(c *gin.Context) {
 		return
 	}
 	var req adminSupportTicketReplyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
+	var uploads []service.SupportTicketAttachmentUpload
+	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
+		var err error
+		uploads, err = ticketupload.Parse(c, h.service.AttachmentPolicy())
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		req.Content = c.PostForm("content")
+	} else {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.BadRequest(c, "Invalid request: "+err.Error())
+			return
+		}
 	}
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
 		response.Unauthorized(c, "User not found in context")
 		return
 	}
-	item, err := h.service.ReplyAsAdmin(c.Request.Context(), subject.UserID, ticketID, req.Content)
+	item, err := h.service.ReplyAsAdminWithAttachments(c.Request.Context(), subject.UserID, ticketID, req.Content, uploads)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

@@ -141,30 +141,72 @@
                   <span>{{ senderLabel(message.sender_role) }}</span>
                   <time>{{ formatDateTime(message.created_at) }}</time>
                 </div>
-                <p
-                  class="whitespace-pre-wrap break-words rounded-xl border px-4 py-3 text-sm leading-6"
+                <div
+                  class="overflow-hidden rounded-xl border"
                   :class="message.sender_role === (isAdmin ? 'admin' : 'user')
                     ? 'border-primary-600 bg-primary-600 text-white'
                     : 'border-gray-200 bg-white text-gray-800 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-100'"
-                >{{ message.content }}</p>
+                >
+                  <div
+                    v-if="message.attachments?.length"
+                    class="grid gap-1.5 p-1.5"
+                    :class="message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'"
+                  >
+                    <template v-for="attachment in message.attachments" :key="attachment.id">
+                      <a
+                        v-if="attachment.url"
+                        :href="attachment.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="block min-w-0 overflow-hidden rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/80 dark:bg-dark-950"
+                        :title="attachment.file_name"
+                      >
+                        <img
+                          :src="attachment.url"
+                          :alt="attachment.file_name"
+                          class="aspect-[4/3] h-full max-h-72 w-full object-cover transition-opacity hover:opacity-90"
+                          loading="lazy"
+                        >
+                      </a>
+                      <div v-else class="flex aspect-[4/3] items-center justify-center rounded-md bg-gray-100 px-3 text-center text-xs text-gray-500 dark:bg-dark-950 dark:text-gray-400">
+                        {{ t('tickets.attachmentUnavailable') }}
+                      </div>
+                    </template>
+                  </div>
+                  <p v-if="message.content" class="whitespace-pre-wrap break-words px-4 py-3 text-sm leading-6">{{ message.content }}</p>
+                </div>
               </div>
             </article>
           </div>
 
           <div class="border-t border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900 sm:px-6">
-            <div v-if="selectedTicket.status !== 'closed'" class="flex items-end gap-3">
-              <textarea
-                v-model="replyContent"
-                rows="3"
-                maxlength="10000"
-                class="input min-h-[84px] flex-1 resize-y"
-                :placeholder="t('tickets.replyPlaceholder')"
-                @keydown.ctrl.enter.prevent="sendReply"
-                @keydown.meta.enter.prevent="sendReply"
-              />
-              <button type="button" class="btn btn-primary h-10 px-5" :disabled="sending || !replyContent.trim()" @click="sendReply">
-                {{ sending ? t('common.submitting') : t('tickets.send') }}
-              </button>
+            <div v-if="selectedTicket.status !== 'closed'">
+              <div v-if="replyFiles.length" class="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+                <div v-for="(item, index) in replyFiles" :key="item.previewUrl" class="group relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-100 dark:border-dark-700 dark:bg-dark-950">
+                  <img :src="item.previewUrl" :alt="item.file.name" class="h-full w-full object-cover">
+                  <button type="button" class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded bg-black/65 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" :title="t('tickets.removeAttachment')" @click="removePendingFile(replyFiles, index)">
+                    <Icon name="x" size="sm" />
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-end gap-2 sm:gap-3">
+                <input ref="replyFileInput" type="file" class="sr-only" accept="image/jpeg,image/png,image/gif,image/webp" multiple @change="onReplyFilesSelected">
+                <button v-if="attachmentPolicy.enabled" type="button" class="btn btn-secondary h-10 w-10 flex-none p-0" :title="attachmentButtonTitle" :disabled="sending || replyFiles.length >= attachmentPolicy.max_attachments_per_message" @click="replyFileInput?.click()">
+                  <Icon name="paperclip" size="md" />
+                </button>
+                <textarea
+                  v-model="replyContent"
+                  rows="3"
+                  maxlength="10000"
+                  class="input min-h-[84px] flex-1 resize-y"
+                  :placeholder="t('tickets.replyPlaceholder')"
+                  @keydown.ctrl.enter.prevent="sendReply"
+                  @keydown.meta.enter.prevent="sendReply"
+                />
+                <button type="button" class="btn btn-primary h-10 px-4 sm:px-5" :disabled="sending || (!replyContent.trim() && replyFiles.length === 0)" @click="sendReply">
+                  {{ sending ? t('common.submitting') : t('tickets.send') }}
+                </button>
+              </div>
             </div>
             <div v-else class="flex items-center justify-between gap-3 text-sm text-gray-500 dark:text-gray-400">
               <span>{{ t('tickets.closedNotice') }}</span>
@@ -186,7 +228,7 @@
       </main>
     </div>
 
-    <BaseDialog :show="showCreateDialog" :title="t('tickets.new')" width="wide" @close="showCreateDialog = false">
+    <BaseDialog :show="showCreateDialog" :title="t('tickets.new')" width="wide" @close="closeCreateDialog">
       <form id="support-ticket-form" class="space-y-5" @submit.prevent="createNewTicket">
         <label class="block">
           <span class="input-label">{{ t('tickets.subject') }}</span>
@@ -208,14 +250,29 @@
         </div>
         <label class="block">
           <span class="input-label">{{ t('tickets.descriptionLabel') }}</span>
-          <textarea v-model.trim="createForm.content" maxlength="10000" rows="7" class="input resize-y" required />
+          <textarea v-model.trim="createForm.content" maxlength="10000" rows="7" class="input resize-y" :required="createFiles.length === 0" />
         </label>
+        <div v-if="attachmentPolicy.enabled" class="space-y-3">
+          <input ref="createFileInput" type="file" class="sr-only" accept="image/jpeg,image/png,image/gif,image/webp" multiple @change="onCreateFilesSelected">
+          <button type="button" class="btn btn-secondary" :title="attachmentButtonTitle" :disabled="createFiles.length >= attachmentPolicy.max_attachments_per_message" @click="createFileInput?.click()">
+            <Icon name="paperclip" size="sm" />
+            {{ t('tickets.addImages') }}
+          </button>
+          <div v-if="createFiles.length" class="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            <div v-for="(item, index) in createFiles" :key="item.previewUrl" class="group relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-100 dark:border-dark-700 dark:bg-dark-950">
+              <img :src="item.previewUrl" :alt="item.file.name" class="h-full w-full object-cover">
+              <button type="button" class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded bg-black/65 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" :title="t('tickets.removeAttachment')" @click="removePendingFile(createFiles, index)">
+                <Icon name="x" size="sm" />
+              </button>
+            </div>
+          </div>
+        </div>
       </form>
 
       <template #footer>
         <div class="flex justify-end gap-3">
-          <button type="button" class="btn btn-secondary" @click="showCreateDialog = false">{{ t('common.cancel') }}</button>
-          <button type="submit" form="support-ticket-form" class="btn btn-primary" :disabled="creating || !createForm.subject || !createForm.content">
+          <button type="button" class="btn btn-secondary" @click="closeCreateDialog">{{ t('common.cancel') }}</button>
+          <button type="submit" form="support-ticket-form" class="btn btn-primary" :disabled="creating || !createForm.subject || (!createForm.content && createFiles.length === 0)">
             {{ creating ? t('common.submitting') : t('tickets.create') }}
           </button>
         </div>
@@ -225,7 +282,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -236,6 +293,7 @@ import { useAppStore } from '@/stores/app'
 import type {
   CreateSupportTicketRequest,
   SupportTicket,
+  SupportTicketAttachmentPolicy,
   SupportTicketCategory,
   SupportTicketFilters,
   SupportTicketPriority,
@@ -261,6 +319,16 @@ const updating = ref(false)
 const creating = ref(false)
 const showCreateDialog = ref(false)
 const replyContent = ref('')
+type PendingAttachment = { file: File; previewUrl: string }
+const replyFiles = reactive<PendingAttachment[]>([])
+const createFiles = reactive<PendingAttachment[]>([])
+const replyFileInput = ref<HTMLInputElement | null>(null)
+const createFileInput = ref<HTMLInputElement | null>(null)
+const attachmentPolicy = reactive<SupportTicketAttachmentPolicy>({ enabled: false, max_file_size_bytes: 10 * 1024 * 1024, max_attachments_per_message: 4 })
+const attachmentButtonTitle = computed(() => t('tickets.attachmentHint', {
+  size: Math.max(1, Math.round(attachmentPolicy.max_file_size_bytes / 1024 / 1024)),
+  count: attachmentPolicy.max_attachments_per_message
+}))
 const messageScroller = ref<HTMLElement | null>(null)
 const page = ref(1)
 const pageSize = 20
@@ -307,6 +375,7 @@ async function loadTickets(resetPage = false) {
 }
 
 async function selectTicket(id: number) {
+  clearPendingFiles(replyFiles)
   loadingDetail.value = true
   try {
     selectedTicket.value = isAdmin.value ? await adminTicketsAPI.get(id) : await ticketsAPI.get(id)
@@ -326,13 +395,14 @@ async function selectTicket(id: number) {
 }
 
 async function sendReply() {
-  if (!selectedTicket.value || !replyContent.value.trim() || sending.value) return
+  if (!selectedTicket.value || (!replyContent.value.trim() && replyFiles.length === 0) || sending.value) return
   sending.value = true
   try {
     selectedTicket.value = isAdmin.value
-      ? await adminTicketsAPI.reply(selectedTicket.value.id, replyContent.value.trim())
-      : await ticketsAPI.reply(selectedTicket.value.id, replyContent.value.trim())
+      ? await adminTicketsAPI.reply(selectedTicket.value.id, replyContent.value.trim(), replyFiles.map((item) => item.file))
+      : await ticketsAPI.reply(selectedTicket.value.id, replyContent.value.trim(), replyFiles.map((item) => item.file))
     replyContent.value = ''
+    clearPendingFiles(replyFiles)
     adminStatus.value = selectedTicket.value.status
     await loadTickets()
     await scrollToLatestMessage()
@@ -390,8 +460,9 @@ async function createNewTicket() {
   if (creating.value) return
   creating.value = true
   try {
-    const created = await ticketsAPI.create({ ...createForm })
+    const created = await ticketsAPI.create({ ...createForm }, createFiles.map((item) => item.file))
     showCreateDialog.value = false
+    clearPendingFiles(createFiles)
     Object.assign(createForm, { subject: '', category: 'technical', priority: 'normal', content: '' })
     await loadTickets(true)
     await selectTicket(created.id)
@@ -400,6 +471,61 @@ async function createNewTicket() {
   } finally {
     creating.value = false
   }
+}
+
+async function loadAttachmentPolicy() {
+  try {
+    const policy = isAdmin.value ? await adminTicketsAPI.attachmentPolicy() : await ticketsAPI.attachmentPolicy()
+    Object.assign(attachmentPolicy, policy)
+  } catch {
+    attachmentPolicy.enabled = false
+  }
+}
+
+function onReplyFilesSelected(event: Event) {
+  addPendingFiles((event.target as HTMLInputElement).files, replyFiles)
+  ;(event.target as HTMLInputElement).value = ''
+}
+
+function onCreateFilesSelected(event: Event) {
+  addPendingFiles((event.target as HTMLInputElement).files, createFiles)
+  ;(event.target as HTMLInputElement).value = ''
+}
+
+function addPendingFiles(files: FileList | null, target: PendingAttachment[]) {
+  if (!files) return
+  const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
+  for (const file of Array.from(files)) {
+    if (target.length >= attachmentPolicy.max_attachments_per_message) {
+      appStore.showError(t('tickets.attachmentTooMany', { count: attachmentPolicy.max_attachments_per_message }))
+      break
+    }
+    if (!allowedTypes.has(file.type)) {
+      appStore.showError(t('tickets.attachmentTypeInvalid'))
+      continue
+    }
+    if (file.size <= 0 || file.size > attachmentPolicy.max_file_size_bytes) {
+      appStore.showError(t('tickets.attachmentTooLarge', { size: Math.max(1, Math.round(attachmentPolicy.max_file_size_bytes / 1024 / 1024)) }))
+      continue
+    }
+    const duplicate = target.some((item) => item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified)
+    if (!duplicate) target.push({ file, previewUrl: URL.createObjectURL(file) })
+  }
+}
+
+function removePendingFile(target: PendingAttachment[], index: number) {
+  const [removed] = target.splice(index, 1)
+  if (removed) URL.revokeObjectURL(removed.previewUrl)
+}
+
+function clearPendingFiles(target: PendingAttachment[]) {
+  target.forEach((item) => URL.revokeObjectURL(item.previewUrl))
+  target.splice(0)
+}
+
+function closeCreateDialog() {
+  showCreateDialog.value = false
+  clearPendingFiles(createFiles)
 }
 
 async function changePage(nextPage: number) {
@@ -452,7 +578,11 @@ function formatCompactDate(value: string) {
   return new Intl.DateTimeFormat(locale.value === 'zh' ? 'zh-CN' : 'en-US', sameDay ? { hour: '2-digit', minute: '2-digit' } : { month: 'short', day: 'numeric' }).format(date)
 }
 
-onMounted(() => loadTickets())
+onMounted(() => Promise.all([loadTickets(), loadAttachmentPolicy()]))
+onBeforeUnmount(() => {
+  clearPendingFiles(replyFiles)
+  clearPendingFiles(createFiles)
+})
 </script>
 
 <style scoped>

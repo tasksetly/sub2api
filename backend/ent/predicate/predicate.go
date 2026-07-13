@@ -96,6 +96,9 @@ type SubscriptionPlan func(*sql.Selector)
 // SupportTicket is the predicate function for supportticket builders.
 type SupportTicket func(*sql.Selector)
 
+// SupportTicketAttachment is the predicate function for supportticketattachment builders.
+type SupportTicketAttachment func(*sql.Selector)
+
 // SupportTicketMessage is the predicate function for supportticketmessage builders.
 type SupportTicketMessage func(*sql.Selector)
 

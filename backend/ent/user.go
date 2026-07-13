@@ -101,11 +101,13 @@ type UserEdges struct {
 	PlatformQuotas []*UserPlatformQuota `json:"platform_quotas,omitempty"`
 	// SupportTickets holds the value of the support_tickets edge.
 	SupportTickets []*SupportTicket `json:"support_tickets,omitempty"`
+	// SupportTicketAttachments holds the value of the support_ticket_attachments edge.
+	SupportTicketAttachments []*SupportTicketAttachment `json:"support_ticket_attachments,omitempty"`
 	// UserAllowedGroups holds the value of the user_allowed_groups edge.
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [15]bool
+	loadedTypes [16]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -234,10 +236,19 @@ func (e UserEdges) SupportTicketsOrErr() ([]*SupportTicket, error) {
 	return nil, &NotLoadedError{edge: "support_tickets"}
 }
 
+// SupportTicketAttachmentsOrErr returns the SupportTicketAttachments value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) SupportTicketAttachmentsOrErr() ([]*SupportTicketAttachment, error) {
+	if e.loadedTypes[14] {
+		return e.SupportTicketAttachments, nil
+	}
+	return nil, &NotLoadedError{edge: "support_ticket_attachments"}
+}
+
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[14] {
+	if e.loadedTypes[15] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -510,6 +521,11 @@ func (_m *User) QueryPlatformQuotas() *UserPlatformQuotaQuery {
 // QuerySupportTickets queries the "support_tickets" edge of the User entity.
 func (_m *User) QuerySupportTickets() *SupportTicketQuery {
 	return NewUserClient(_m.config).QuerySupportTickets(_m)
+}
+
+// QuerySupportTicketAttachments queries the "support_ticket_attachments" edge of the User entity.
+func (_m *User) QuerySupportTicketAttachments() *SupportTicketAttachmentQuery {
+	return NewUserClient(_m.config).QuerySupportTicketAttachments(_m)
 }
 
 // QueryUserAllowedGroups queries the "user_allowed_groups" edge of the User entity.

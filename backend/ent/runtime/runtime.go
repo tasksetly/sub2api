@@ -36,6 +36,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -1818,6 +1819,70 @@ func init() {
 	supportticket.DefaultUpdatedAt = supportticketDescUpdatedAt.Default.(func() time.Time)
 	// supportticket.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	supportticket.UpdateDefaultUpdatedAt = supportticketDescUpdatedAt.UpdateDefault.(func() time.Time)
+	supportticketattachmentFields := schema.SupportTicketAttachment{}.Fields()
+	_ = supportticketattachmentFields
+	// supportticketattachmentDescObjectKey is the schema descriptor for object_key field.
+	supportticketattachmentDescObjectKey := supportticketattachmentFields[3].Descriptor()
+	// supportticketattachment.ObjectKeyValidator is a validator for the "object_key" field. It is called by the builders before save.
+	supportticketattachment.ObjectKeyValidator = func() func(string) error {
+		validators := supportticketattachmentDescObjectKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(object_key string) error {
+			for _, fn := range fns {
+				if err := fn(object_key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// supportticketattachmentDescFileName is the schema descriptor for file_name field.
+	supportticketattachmentDescFileName := supportticketattachmentFields[4].Descriptor()
+	// supportticketattachment.FileNameValidator is a validator for the "file_name" field. It is called by the builders before save.
+	supportticketattachment.FileNameValidator = func() func(string) error {
+		validators := supportticketattachmentDescFileName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(file_name string) error {
+			for _, fn := range fns {
+				if err := fn(file_name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// supportticketattachmentDescContentType is the schema descriptor for content_type field.
+	supportticketattachmentDescContentType := supportticketattachmentFields[5].Descriptor()
+	// supportticketattachment.ContentTypeValidator is a validator for the "content_type" field. It is called by the builders before save.
+	supportticketattachment.ContentTypeValidator = func() func(string) error {
+		validators := supportticketattachmentDescContentType.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(content_type string) error {
+			for _, fn := range fns {
+				if err := fn(content_type); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// supportticketattachmentDescSizeBytes is the schema descriptor for size_bytes field.
+	supportticketattachmentDescSizeBytes := supportticketattachmentFields[6].Descriptor()
+	// supportticketattachment.SizeBytesValidator is a validator for the "size_bytes" field. It is called by the builders before save.
+	supportticketattachment.SizeBytesValidator = supportticketattachmentDescSizeBytes.Validators[0].(func(int64) error)
+	// supportticketattachmentDescCreatedAt is the schema descriptor for created_at field.
+	supportticketattachmentDescCreatedAt := supportticketattachmentFields[7].Descriptor()
+	// supportticketattachment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	supportticketattachment.DefaultCreatedAt = supportticketattachmentDescCreatedAt.Default.(func() time.Time)
 	supportticketmessageFields := schema.SupportTicketMessage{}.Fields()
 	_ = supportticketmessageFields
 	// supportticketmessageDescSenderRole is the schema descriptor for sender_role field.
@@ -1826,8 +1891,8 @@ func init() {
 	supportticketmessage.SenderRoleValidator = supportticketmessageDescSenderRole.Validators[0].(func(string) error)
 	// supportticketmessageDescContent is the schema descriptor for content field.
 	supportticketmessageDescContent := supportticketmessageFields[3].Descriptor()
-	// supportticketmessage.ContentValidator is a validator for the "content" field. It is called by the builders before save.
-	supportticketmessage.ContentValidator = supportticketmessageDescContent.Validators[0].(func(string) error)
+	// supportticketmessage.DefaultContent holds the default value on creation for the content field.
+	supportticketmessage.DefaultContent = supportticketmessageDescContent.Default.(string)
 	// supportticketmessageDescCreatedAt is the schema descriptor for created_at field.
 	supportticketmessageDescCreatedAt := supportticketmessageFields[4].Descriptor()
 	// supportticketmessage.DefaultCreatedAt holds the default value on creation for the created_at field.

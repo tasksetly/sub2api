@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
@@ -34,26 +35,27 @@ import (
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx                       *QueryContext
-	order                     []user.OrderOption
-	inters                    []Interceptor
-	predicates                []predicate.User
-	withAPIKeys               *APIKeyQuery
-	withRedeemCodes           *RedeemCodeQuery
-	withSubscriptions         *UserSubscriptionQuery
-	withAssignedSubscriptions *UserSubscriptionQuery
-	withAnnouncementReads     *AnnouncementReadQuery
-	withAllowedGroups         *GroupQuery
-	withUsageLogs             *UsageLogQuery
-	withAttributeValues       *UserAttributeValueQuery
-	withPromoCodeUsages       *PromoCodeUsageQuery
-	withPaymentOrders         *PaymentOrderQuery
-	withAuthIdentities        *AuthIdentityQuery
-	withPendingAuthSessions   *PendingAuthSessionQuery
-	withPlatformQuotas        *UserPlatformQuotaQuery
-	withSupportTickets        *SupportTicketQuery
-	withUserAllowedGroups     *UserAllowedGroupQuery
-	modifiers                 []func(*sql.Selector)
+	ctx                          *QueryContext
+	order                        []user.OrderOption
+	inters                       []Interceptor
+	predicates                   []predicate.User
+	withAPIKeys                  *APIKeyQuery
+	withRedeemCodes              *RedeemCodeQuery
+	withSubscriptions            *UserSubscriptionQuery
+	withAssignedSubscriptions    *UserSubscriptionQuery
+	withAnnouncementReads        *AnnouncementReadQuery
+	withAllowedGroups            *GroupQuery
+	withUsageLogs                *UsageLogQuery
+	withAttributeValues          *UserAttributeValueQuery
+	withPromoCodeUsages          *PromoCodeUsageQuery
+	withPaymentOrders            *PaymentOrderQuery
+	withAuthIdentities           *AuthIdentityQuery
+	withPendingAuthSessions      *PendingAuthSessionQuery
+	withPlatformQuotas           *UserPlatformQuotaQuery
+	withSupportTickets           *SupportTicketQuery
+	withSupportTicketAttachments *SupportTicketAttachmentQuery
+	withUserAllowedGroups        *UserAllowedGroupQuery
+	modifiers                    []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -398,6 +400,28 @@ func (_q *UserQuery) QuerySupportTickets() *SupportTicketQuery {
 	return query
 }
 
+// QuerySupportTicketAttachments chains the current query on the "support_ticket_attachments" edge.
+func (_q *UserQuery) QuerySupportTicketAttachments() *SupportTicketAttachmentQuery {
+	query := (&SupportTicketAttachmentClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(supportticketattachment.Table, supportticketattachment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SupportTicketAttachmentsTable, user.SupportTicketAttachmentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryUserAllowedGroups chains the current query on the "user_allowed_groups" edge.
 func (_q *UserQuery) QueryUserAllowedGroups() *UserAllowedGroupQuery {
 	query := (&UserAllowedGroupClient{config: _q.config}).Query()
@@ -607,26 +631,27 @@ func (_q *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:                    _q.config,
-		ctx:                       _q.ctx.Clone(),
-		order:                     append([]user.OrderOption{}, _q.order...),
-		inters:                    append([]Interceptor{}, _q.inters...),
-		predicates:                append([]predicate.User{}, _q.predicates...),
-		withAPIKeys:               _q.withAPIKeys.Clone(),
-		withRedeemCodes:           _q.withRedeemCodes.Clone(),
-		withSubscriptions:         _q.withSubscriptions.Clone(),
-		withAssignedSubscriptions: _q.withAssignedSubscriptions.Clone(),
-		withAnnouncementReads:     _q.withAnnouncementReads.Clone(),
-		withAllowedGroups:         _q.withAllowedGroups.Clone(),
-		withUsageLogs:             _q.withUsageLogs.Clone(),
-		withAttributeValues:       _q.withAttributeValues.Clone(),
-		withPromoCodeUsages:       _q.withPromoCodeUsages.Clone(),
-		withPaymentOrders:         _q.withPaymentOrders.Clone(),
-		withAuthIdentities:        _q.withAuthIdentities.Clone(),
-		withPendingAuthSessions:   _q.withPendingAuthSessions.Clone(),
-		withPlatformQuotas:        _q.withPlatformQuotas.Clone(),
-		withSupportTickets:        _q.withSupportTickets.Clone(),
-		withUserAllowedGroups:     _q.withUserAllowedGroups.Clone(),
+		config:                       _q.config,
+		ctx:                          _q.ctx.Clone(),
+		order:                        append([]user.OrderOption{}, _q.order...),
+		inters:                       append([]Interceptor{}, _q.inters...),
+		predicates:                   append([]predicate.User{}, _q.predicates...),
+		withAPIKeys:                  _q.withAPIKeys.Clone(),
+		withRedeemCodes:              _q.withRedeemCodes.Clone(),
+		withSubscriptions:            _q.withSubscriptions.Clone(),
+		withAssignedSubscriptions:    _q.withAssignedSubscriptions.Clone(),
+		withAnnouncementReads:        _q.withAnnouncementReads.Clone(),
+		withAllowedGroups:            _q.withAllowedGroups.Clone(),
+		withUsageLogs:                _q.withUsageLogs.Clone(),
+		withAttributeValues:          _q.withAttributeValues.Clone(),
+		withPromoCodeUsages:          _q.withPromoCodeUsages.Clone(),
+		withPaymentOrders:            _q.withPaymentOrders.Clone(),
+		withAuthIdentities:           _q.withAuthIdentities.Clone(),
+		withPendingAuthSessions:      _q.withPendingAuthSessions.Clone(),
+		withPlatformQuotas:           _q.withPlatformQuotas.Clone(),
+		withSupportTickets:           _q.withSupportTickets.Clone(),
+		withSupportTicketAttachments: _q.withSupportTicketAttachments.Clone(),
+		withUserAllowedGroups:        _q.withUserAllowedGroups.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -787,6 +812,17 @@ func (_q *UserQuery) WithSupportTickets(opts ...func(*SupportTicketQuery)) *User
 	return _q
 }
 
+// WithSupportTicketAttachments tells the query-builder to eager-load the nodes that are connected to
+// the "support_ticket_attachments" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithSupportTicketAttachments(opts ...func(*SupportTicketAttachmentQuery)) *UserQuery {
+	query := (&SupportTicketAttachmentClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSupportTicketAttachments = query
+	return _q
+}
+
 // WithUserAllowedGroups tells the query-builder to eager-load the nodes that are connected to
 // the "user_allowed_groups" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *UserQuery) WithUserAllowedGroups(opts ...func(*UserAllowedGroupQuery)) *UserQuery {
@@ -876,7 +912,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [16]bool{
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
@@ -891,6 +927,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			_q.withPendingAuthSessions != nil,
 			_q.withPlatformQuotas != nil,
 			_q.withSupportTickets != nil,
+			_q.withSupportTicketAttachments != nil,
 			_q.withUserAllowedGroups != nil,
 		}
 	)
@@ -1014,6 +1051,15 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadSupportTickets(ctx, query, nodes,
 			func(n *User) { n.Edges.SupportTickets = []*SupportTicket{} },
 			func(n *User, e *SupportTicket) { n.Edges.SupportTickets = append(n.Edges.SupportTickets, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSupportTicketAttachments; query != nil {
+		if err := _q.loadSupportTicketAttachments(ctx, query, nodes,
+			func(n *User) { n.Edges.SupportTicketAttachments = []*SupportTicketAttachment{} },
+			func(n *User, e *SupportTicketAttachment) {
+				n.Edges.SupportTicketAttachments = append(n.Edges.SupportTicketAttachments, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1482,6 +1528,36 @@ func (_q *UserQuery) loadSupportTickets(ctx context.Context, query *SupportTicke
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadSupportTicketAttachments(ctx context.Context, query *SupportTicketAttachmentQuery, nodes []*User, init func(*User), assign func(*User, *SupportTicketAttachment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(supportticketattachment.FieldUploaderID)
+	}
+	query.Where(predicate.SupportTicketAttachment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.SupportTicketAttachmentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UploaderID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "uploader_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

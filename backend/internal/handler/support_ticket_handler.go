@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Wei-Shaw/sub2api/internal/handler/ticketupload"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -27,7 +28,11 @@ type createSupportTicketRequest struct {
 }
 
 type supportTicketReplyRequest struct {
-	Content string `json:"content" binding:"required"`
+	Content string `json:"content"`
+}
+
+func (h *SupportTicketHandler) AttachmentPolicy(c *gin.Context) {
+	response.Success(c, h.service.AttachmentPolicy())
 }
 
 func (h *SupportTicketHandler) List(c *gin.Context) {
@@ -67,12 +72,25 @@ func (h *SupportTicketHandler) Create(c *gin.Context) {
 		return
 	}
 	var req createSupportTicketRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
+	var uploads []service.SupportTicketAttachmentUpload
+	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
+		var err error
+		uploads, err = ticketupload.Parse(c, h.service.AttachmentPolicy())
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		req = createSupportTicketRequest{
+			Subject: c.PostForm("subject"), Category: c.PostForm("category"), Priority: c.PostForm("priority"), Content: c.PostForm("content"),
+		}
+	} else {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.BadRequest(c, "Invalid request: "+err.Error())
+			return
+		}
 	}
 	item, err := h.service.CreateForUser(c.Request.Context(), subject.UserID, service.CreateSupportTicketInput{
-		Subject: req.Subject, Category: req.Category, Priority: req.Priority, Content: req.Content,
+		Subject: req.Subject, Category: req.Category, Priority: req.Priority, Content: req.Content, Attachments: uploads,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -87,11 +105,22 @@ func (h *SupportTicketHandler) Reply(c *gin.Context) {
 		return
 	}
 	var req supportTicketReplyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
+	var uploads []service.SupportTicketAttachmentUpload
+	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
+		var err error
+		uploads, err = ticketupload.Parse(c, h.service.AttachmentPolicy())
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		req.Content = c.PostForm("content")
+	} else {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.BadRequest(c, "Invalid request: "+err.Error())
+			return
+		}
 	}
-	item, err := h.service.ReplyAsUser(c.Request.Context(), userID, ticketID, req.Content)
+	item, err := h.service.ReplyAsUserWithAttachments(c.Request.Context(), userID, ticketID, req.Content, uploads)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

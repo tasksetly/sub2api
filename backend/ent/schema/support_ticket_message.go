@@ -25,7 +25,7 @@ func (SupportTicketMessage) Fields() []ent.Field {
 		field.Int64("ticket_id"),
 		field.Int64("sender_id"),
 		field.String("sender_role").MaxLen(16),
-		field.String("content").SchemaType(map[string]string{dialect.Postgres: "text"}).NotEmpty(),
+		field.String("content").SchemaType(map[string]string{dialect.Postgres: "text"}).Default(""),
 		field.Time("created_at").Immutable().Default(time.Now).SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 	}
 }
@@ -33,6 +33,7 @@ func (SupportTicketMessage) Fields() []ent.Field {
 func (SupportTicketMessage) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("ticket", SupportTicket.Type).Ref("messages").Field("ticket_id").Unique().Required(),
+		edge.To("attachments", SupportTicketAttachment.Type),
 	}
 }
 

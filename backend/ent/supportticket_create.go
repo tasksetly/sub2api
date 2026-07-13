@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/supportticket"
+	"github.com/Wei-Shaw/sub2api/ent/supportticketattachment"
 	"github.com/Wei-Shaw/sub2api/ent/supportticketmessage"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 )
@@ -180,6 +181,21 @@ func (_c *SupportTicketCreate) AddMessages(v ...*SupportTicketMessage) *SupportT
 		ids[i] = v[i].ID
 	}
 	return _c.AddMessageIDs(ids...)
+}
+
+// AddAttachmentIDs adds the "attachments" edge to the SupportTicketAttachment entity by IDs.
+func (_c *SupportTicketCreate) AddAttachmentIDs(ids ...int64) *SupportTicketCreate {
+	_c.mutation.AddAttachmentIDs(ids...)
+	return _c
+}
+
+// AddAttachments adds the "attachments" edges to the SupportTicketAttachment entity.
+func (_c *SupportTicketCreate) AddAttachments(v ...*SupportTicketAttachment) *SupportTicketCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAttachmentIDs(ids...)
 }
 
 // Mutation returns the SupportTicketMutation object of the builder.
@@ -399,6 +415,22 @@ func (_c *SupportTicketCreate) createSpec() (*SupportTicket, *sqlgraph.CreateSpe
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(supportticketmessage.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AttachmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   supportticket.AttachmentsTable,
+			Columns: []string{supportticket.AttachmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(supportticketattachment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

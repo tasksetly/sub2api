@@ -26,6 +26,8 @@ const (
 	FieldCreatedAt = "created_at"
 	// EdgeTicket holds the string denoting the ticket edge name in mutations.
 	EdgeTicket = "ticket"
+	// EdgeAttachments holds the string denoting the attachments edge name in mutations.
+	EdgeAttachments = "attachments"
 	// Table holds the table name of the supportticketmessage in the database.
 	Table = "support_ticket_messages"
 	// TicketTable is the table that holds the ticket relation/edge.
@@ -35,6 +37,13 @@ const (
 	TicketInverseTable = "support_tickets"
 	// TicketColumn is the table column denoting the ticket relation/edge.
 	TicketColumn = "ticket_id"
+	// AttachmentsTable is the table that holds the attachments relation/edge.
+	AttachmentsTable = "support_ticket_attachments"
+	// AttachmentsInverseTable is the table name for the SupportTicketAttachment entity.
+	// It exists in this package in order to avoid circular dependency with the "supportticketattachment" package.
+	AttachmentsInverseTable = "support_ticket_attachments"
+	// AttachmentsColumn is the table column denoting the attachments relation/edge.
+	AttachmentsColumn = "message_id"
 )
 
 // Columns holds all SQL columns for supportticketmessage fields.
@@ -60,8 +69,8 @@ func ValidColumn(column string) bool {
 var (
 	// SenderRoleValidator is a validator for the "sender_role" field. It is called by the builders before save.
 	SenderRoleValidator func(string) error
-	// ContentValidator is a validator for the "content" field. It is called by the builders before save.
-	ContentValidator func(string) error
+	// DefaultContent holds the default value on creation for the "content" field.
+	DefaultContent string
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -105,10 +114,31 @@ func ByTicketField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newTicketStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByAttachmentsCount orders the results by attachments count.
+func ByAttachmentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAttachmentsStep(), opts...)
+	}
+}
+
+// ByAttachments orders the results by attachments terms.
+func ByAttachments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAttachmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newTicketStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TicketInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, TicketTable, TicketColumn),
+	)
+}
+func newAttachmentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AttachmentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AttachmentsTable, AttachmentsColumn),
 	)
 }

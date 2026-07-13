@@ -74,6 +74,8 @@ type Tx struct {
 	SubscriptionPlan *SubscriptionPlanClient
 	// SupportTicket is the client for interacting with the SupportTicket builders.
 	SupportTicket *SupportTicketClient
+	// SupportTicketAttachment is the client for interacting with the SupportTicketAttachment builders.
+	SupportTicketAttachment *SupportTicketAttachmentClient
 	// SupportTicketMessage is the client for interacting with the SupportTicketMessage builders.
 	SupportTicketMessage *SupportTicketMessageClient
 	// TLSFingerprintProfile is the client for interacting with the TLSFingerprintProfile builders.
@@ -255,6 +257,7 @@ func (tx *Tx) init() {
 	tx.Setting = NewSettingClient(tx.config)
 	tx.SubscriptionPlan = NewSubscriptionPlanClient(tx.config)
 	tx.SupportTicket = NewSupportTicketClient(tx.config)
+	tx.SupportTicketAttachment = NewSupportTicketAttachmentClient(tx.config)
 	tx.SupportTicketMessage = NewSupportTicketMessageClient(tx.config)
 	tx.TLSFingerprintProfile = NewTLSFingerprintProfileClient(tx.config)
 	tx.UsageCleanupTask = NewUsageCleanupTaskClient(tx.config)

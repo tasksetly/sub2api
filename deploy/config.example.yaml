@@ -1134,3 +1134,22 @@ update:
   # Leave empty for direct connection (recommended for overseas servers)
   # 留空表示直连（适用于海外服务器）
   proxy_url: ""
+
+# =============================================================================
+# Support Ticket Image Attachments (S3-Compatible / Cloudflare R2)
+# 工单图片附件（兼容 S3 / Cloudflare R2）
+# =============================================================================
+support_ticket:
+  attachments:
+    enabled: false
+    # R2 example: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    endpoint: ""
+    region: "auto"
+    bucket: ""
+    access_key_id: ""
+    secret_access_key: ""
+    prefix: "support-tickets"
+    force_path_style: true
+    max_file_size_mb: 10
+    max_attachments_per_message: 4
+    url_expiry_minutes: 15

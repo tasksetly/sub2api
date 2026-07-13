@@ -165,7 +165,11 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	announcementService := service.NewAnnouncementService(announcementRepository, announcementReadRepository, userRepository, userSubscriptionRepository)
 	announcementHandler := handler.NewAnnouncementHandler(announcementService)
 	supportTicketRepository := repository.NewSupportTicketRepository(client)
-	supportTicketService := service.NewSupportTicketService(supportTicketRepository)
+	supportTicketAttachmentStore, err := repository.NewSupportTicketAttachmentStore(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	supportTicketService := service.NewSupportTicketService(supportTicketRepository, supportTicketAttachmentStore, configConfig)
 	supportTicketHandler := handler.NewSupportTicketHandler(supportTicketService)
 	channelMonitorRepository := repository.NewChannelMonitorRepository(client, db)
 	channelMonitorService := service.ProvideChannelMonitorService(channelMonitorRepository, secretEncryptor)

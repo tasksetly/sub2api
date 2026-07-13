@@ -52,9 +52,11 @@ type SupportTicketEdges struct {
 	User *User `json:"user,omitempty"`
 	// Messages holds the value of the messages edge.
 	Messages []*SupportTicketMessage `json:"messages,omitempty"`
+	// Attachments holds the value of the attachments edge.
+	Attachments []*SupportTicketAttachment `json:"attachments,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -75,6 +77,15 @@ func (e SupportTicketEdges) MessagesOrErr() ([]*SupportTicketMessage, error) {
 		return e.Messages, nil
 	}
 	return nil, &NotLoadedError{edge: "messages"}
+}
+
+// AttachmentsOrErr returns the Attachments value or an error if the edge
+// was not loaded in eager-loading.
+func (e SupportTicketEdges) AttachmentsOrErr() ([]*SupportTicketAttachment, error) {
+	if e.loadedTypes[2] {
+		return e.Attachments, nil
+	}
+	return nil, &NotLoadedError{edge: "attachments"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -199,6 +210,11 @@ func (_m *SupportTicket) QueryUser() *UserQuery {
 // QueryMessages queries the "messages" edge of the SupportTicket entity.
 func (_m *SupportTicket) QueryMessages() *SupportTicketMessageQuery {
 	return NewSupportTicketClient(_m.config).QueryMessages(_m)
+}
+
+// QueryAttachments queries the "attachments" edge of the SupportTicket entity.
+func (_m *SupportTicket) QueryAttachments() *SupportTicketAttachmentQuery {
+	return NewSupportTicketClient(_m.config).QueryAttachments(_m)
 }
 
 // Update returns a builder for updating this SupportTicket.
