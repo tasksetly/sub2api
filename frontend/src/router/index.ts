@@ -231,6 +231,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/tickets',
+    name: 'Tickets',
+    component: () => import('@/views/user/TicketsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Support Tickets',
+      titleKey: 'tickets.title',
+      descriptionKey: 'tickets.description'
+    }
+  },
+  {
     path: '/redeem',
     name: 'Redeem',
     component: () => import('@/views/user/RedeemView.vue'),
@@ -512,6 +524,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Announcements',
       titleKey: 'admin.announcements.title',
       descriptionKey: 'admin.announcements.description'
+    }
+  },
+  {
+    path: '/admin/tickets',
+    name: 'AdminTickets',
+    component: () => import('@/views/admin/TicketsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Support Tickets',
+      titleKey: 'tickets.adminTitle',
+      descriptionKey: 'tickets.adminDescription'
     }
   },
   {

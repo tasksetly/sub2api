@@ -99,11 +99,13 @@ type UserEdges struct {
 	PendingAuthSessions []*PendingAuthSession `json:"pending_auth_sessions,omitempty"`
 	// PlatformQuotas holds the value of the platform_quotas edge.
 	PlatformQuotas []*UserPlatformQuota `json:"platform_quotas,omitempty"`
+	// SupportTickets holds the value of the support_tickets edge.
+	SupportTickets []*SupportTicket `json:"support_tickets,omitempty"`
 	// UserAllowedGroups holds the value of the user_allowed_groups edge.
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [14]bool
+	loadedTypes [15]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -223,10 +225,19 @@ func (e UserEdges) PlatformQuotasOrErr() ([]*UserPlatformQuota, error) {
 	return nil, &NotLoadedError{edge: "platform_quotas"}
 }
 
+// SupportTicketsOrErr returns the SupportTickets value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) SupportTicketsOrErr() ([]*SupportTicket, error) {
+	if e.loadedTypes[13] {
+		return e.SupportTickets, nil
+	}
+	return nil, &NotLoadedError{edge: "support_tickets"}
+}
+
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[14] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -494,6 +505,11 @@ func (_m *User) QueryPendingAuthSessions() *PendingAuthSessionQuery {
 // QueryPlatformQuotas queries the "platform_quotas" edge of the User entity.
 func (_m *User) QueryPlatformQuotas() *UserPlatformQuotaQuery {
 	return NewUserClient(_m.config).QueryPlatformQuotas(_m)
+}
+
+// QuerySupportTickets queries the "support_tickets" edge of the User entity.
+func (_m *User) QuerySupportTickets() *SupportTicketQuery {
+	return NewUserClient(_m.config).QuerySupportTickets(_m)
 }
 
 // QueryUserAllowedGroups queries the "user_allowed_groups" edge of the User entity.

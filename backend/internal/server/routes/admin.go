@@ -38,6 +38,9 @@ func RegisterAdminRoutes(
 		// 公告管理
 		registerAnnouncementRoutes(admin, h)
 
+		// 工单管理
+		registerSupportTicketRoutes(admin, h)
+
 		// OpenAI OAuth
 		registerOpenAIOAuthRoutes(admin, h)
 
@@ -357,6 +360,16 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		announcements.PUT("/:id", h.Admin.Announcement.Update)
 		announcements.DELETE("/:id", h.Admin.Announcement.Delete)
 		announcements.GET("/:id/read-status", h.Admin.Announcement.ListReadStatus)
+	}
+}
+
+func registerSupportTicketRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	tickets := admin.Group("/tickets")
+	{
+		tickets.GET("", h.Admin.SupportTicket.List)
+		tickets.GET("/:id", h.Admin.SupportTicket.Get)
+		tickets.POST("/:id/messages", h.Admin.SupportTicket.Reply)
+		tickets.PUT("/:id", h.Admin.SupportTicket.Update)
 	}
 }
 
