@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"path"
 	"strings"
@@ -141,8 +142,14 @@ type SupportTicketRepository interface {
 
 type SupportTicketAttachmentStore interface {
 	Upload(ctx context.Context, key string, body io.Reader, size int64, contentType string) error
+	Download(ctx context.Context, key string) (io.ReadCloser, error)
 	Delete(ctx context.Context, key string) error
 	PresignURL(ctx context.Context, key string, expiry time.Duration) (string, error)
+}
+
+type SupportTicketAttachmentDownload struct {
+	Attachment SupportTicketAttachment
+	Body       io.ReadCloser
 }
 
 type SupportTicketService struct {
@@ -263,6 +270,25 @@ func (s *SupportTicketService) GetForAdmin(ctx context.Context, ticketID int64) 
 	}
 	s.hydrateAttachmentURLs(ctx, ticket)
 	return ticket, nil
+}
+
+func (s *SupportTicketService) DownloadAttachmentForUser(ctx context.Context, userID, ticketID, attachmentID int64) (*SupportTicketAttachmentDownload, error) {
+	ticket, err := s.repo.GetByID(ctx, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	if ticket.UserID != userID {
+		return nil, ErrSupportTicketNotFound
+	}
+	return s.downloadAttachment(ctx, ticket, attachmentID)
+}
+
+func (s *SupportTicketService) DownloadAttachmentForAdmin(ctx context.Context, ticketID, attachmentID int64) (*SupportTicketAttachmentDownload, error) {
+	ticket, err := s.repo.GetByID(ctx, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	return s.downloadAttachment(ctx, ticket, attachmentID)
 }
 
 func (s *SupportTicketService) ReplyAsUser(ctx context.Context, userID, ticketID int64, content string) (*SupportTicket, error) {
@@ -428,6 +454,7 @@ func (s *SupportTicketService) uploadAttachments(ctx context.Context, uploaderID
 	if len(uploads) == 0 {
 		return nil, nil
 	}
+	slog.Info("support_ticket_attachment upload_started", "uploader_id", uploaderID, "attachment_count", len(uploads))
 	policy := s.AttachmentPolicy()
 	if !policy.Enabled {
 		return nil, ErrSupportTicketAttachmentsDisabled
@@ -439,29 +466,36 @@ func (s *SupportTicketService) uploadAttachments(ctx context.Context, uploaderID
 	attachments := make([]SupportTicketAttachment, 0, len(uploads))
 	for _, upload := range uploads {
 		if int64(len(upload.Data)) == 0 || int64(len(upload.Data)) > policy.MaxFileSizeBytes {
+			slog.Warn("support_ticket_attachment rejected_size", "uploader_id", uploaderID, "size_bytes", len(upload.Data), "max_size_bytes", policy.MaxFileSizeBytes)
 			s.deleteAttachments(ctx, attachments)
 			return nil, ErrSupportTicketAttachmentTooLarge
 		}
 		contentType := http.DetectContentType(upload.Data)
 		extension, ok := supportTicketImageExtension(contentType)
 		if !ok {
+			slog.Warn("support_ticket_attachment rejected_content_type", "uploader_id", uploaderID, "content_type", contentType, "size_bytes", len(upload.Data))
 			s.deleteAttachments(ctx, attachments)
 			return nil, ErrSupportTicketAttachmentType
 		}
 		objectKey, err := s.newAttachmentObjectKey(uploaderID, extension, createdAt)
 		if err != nil {
+			slog.Error("support_ticket_attachment object_key_generation_failed", "uploader_id", uploaderID, "error", err)
 			s.deleteAttachments(ctx, attachments)
 			return nil, ErrSupportTicketAttachmentUpload
 		}
+		slog.Info("support_ticket_attachment upload_attempt", "uploader_id", uploaderID, "object_key", objectKey, "content_type", contentType, "size_bytes", len(upload.Data))
 		if err := s.attachmentStore.Upload(ctx, objectKey, bytes.NewReader(upload.Data), int64(len(upload.Data)), contentType); err != nil {
+			slog.Error("support_ticket_attachment upload_failed", "uploader_id", uploaderID, "object_key", objectKey, "content_type", contentType, "size_bytes", len(upload.Data), "error", err)
 			s.deleteAttachments(ctx, attachments)
 			return nil, fmt.Errorf("%w: %v", ErrSupportTicketAttachmentUpload, err)
 		}
+		slog.Info("support_ticket_attachment upload_succeeded", "uploader_id", uploaderID, "object_key", objectKey, "content_type", contentType, "size_bytes", len(upload.Data))
 		attachments = append(attachments, SupportTicketAttachment{
 			UploaderID: uploaderID, ObjectKey: objectKey, FileName: normalizeAttachmentFileName(upload.FileName, extension),
 			ContentType: contentType, SizeBytes: int64(len(upload.Data)), CreatedAt: createdAt,
 		})
 	}
+	slog.Info("support_ticket_attachment upload_completed", "uploader_id", uploaderID, "attachment_count", len(attachments))
 	return attachments, nil
 }
 
@@ -470,8 +504,29 @@ func (s *SupportTicketService) deleteAttachments(ctx context.Context, attachment
 		return
 	}
 	for _, attachment := range attachments {
-		_ = s.attachmentStore.Delete(ctx, attachment.ObjectKey)
+		if err := s.attachmentStore.Delete(ctx, attachment.ObjectKey); err != nil {
+			slog.Error("support_ticket_attachment cleanup_failed", "object_key", attachment.ObjectKey, "error", err)
+		}
 	}
+}
+
+func (s *SupportTicketService) downloadAttachment(ctx context.Context, ticket *SupportTicket, attachmentID int64) (*SupportTicketAttachmentDownload, error) {
+	if ticket == nil || s.attachmentStore == nil || !s.attachmentCfg.Enabled {
+		return nil, ErrSupportTicketNotFound
+	}
+	for _, message := range ticket.Messages {
+		for _, attachment := range message.Attachments {
+			if attachment.ID != attachmentID {
+				continue
+			}
+			body, err := s.attachmentStore.Download(ctx, attachment.ObjectKey)
+			if err != nil {
+				return nil, fmt.Errorf("download support ticket attachment: %w", err)
+			}
+			return &SupportTicketAttachmentDownload{Attachment: attachment, Body: body}, nil
+		}
+	}
+	return nil, ErrSupportTicketNotFound
 }
 
 func (s *SupportTicketService) hydrateAttachmentURLs(ctx context.Context, ticket *SupportTicket) {

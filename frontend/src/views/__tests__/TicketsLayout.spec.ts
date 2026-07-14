@@ -29,4 +29,10 @@ describe('ticket page layout integration', () => {
     expect(workspace).toContain('message.attachments')
     expect(workspace).toContain('attachmentPolicy.enabled')
   })
+
+  it('loads attachment previews through the authenticated ticket API and exposes downloads', () => {
+    expect(workspace).toContain('loadAttachmentPreviews(ticket)')
+    expect(workspace).toContain('downloadTicketAttachment(attachment)')
+    expect(workspace).toContain('name="download"')
+  })
 })

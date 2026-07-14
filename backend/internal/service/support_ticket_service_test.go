@@ -74,6 +74,14 @@ func (s *supportTicketAttachmentStoreStub) Upload(_ context.Context, key string,
 	return nil
 }
 
+func (s *supportTicketAttachmentStoreStub) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	data, ok := s.uploads[key]
+	if !ok {
+		return nil, ErrSupportTicketNotFound
+	}
+	return io.NopCloser(strings.NewReader(string(data))), nil
+}
+
 func (s *supportTicketAttachmentStoreStub) Delete(_ context.Context, key string) error {
 	delete(s.uploads, key)
 	s.deleted = append(s.deleted, key)
@@ -187,6 +195,14 @@ func TestSupportTicketAllowsImageOnlyMessageWhenStorageConfigured(t *testing.T) 
 	require.True(t, strings.HasPrefix(attachment.ObjectKey, "support-tickets/"))
 	require.True(t, strings.HasPrefix(attachment.URL, "https://r2.example.test/"))
 	require.Len(t, store.uploads, 1)
+
+	download, err := svc.DownloadAttachmentForUser(context.Background(), 7, ticket.ID, attachment.ID)
+	require.NoError(t, err)
+	defer download.Body.Close()
+	body, err := io.ReadAll(download.Body)
+	require.NoError(t, err)
+	require.Equal(t, []byte("\x89PNG\r\n\x1a\nimage"), body)
+	require.Equal(t, attachment.FileName, download.Attachment.FileName)
 }
 
 func TestSupportTicketRejectsAttachmentWhenStorageDisabled(t *testing.T) {

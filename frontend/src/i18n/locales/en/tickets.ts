@@ -26,6 +26,8 @@ export default {
     attachmentTooLarge: 'Images cannot exceed {size} MB',
     attachmentTooMany: 'You can attach up to {count} images to each message',
     attachmentUnavailable: 'Image preview is temporarily unavailable',
+    downloadAttachment: 'Download image',
+    attachmentDownloadFailed: 'Failed to download image',
     removeAttachment: 'Remove image',
     closeTicket: 'Close ticket',
     closeConfirm: 'You cannot reply after closing this ticket. Close it now?',

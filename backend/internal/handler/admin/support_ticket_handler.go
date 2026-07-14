@@ -1,6 +1,10 @@
 package admin
 
 import (
+	"encoding/json"
+	"log/slog"
+	"mime"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -21,7 +25,8 @@ func NewSupportTicketHandler(ticketService *service.SupportTicketService) *Suppo
 }
 
 type adminSupportTicketReplyRequest struct {
-	Content string `json:"content"`
+	Content     string          `json:"content"`
+	Attachments json.RawMessage `json:"attachments"`
 }
 
 func (h *SupportTicketHandler) AttachmentPolicy(c *gin.Context) {
@@ -58,6 +63,26 @@ func (h *SupportTicketHandler) Get(c *gin.Context) {
 	response.Success(c, item)
 }
 
+func (h *SupportTicketHandler) DownloadAttachment(c *gin.Context) {
+	ticketID, ok := adminSupportTicketID(c)
+	if !ok {
+		return
+	}
+	attachmentID, err := strconv.ParseInt(c.Param("attachmentID"), 10, 64)
+	if err != nil || attachmentID <= 0 {
+		response.BadRequest(c, "Invalid support ticket attachment ID")
+		return
+	}
+	download, err := h.service.DownloadAttachmentForAdmin(c.Request.Context(), ticketID, attachmentID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	defer download.Body.Close()
+	fileName := mime.FormatMediaType("attachment", map[string]string{"filename": download.Attachment.FileName})
+	c.DataFromReader(http.StatusOK, download.Attachment.SizeBytes, download.Attachment.ContentType, download.Body, map[string]string{"Content-Disposition": fileName})
+}
+
 func (h *SupportTicketHandler) Reply(c *gin.Context) {
 	ticketID, ok := adminSupportTicketID(c)
 	if !ok {
@@ -69,13 +94,20 @@ func (h *SupportTicketHandler) Reply(c *gin.Context) {
 		var err error
 		uploads, err = ticketupload.Parse(c, h.service.AttachmentPolicy())
 		if err != nil {
+			slog.Warn("support_ticket_attachment multipart_parse_failed", "ticket_id", ticketID, "operation", "admin_reply", "error", err)
 			response.ErrorFrom(c, err)
 			return
 		}
+		slog.Info("support_ticket_attachment multipart_parsed", "ticket_id", ticketID, "operation", "admin_reply", "attachment_count", len(uploads))
 		req.Content = c.PostForm("content")
 	} else {
+		slog.Info("support_ticket_attachment request_not_multipart", "ticket_id", ticketID, "operation", "admin_reply", "content_type", c.ContentType(), "content_length", c.Request.ContentLength)
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.BadRequest(c, "Invalid request: "+err.Error())
+			return
+		}
+		if hasJSONAttachments(req.Attachments) {
+			response.BadRequest(c, "Support ticket attachments must be sent as multipart/form-data")
 			return
 		}
 	}
@@ -133,4 +165,9 @@ func adminSupportTicketFiltersFromQuery(c *gin.Context) service.SupportTicketLis
 		Status: strings.TrimSpace(c.Query("status")), Category: strings.TrimSpace(c.Query("category")),
 		Priority: strings.TrimSpace(c.Query("priority")), Search: search,
 	}
+}
+
+func hasJSONAttachments(attachments json.RawMessage) bool {
+	trimmed := strings.TrimSpace(string(attachments))
+	return trimmed != "" && trimmed != "null"
 }

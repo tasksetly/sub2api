@@ -29,6 +29,13 @@ export async function getAttachmentPolicy(): Promise<SupportTicketAttachmentPoli
   return data
 }
 
+export async function downloadAttachment(ticketID: number, attachmentID: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/admin/tickets/${ticketID}/attachments/${attachmentID}`, {
+    responseType: 'blob'
+  })
+  return data
+}
+
 export async function replyTicket(id: number, content: string, attachments: File[] = []): Promise<SupportTicket> {
   let body: FormData | { content: string } = { content }
   if (attachments.length > 0) {
@@ -52,6 +59,7 @@ export async function updateTicket(
 export default {
   list: listTickets,
   attachmentPolicy: getAttachmentPolicy,
+  downloadAttachment,
   get: getTicket,
   reply: replyTicket,
   update: updateTicket

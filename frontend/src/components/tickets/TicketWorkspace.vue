@@ -153,23 +153,25 @@
                     :class="message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'"
                   >
                     <template v-for="attachment in message.attachments" :key="attachment.id">
-                      <a
-                        v-if="attachment.url"
-                        :href="attachment.url"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="block min-w-0 overflow-hidden rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/80 dark:bg-dark-950"
-                        :title="attachment.file_name"
-                      >
+                      <div class="group relative min-w-0 overflow-hidden rounded-md bg-gray-100 dark:bg-dark-950">
                         <img
-                          :src="attachment.url"
+                          v-if="attachmentPreviewURLs[attachment.id]"
+                          :src="attachmentPreviewURLs[attachment.id]"
                           :alt="attachment.file_name"
                           class="aspect-[4/3] h-full max-h-72 w-full object-cover transition-opacity hover:opacity-90"
                           loading="lazy"
                         >
-                      </a>
-                      <div v-else class="flex aspect-[4/3] items-center justify-center rounded-md bg-gray-100 px-3 text-center text-xs text-gray-500 dark:bg-dark-950 dark:text-gray-400">
-                        {{ t('tickets.attachmentUnavailable') }}
+                        <div v-else class="flex aspect-[4/3] items-center justify-center px-3 text-center text-xs text-gray-500 dark:text-gray-400">
+                          {{ t('tickets.attachmentUnavailable') }}
+                        </div>
+                        <button
+                          type="button"
+                          class="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded bg-black/65 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                          :title="t('tickets.downloadAttachment')"
+                          @click="downloadTicketAttachment(attachment)"
+                        >
+                          <Icon name="download" size="sm" />
+                        </button>
                       </div>
                     </template>
                   </div>
@@ -293,6 +295,7 @@ import { useAppStore } from '@/stores/app'
 import type {
   CreateSupportTicketRequest,
   SupportTicket,
+  SupportTicketAttachment,
   SupportTicketAttachmentPolicy,
   SupportTicketCategory,
   SupportTicketFilters,
@@ -322,6 +325,7 @@ const replyContent = ref('')
 type PendingAttachment = { file: File; previewUrl: string }
 const replyFiles = reactive<PendingAttachment[]>([])
 const createFiles = reactive<PendingAttachment[]>([])
+const attachmentPreviewURLs = reactive<Record<number, string>>({})
 const replyFileInput = ref<HTMLInputElement | null>(null)
 const createFileInput = ref<HTMLInputElement | null>(null)
 const attachmentPolicy = reactive<SupportTicketAttachmentPolicy>({ enabled: false, max_file_size_bytes: 10 * 1024 * 1024, max_attachments_per_message: 4 })
@@ -378,7 +382,10 @@ async function selectTicket(id: number) {
   clearPendingFiles(replyFiles)
   loadingDetail.value = true
   try {
-    selectedTicket.value = isAdmin.value ? await adminTicketsAPI.get(id) : await ticketsAPI.get(id)
+    clearAttachmentPreviews()
+    const ticket = isAdmin.value ? await adminTicketsAPI.get(id) : await ticketsAPI.get(id)
+    selectedTicket.value = ticket
+    loadAttachmentPreviews(ticket)
     adminStatus.value = selectedTicket.value.status
     adminPriority.value = selectedTicket.value.priority
     const row = tickets.value.find((item) => item.id === id)
@@ -398,9 +405,12 @@ async function sendReply() {
   if (!selectedTicket.value || (!replyContent.value.trim() && replyFiles.length === 0) || sending.value) return
   sending.value = true
   try {
-    selectedTicket.value = isAdmin.value
+    const ticket = isAdmin.value
       ? await adminTicketsAPI.reply(selectedTicket.value.id, replyContent.value.trim(), replyFiles.map((item) => item.file))
       : await ticketsAPI.reply(selectedTicket.value.id, replyContent.value.trim(), replyFiles.map((item) => item.file))
+    selectedTicket.value = ticket
+    clearAttachmentPreviews()
+    loadAttachmentPreviews(ticket)
     replyContent.value = ''
     clearPendingFiles(replyFiles)
     adminStatus.value = selectedTicket.value.status
@@ -523,6 +533,48 @@ function clearPendingFiles(target: PendingAttachment[]) {
   target.splice(0)
 }
 
+async function loadAttachmentPreview(ticketID: number, attachment: SupportTicketAttachment) {
+  if (attachmentPreviewURLs[attachment.id]) return
+  try {
+    const blob = isAdmin.value
+      ? await adminTicketsAPI.downloadAttachment(ticketID, attachment.id)
+      : await ticketsAPI.downloadAttachment(ticketID, attachment.id)
+    attachmentPreviewURLs[attachment.id] = URL.createObjectURL(blob)
+  } catch {
+    // The message still exposes a download action; avoid failing the whole ticket view for one object.
+  }
+}
+
+function loadAttachmentPreviews(ticket: SupportTicket) {
+  for (const message of ticket.messages || []) {
+    for (const attachment of message.attachments || []) {
+      void loadAttachmentPreview(ticket.id, attachment)
+    }
+  }
+}
+
+async function downloadTicketAttachment(attachment: SupportTicketAttachment) {
+  if (!selectedTicket.value) return
+  try {
+    const blob = isAdmin.value
+      ? await adminTicketsAPI.downloadAttachment(selectedTicket.value.id, attachment.id)
+      : await ticketsAPI.downloadAttachment(selectedTicket.value.id, attachment.id)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = attachment.file_name
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('tickets.attachmentDownloadFailed')))
+  }
+}
+
+function clearAttachmentPreviews() {
+  Object.values(attachmentPreviewURLs).forEach((url) => URL.revokeObjectURL(url))
+  Object.keys(attachmentPreviewURLs).forEach((key) => delete attachmentPreviewURLs[Number(key)])
+}
+
 function closeCreateDialog() {
   showCreateDialog.value = false
   clearPendingFiles(createFiles)
@@ -582,6 +634,7 @@ onMounted(() => Promise.all([loadTickets(), loadAttachmentPolicy()]))
 onBeforeUnmount(() => {
   clearPendingFiles(replyFiles)
   clearPendingFiles(createFiles)
+  clearAttachmentPreviews()
 })
 </script>
 

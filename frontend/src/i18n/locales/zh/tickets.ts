@@ -26,6 +26,8 @@ export default {
     attachmentTooLarge: '图片不能超过 {size} MB',
     attachmentTooMany: '每条消息最多上传 {count} 张图片',
     attachmentUnavailable: '图片暂时无法预览',
+    downloadAttachment: '下载图片',
+    attachmentDownloadFailed: '下载图片失败',
     removeAttachment: '移除图片',
     closeTicket: '关闭工单',
     closeConfirm: '关闭后将不能继续回复，确定关闭这个工单吗？',

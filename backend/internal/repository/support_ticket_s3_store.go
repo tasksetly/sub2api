@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ type supportTicketS3Store struct {
 
 func NewSupportTicketAttachmentStore(cfg *config.Config) (service.SupportTicketAttachmentStore, error) {
 	if cfg == nil || !cfg.SupportTicket.Attachments.Enabled {
+		slog.Info("support_ticket_attachment storage_disabled")
 		return nil, nil
 	}
 	storageCfg := cfg.SupportTicket.Attachments
@@ -54,6 +56,7 @@ func NewSupportTicketAttachmentStore(cfg *config.Config) (service.SupportTicketA
 		options.APIOptions = append(options.APIOptions, v4.SwapComputePayloadSHA256ForUnsignedPayloadMiddleware)
 		options.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
 	})
+	slog.Info("support_ticket_attachment storage_initialized", "endpoint", storageCfg.Endpoint, "bucket", storageCfg.Bucket, "region", region, "force_path_style", storageCfg.ForcePathStyle)
 	return &supportTicketS3Store{client: client, presignClient: s3.NewPresignClient(client), bucket: storageCfg.Bucket}, nil
 }
 
@@ -65,6 +68,14 @@ func (s *supportTicketS3Store) Upload(ctx context.Context, key string, body io.R
 		return fmt.Errorf("S3 PutObject: %w", err)
 	}
 	return nil
+}
+
+func (s *supportTicketS3Store) Download(ctx context.Context, key string) (io.ReadCloser, error) {
+	result, err := s.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	if err != nil {
+		return nil, fmt.Errorf("S3 GetObject: %w", err)
+	}
+	return result.Body, nil
 }
 
 func (s *supportTicketS3Store) Delete(ctx context.Context, key string) error {

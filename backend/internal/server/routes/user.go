@@ -108,6 +108,7 @@ func RegisterUserRoutes(
 			tickets.POST("", h.SupportTicket.Create)
 			tickets.GET("/attachment-policy", h.SupportTicket.AttachmentPolicy)
 			tickets.GET("/:id", h.SupportTicket.Get)
+			tickets.GET("/:id/attachments/:attachmentID", h.SupportTicket.DownloadAttachment)
 			tickets.POST("/:id/messages", h.SupportTicket.Reply)
 			tickets.POST("/:id/close", h.SupportTicket.Close)
 			tickets.POST("/:id/reopen", h.SupportTicket.Reopen)

@@ -35,6 +35,13 @@ export async function getAttachmentPolicy(): Promise<SupportTicketAttachmentPoli
   return data
 }
 
+export async function downloadAttachment(ticketID: number, attachmentID: number): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/tickets/${ticketID}/attachments/${attachmentID}`, {
+    responseType: 'blob'
+  })
+  return data
+}
+
 export async function createTicket(request: CreateSupportTicketRequest, attachments: File[] = []): Promise<SupportTicket> {
   const body = attachments.length > 0 ? ticketFormData(request, attachments) : request
   const { data } = await apiClient.post<SupportTicket>('/tickets', body)
@@ -60,6 +67,7 @@ export async function reopenTicket(id: number): Promise<SupportTicket> {
 export const ticketsAPI = {
   list: listTickets,
   attachmentPolicy: getAttachmentPolicy,
+  downloadAttachment,
   get: getTicket,
   create: createTicket,
   reply: replyTicket,
