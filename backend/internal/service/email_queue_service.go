@@ -13,24 +13,31 @@ import (
 const (
 	TaskTypeVerifyCode    = "verify_code"
 	TaskTypePasswordReset = "password_reset"
+	TaskTypeNotification  = "notification"
 )
 
 // EmailTask 邮件发送任务
 type EmailTask struct {
-	Email    string
-	SiteName string
-	TaskType string // "verify_code" or "password_reset"
-	ResetURL string // Only used for password_reset task type
-	Locale   string // Optional Accept-Language locale hint
+	Email        string
+	SiteName     string
+	TaskType     string // "verify_code" or "password_reset"
+	ResetURL     string // Only used for password_reset task type
+	Locale       string // Optional Accept-Language locale hint
+	Notification *NotificationEmailSendInput
 }
 
 // EmailQueueService 异步邮件队列服务
 type EmailQueueService struct {
-	emailService *EmailService
-	taskChan     chan EmailTask
-	wg           sync.WaitGroup
-	stopChan     chan struct{}
-	workers      int
+	emailService             *EmailService
+	notificationEmailService *NotificationEmailService
+	taskChan                 chan EmailTask
+	wg                       sync.WaitGroup
+	stopChan                 chan struct{}
+	workers                  int
+}
+
+func (s *EmailQueueService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {
+	s.notificationEmailService = notificationEmailService
 }
 
 // NewEmailQueueService 创建邮件队列服务
@@ -94,8 +101,28 @@ func (s *EmailQueueService) processTask(workerID int, task EmailTask) {
 		} else {
 			logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d sent password reset to %s", workerID, task.Email)
 		}
+	case TaskTypeNotification:
+		if s.notificationEmailService == nil || task.Notification == nil {
+			logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d notification service is not configured", workerID)
+			return
+		}
+		if err := s.notificationEmailService.Send(ctx, *task.Notification); err != nil {
+			logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d failed notification event %s: %v", workerID, task.Notification.Event, err)
+		} else {
+			logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d sent notification event %s", workerID, task.Notification.Event)
+		}
 	default:
 		logger.LegacyPrintf("service.email_queue", "[EmailQueue] Worker %d unknown task type: %s", workerID, task.TaskType)
+	}
+}
+
+func (s *EmailQueueService) EnqueueNotification(input NotificationEmailSendInput) error {
+	task := EmailTask{TaskType: TaskTypeNotification, Notification: &input}
+	select {
+	case s.taskChan <- task:
+		return nil
+	default:
+		return fmt.Errorf("email queue is full")
 	}
 }
 

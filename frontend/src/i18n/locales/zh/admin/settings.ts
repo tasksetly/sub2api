@@ -703,6 +703,15 @@ export default {
         addEmail: '添加邮箱',
         emailPlaceholder: '输入邮箱地址',
       },
+      ticketNotify: {
+        title: '工单邮件通知',
+        description: '新工单和用户回复通知管理员，客服回复和状态变更通知工单用户',
+        enabled: '启用工单邮件通知',
+        emails: '管理员通知邮箱',
+        emailsHint: '未添加邮箱时将通知系统中的首个管理员邮箱；用户通知会发送到主邮箱和已验证的通知邮箱。',
+        addEmail: '添加邮箱',
+        emailPlaceholder: '输入客服通知邮箱',
+      },
       subscriptionExpiryNotify: {
         title: '订阅到期提醒',
         description: '控制是否向用户发送订阅即将到期的邮件提醒。',

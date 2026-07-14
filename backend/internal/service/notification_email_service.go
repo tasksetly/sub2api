@@ -33,6 +33,10 @@ const (
 	NotificationEmailEventCyberPolicyNotice           = "content_moderation.cyber_policy_notice"
 	NotificationEmailEventOpsAlert                    = "ops.alert"
 	NotificationEmailEventOpsScheduledReport          = "ops.scheduled_report"
+	NotificationEmailEventSupportTicketCreated        = "support_ticket.created"
+	NotificationEmailEventSupportTicketUserReply      = "support_ticket.user_reply"
+	NotificationEmailEventSupportTicketAdminReply     = "support_ticket.admin_reply"
+	NotificationEmailEventSupportTicketStatusChanged  = "support_ticket.status_changed"
 
 	notificationEmailTemplateKeyPrefix    = "notification_email_template:"
 	notificationEmailPreferenceKeyPrefix  = "notification_email_preference:"
@@ -888,6 +892,16 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"report_start_time":   "2026-05-19 12:00",
 			"report_end_time":     "2026-05-20 12:00",
 			"report_html":         "<h2>日报</h2><p>请求量：1024</p>",
+			"ticket_id":           "1024",
+			"ticket_subject":      "API 请求持续返回 502",
+			"ticket_category":     "technical",
+			"ticket_priority":     "high",
+			"ticket_status":       "in_progress",
+			"ticket_old_status":   "open",
+			"ticket_new_status":   "in_progress",
+			"ticket_actor":        "张三",
+			"ticket_message":      "请求 ID 为 req_123，请协助排查。",
+			"ticket_url":          "https://example.com/admin/tickets",
 		}
 	}
 	return map[string]string{
@@ -934,6 +948,16 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"report_start_time":   "2026-05-19 12:00",
 		"report_end_time":     "2026-05-20 12:00",
 		"report_html":         "<h2>Daily summary</h2><p>Requests: 1024</p>",
+		"ticket_id":           "1024",
+		"ticket_subject":      "API requests keep returning 502",
+		"ticket_category":     "technical",
+		"ticket_priority":     "high",
+		"ticket_status":       "in_progress",
+		"ticket_old_status":   "open",
+		"ticket_new_status":   "in_progress",
+		"ticket_actor":        "Alex",
+		"ticket_message":      "The request ID is req_123. Please investigate.",
+		"ticket_url":          "https://example.com/admin/tickets",
 	}
 }
 
@@ -951,6 +975,10 @@ var notificationEmailEventOrder = []string{
 	NotificationEmailEventCyberPolicyNotice,
 	NotificationEmailEventOpsAlert,
 	NotificationEmailEventOpsScheduledReport,
+	NotificationEmailEventSupportTicketCreated,
+	NotificationEmailEventSupportTicketUserReply,
+	NotificationEmailEventSupportTicketAdminReply,
+	NotificationEmailEventSupportTicketStatusChanged,
 }
 
 var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
@@ -1063,6 +1091,42 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Optional:    false,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
 			"report_name", "report_type", "report_start_time", "report_end_time", "report_html"),
+	},
+	NotificationEmailEventSupportTicketCreated: {
+		Event:       NotificationEmailEventSupportTicketCreated,
+		Label:       "New support ticket",
+		Description: "Sent to configured support recipients when a user creates a ticket.",
+		Category:    "support_ticket",
+		Optional:    false,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"ticket_id", "ticket_subject", "ticket_category", "ticket_priority", "ticket_status", "ticket_actor", "ticket_message", "ticket_url"),
+	},
+	NotificationEmailEventSupportTicketUserReply: {
+		Event:       NotificationEmailEventSupportTicketUserReply,
+		Label:       "Support ticket user reply",
+		Description: "Sent to configured support recipients when a user replies to a ticket.",
+		Category:    "support_ticket",
+		Optional:    false,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"ticket_id", "ticket_subject", "ticket_category", "ticket_priority", "ticket_status", "ticket_actor", "ticket_message", "ticket_url"),
+	},
+	NotificationEmailEventSupportTicketAdminReply: {
+		Event:       NotificationEmailEventSupportTicketAdminReply,
+		Label:       "Support ticket admin reply",
+		Description: "Sent to the ticket owner when an administrator replies.",
+		Category:    "support_ticket",
+		Optional:    false,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"ticket_id", "ticket_subject", "ticket_category", "ticket_priority", "ticket_status", "ticket_actor", "ticket_message", "ticket_url"),
+	},
+	NotificationEmailEventSupportTicketStatusChanged: {
+		Event:       NotificationEmailEventSupportTicketStatusChanged,
+		Label:       "Support ticket status changed",
+		Description: "Sent to the ticket owner when an administrator changes the ticket status.",
+		Category:    "support_ticket",
+		Optional:    false,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"ticket_id", "ticket_subject", "ticket_category", "ticket_priority", "ticket_status", "ticket_old_status", "ticket_new_status", "ticket_actor", "ticket_url"),
 	},
 }
 
@@ -1354,6 +1418,90 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <p><strong>类型</strong>：{{report_type}}</p>
 <p><strong>时间范围</strong>：{{report_start_time}} - {{report_end_time}}</p>
 <div>{{report_html}}</div>`),
+		},
+	},
+	NotificationEmailEventSupportTicketCreated: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] New ticket #{{ticket_id}}: {{ticket_subject}}",
+			HTML: notificationEmailCard("#2563eb", "New support ticket", `
+<p><strong>{{ticket_actor}}</strong> created a support ticket.</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>Ticket</td><td>#{{ticket_id}} · {{ticket_subject}}</td></tr>
+  <tr><td>Category</td><td>{{ticket_category}}</td></tr>
+  <tr><td>Priority</td><td>{{ticket_priority}}</td></tr>
+</table>
+<p><strong>Message</strong></p>
+<p>{{ticket_message}}</p>
+<p><a class="button" href="{{ticket_url}}">Open ticket</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 新工单 #{{ticket_id}}：{{ticket_subject}}",
+			HTML: notificationEmailCard("#2563eb", "收到新工单", `
+<p><strong>{{ticket_actor}}</strong> 提交了一个新工单。</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>工单</td><td>#{{ticket_id}} · {{ticket_subject}}</td></tr>
+  <tr><td>分类</td><td>{{ticket_category}}</td></tr>
+  <tr><td>优先级</td><td>{{ticket_priority}}</td></tr>
+</table>
+<p><strong>问题描述</strong></p>
+<p>{{ticket_message}}</p>
+<p><a class="button" href="{{ticket_url}}">打开工单</a></p>`),
+		},
+	},
+	NotificationEmailEventSupportTicketUserReply: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] User replied to ticket #{{ticket_id}}",
+			HTML: notificationEmailCard("#2563eb", "New user reply", `
+<p><strong>{{ticket_actor}}</strong> replied to ticket #{{ticket_id}}.</p>
+<p><strong>{{ticket_subject}}</strong></p>
+<p>{{ticket_message}}</p>
+<p><a class="button" href="{{ticket_url}}">Review reply</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 用户回复了工单 #{{ticket_id}}",
+			HTML: notificationEmailCard("#2563eb", "用户有新回复", `
+<p><strong>{{ticket_actor}}</strong> 回复了工单 #{{ticket_id}}。</p>
+<p><strong>{{ticket_subject}}</strong></p>
+<p>{{ticket_message}}</p>
+<p><a class="button" href="{{ticket_url}}">查看回复</a></p>`),
+		},
+	},
+	NotificationEmailEventSupportTicketAdminReply: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] Support replied to ticket #{{ticket_id}}",
+			HTML: notificationEmailCard("#059669", "Support replied", `
+<p>Hello {{recipient_name}},</p>
+<p><strong>{{ticket_actor}}</strong> replied to your ticket #{{ticket_id}}.</p>
+<p><strong>{{ticket_subject}}</strong></p>
+<p>{{ticket_message}}</p>
+<p><a class="button" href="{{ticket_url}}">View ticket</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 客服回复了工单 #{{ticket_id}}",
+			HTML: notificationEmailCard("#059669", "客服有新回复", `
+<p>{{recipient_name}}，您好：</p>
+<p><strong>{{ticket_actor}}</strong> 回复了您的工单 #{{ticket_id}}。</p>
+<p><strong>{{ticket_subject}}</strong></p>
+<p>{{ticket_message}}</p>
+<p><a class="button" href="{{ticket_url}}">查看工单</a></p>`),
+		},
+	},
+	NotificationEmailEventSupportTicketStatusChanged: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] Ticket #{{ticket_id}} status changed to {{ticket_new_status}}",
+			HTML: notificationEmailCard("#7c3aed", "Ticket status updated", `
+<p>Hello {{recipient_name}},</p>
+<p>The status of ticket #{{ticket_id}} <strong>{{ticket_subject}}</strong> was updated.</p>
+<p><strong>{{ticket_old_status}}</strong> → <strong>{{ticket_new_status}}</strong></p>
+<p><a class="button" href="{{ticket_url}}">View ticket</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 工单 #{{ticket_id}} 状态变更为 {{ticket_new_status}}",
+			HTML: notificationEmailCard("#7c3aed", "工单状态已更新", `
+<p>{{recipient_name}}，您好：</p>
+<p>工单 #{{ticket_id}} <strong>{{ticket_subject}}</strong> 的状态已更新。</p>
+<p><strong>{{ticket_old_status}}</strong> → <strong>{{ticket_new_status}}</strong></p>
+<p><a class="button" href="{{ticket_url}}">查看工单</a></p>`),
 		},
 	},
 }

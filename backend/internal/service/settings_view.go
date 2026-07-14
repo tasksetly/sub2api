@@ -251,8 +251,10 @@ type SystemSettings struct {
 	SubscriptionExpiryNotifyEnabled bool
 
 	// 账号限额通知
-	AccountQuotaNotifyEnabled bool
-	AccountQuotaNotifyEmails  []NotifyEmailEntry
+	AccountQuotaNotifyEnabled  bool
+	AccountQuotaNotifyEmails   []NotifyEmailEntry
+	SupportTicketNotifyEnabled bool
+	SupportTicketNotifyEmails  []NotifyEmailEntry
 
 	// 系统全局默认平台配额（key = platform，nil/缺省 = 不限制）
 	DefaultPlatformQuotas map[string]*DefaultPlatformQuotaSetting `json:"default_platform_quotas"`

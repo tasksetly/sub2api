@@ -157,6 +157,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyForceEmailOnThirdPartySignup:              "false",
 		SettingKeySMTPPort:                                  "587",
 		SettingKeySMTPUseTLS:                                "false",
+		SettingKeySupportTicketNotifyEnabled:                "false",
+		SettingKeySupportTicketNotifyEmails:                 "[]",
 		// Model fallback defaults
 		SettingKeyEnableModelFallback:      "false",
 		SettingKeyFallbackModelAnthropic:   "claude-3-5-sonnet-20241022",
@@ -827,6 +829,13 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 	if result.AccountQuotaNotifyEmails == nil {
 		result.AccountQuotaNotifyEmails = []NotifyEmailEntry{}
+	}
+	result.SupportTicketNotifyEnabled = settings[SettingKeySupportTicketNotifyEnabled] == "true"
+	if raw := strings.TrimSpace(settings[SettingKeySupportTicketNotifyEmails]); raw != "" {
+		result.SupportTicketNotifyEmails = ParseNotifyEmails(raw)
+	}
+	if result.SupportTicketNotifyEmails == nil {
+		result.SupportTicketNotifyEmails = []NotifyEmailEntry{}
 	}
 
 	// 系统层默认 platform quota（修复 Bug B：parseSettings 不填充导致回显恒为 nil）

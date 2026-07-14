@@ -36,8 +36,10 @@ func ProvideUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, b
 }
 
 // ProvideEmailQueueService creates EmailQueueService with default worker count
-func ProvideEmailQueueService(emailService *EmailService) *EmailQueueService {
-	return NewEmailQueueService(emailService, 3)
+func ProvideEmailQueueService(emailService *EmailService, notificationEmailService *NotificationEmailService) *EmailQueueService {
+	queue := NewEmailQueueService(emailService, 3)
+	queue.SetNotificationEmailService(notificationEmailService)
+	return queue
 }
 
 // ProvideOAuthRefreshAPI creates OAuthRefreshAPI with the default lock TTL.
@@ -575,6 +577,8 @@ var ProviderSet = wire.NewSet(
 	ProvideBillingCacheService,
 	NewAnnouncementService,
 	NewSupportTicketService,
+	NewSupportTicketNotificationService,
+	wire.Bind(new(SupportTicketNotifier), new(*SupportTicketNotificationService)),
 	NewAdminService,
 	NewGatewayService,
 	NewOpenAIGatewayService,

@@ -198,6 +198,7 @@
               </div>
             </div>
           </div>
+
         </div>
         <!-- /Tab: Security — Admin API Key -->
 
@@ -7255,6 +7256,69 @@
               </div>
             </div>
           </div>
+
+          <!-- Support Ticket Notification -->
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h3 class="text-base font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.ticketNotify.title") }}
+              </h3>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.ticketNotify.description") }}
+              </p>
+            </div>
+            <div class="space-y-4 px-6 py-6">
+              <div class="flex items-center justify-between gap-4">
+                <label class="mb-0 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t("admin.settings.ticketNotify.enabled") }}
+                </label>
+                <Toggle v-model="form.support_ticket_notify_enabled" />
+              </div>
+              <div v-if="form.support_ticket_notify_enabled">
+                <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t("admin.settings.ticketNotify.emails") }}
+                </label>
+                <div class="space-y-2">
+                  <div
+                    v-for="(entry, index) in form.support_ticket_notify_emails || []"
+                    :key="index"
+                    class="flex items-center gap-2"
+                  >
+                    <label class="relative inline-flex shrink-0 cursor-pointer items-center">
+                      <input
+                        type="checkbox"
+                        class="peer sr-only"
+                        :checked="!entry.disabled"
+                        @change="entry.disabled = !entry.disabled"
+                      >
+                      <div class="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-gray-600 dark:after:border-gray-500" />
+                    </label>
+                    <input
+                      v-model="entry.email"
+                      type="email"
+                      class="input flex-1"
+                      :placeholder="t('admin.settings.ticketNotify.emailPlaceholder')"
+                    >
+                    <button
+                      type="button"
+                      class="btn btn-secondary px-2"
+                      :title="t('common.delete')"
+                      @click="form.support_ticket_notify_emails.splice(index, 1)"
+                    >
+                      <Icon name="x" size="xs" class="h-4 w-4" />
+                    </button>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" @click="addSupportTicketNotifyEmail">
+                    <Icon name="plus" size="xs" />
+                    {{ t("admin.settings.ticketNotify.addEmail") }}
+                  </button>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.ticketNotify.emailsHint") }}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- /Tab: Email -->
 
@@ -8270,6 +8334,8 @@ const form = reactive<SettingsForm>({
   subscription_expiry_notify_enabled: true,
   account_quota_notify_enabled: false,
   account_quota_notify_emails: [] as NotifyEmailEntry[],
+  support_ticket_notify_enabled: false,
+  support_ticket_notify_emails: [] as NotifyEmailEntry[],
   // Channel Monitor feature switch
   channel_monitor_enabled: true,
   channel_monitor_default_interval_seconds: 60,
@@ -8705,6 +8771,17 @@ const addQuotaNotifyEmail = () => {
     form.account_quota_notify_emails = [];
   }
   form.account_quota_notify_emails.push({
+    email: "",
+    disabled: false,
+    verified: true,
+  });
+};
+
+const addSupportTicketNotifyEmail = () => {
+  if (!form.support_ticket_notify_emails) {
+    form.support_ticket_notify_emails = [];
+  }
+  form.support_ticket_notify_emails.push({
     email: "",
     disabled: false,
     verified: true,
@@ -9644,6 +9721,10 @@ async function saveSettings() {
       account_quota_notify_enabled: form.account_quota_notify_enabled,
       account_quota_notify_emails: (
         form.account_quota_notify_emails || []
+      ).filter((e) => e.email.trim() !== ""),
+      support_ticket_notify_enabled: form.support_ticket_notify_enabled,
+      support_ticket_notify_emails: (
+        form.support_ticket_notify_emails || []
       ).filter((e) => e.email.trim() !== ""),
       // Channel Monitor feature switch
       channel_monitor_enabled: form.channel_monitor_enabled,

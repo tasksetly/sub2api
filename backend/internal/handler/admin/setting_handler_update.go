@@ -263,6 +263,8 @@ type UpdateSettingsRequest struct {
 	SubscriptionExpiryNotifyEnabled *bool                   `json:"subscription_expiry_notify_enabled"`
 	AccountQuotaNotifyEnabled       *bool                   `json:"account_quota_notify_enabled"`
 	AccountQuotaNotifyEmails        *[]dto.NotifyEmailEntry `json:"account_quota_notify_emails"`
+	SupportTicketNotifyEnabled      *bool                   `json:"support_ticket_notify_enabled"`
+	SupportTicketNotifyEmails       *[]dto.NotifyEmailEntry `json:"support_ticket_notify_emails"`
 
 	// Payment configuration (integrated into settings, full replace)
 	PaymentEnabled                   *bool    `json:"payment_enabled"`
@@ -1487,6 +1489,18 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AccountQuotaNotifyEmails
 		}(),
+		SupportTicketNotifyEnabled: func() bool {
+			if req.SupportTicketNotifyEnabled != nil {
+				return *req.SupportTicketNotifyEnabled
+			}
+			return previousSettings.SupportTicketNotifyEnabled
+		}(),
+		SupportTicketNotifyEmails: func() []service.NotifyEmailEntry {
+			if req.SupportTicketNotifyEmails != nil {
+				return dto.NotifyEmailEntriesToService(*req.SupportTicketNotifyEmails)
+			}
+			return previousSettings.SupportTicketNotifyEmails
+		}(),
 		ChannelMonitorEnabled: func() bool {
 			if req.ChannelMonitorEnabled != nil {
 				return *req.ChannelMonitorEnabled
@@ -1853,6 +1867,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SubscriptionExpiryNotifyEnabled:                        updatedSettings.SubscriptionExpiryNotifyEnabled,
 		AccountQuotaNotifyEnabled:                              updatedSettings.AccountQuotaNotifyEnabled,
 		AccountQuotaNotifyEmails:                               dto.NotifyEmailEntriesFromService(updatedSettings.AccountQuotaNotifyEmails),
+		SupportTicketNotifyEnabled:                             updatedSettings.SupportTicketNotifyEnabled,
+		SupportTicketNotifyEmails:                              dto.NotifyEmailEntriesFromService(updatedSettings.SupportTicketNotifyEmails),
 		PaymentEnabled:                                         updatedPaymentCfg.Enabled,
 		PaymentMinAmount:                                       updatedPaymentCfg.MinAmount,
 		PaymentMaxAmount:                                       updatedPaymentCfg.MaxAmount,

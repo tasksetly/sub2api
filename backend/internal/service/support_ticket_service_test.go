@@ -16,6 +16,30 @@ type supportTicketRepoStub struct {
 	ticket *SupportTicket
 }
 
+type supportTicketNotifierStub struct {
+	events    []string
+	oldStatus string
+	adminID   int64
+}
+
+func (s *supportTicketNotifierStub) TicketCreated(context.Context, *SupportTicket, *SupportTicketMessage) {
+	s.events = append(s.events, NotificationEmailEventSupportTicketCreated)
+}
+
+func (s *supportTicketNotifierStub) UserReplied(context.Context, *SupportTicket, *SupportTicketMessage) {
+	s.events = append(s.events, NotificationEmailEventSupportTicketUserReply)
+}
+
+func (s *supportTicketNotifierStub) AdminReplied(context.Context, *SupportTicket, *SupportTicketMessage) {
+	s.events = append(s.events, NotificationEmailEventSupportTicketAdminReply)
+}
+
+func (s *supportTicketNotifierStub) StatusChanged(_ context.Context, _ *SupportTicket, oldStatus string, adminID int64) {
+	s.events = append(s.events, NotificationEmailEventSupportTicketStatusChanged)
+	s.oldStatus = oldStatus
+	s.adminID = adminID
+}
+
 func (s *supportTicketRepoStub) Create(_ context.Context, ticket *SupportTicket, message *SupportTicketMessage) error {
 	ticket.ID = 1
 	message.ID = 1
@@ -111,7 +135,8 @@ func (s *supportTicketRepoStub) MarkRead(_ context.Context, ticketID int64, read
 
 func TestSupportTicketWorkflow(t *testing.T) {
 	repo := &supportTicketRepoStub{}
-	svc := NewSupportTicketService(repo, nil, nil)
+	notifier := &supportTicketNotifierStub{}
+	svc := NewSupportTicketService(repo, nil, nil, notifier)
 	ctx := context.Background()
 
 	ticket, err := svc.CreateForUser(ctx, 7, CreateSupportTicketInput{
@@ -141,6 +166,40 @@ func TestSupportTicketWorkflow(t *testing.T) {
 
 	_, err = svc.ReplyAsUser(ctx, 7, ticket.ID, "One more thing")
 	require.ErrorIs(t, err, ErrSupportTicketClosed)
+	require.Equal(t, []string{
+		NotificationEmailEventSupportTicketCreated,
+		NotificationEmailEventSupportTicketAdminReply,
+		NotificationEmailEventSupportTicketUserReply,
+	}, notifier.events)
+}
+
+func TestSupportTicketAdminStatusChangeNotifiesUser(t *testing.T) {
+	repo := &supportTicketRepoStub{ticket: &SupportTicket{
+		ID: 1, UserID: 8, Subject: "API error", Category: SupportTicketCategoryTechnical,
+		Priority: SupportTicketPriorityNormal, Status: SupportTicketStatusOpen,
+	}}
+	notifier := &supportTicketNotifierStub{}
+	svc := NewSupportTicketService(repo, nil, nil, notifier)
+
+	status := SupportTicketStatusInProgress
+	_, err := svc.UpdateAsAdmin(context.Background(), 99, 1, UpdateSupportTicketInput{Status: &status})
+	require.NoError(t, err)
+	require.Equal(t, []string{NotificationEmailEventSupportTicketStatusChanged}, notifier.events)
+	require.Equal(t, SupportTicketStatusOpen, notifier.oldStatus)
+	require.Equal(t, int64(99), notifier.adminID)
+}
+
+func TestSupportTicketUserRecipientsIncludeVerifiedAddressesWithoutDuplicates(t *testing.T) {
+	user := &User{
+		Email: "User@example.com",
+		BalanceNotifyExtraEmails: []NotifyEmailEntry{
+			{Email: "user@example.com", Verified: true},
+			{Email: "alerts@example.com", Verified: true},
+			{Email: "disabled@example.com", Verified: true, Disabled: true},
+			{Email: "unverified@example.com", Verified: false},
+		},
+	}
+	require.Equal(t, []string{"User@example.com", "alerts@example.com"}, supportTicketUserRecipients(user))
 }
 
 func TestSupportTicketUserCannotReadAnotherUsersTicket(t *testing.T) {
@@ -151,7 +210,7 @@ func TestSupportTicketUserCannotReadAnotherUsersTicket(t *testing.T) {
 		Status:    SupportTicketStatusOpen,
 		CreatedAt: time.Now(),
 	}}
-	svc := NewSupportTicketService(repo, nil, nil)
+	svc := NewSupportTicketService(repo, nil, nil, nil)
 
 	_, err := svc.GetForUser(context.Background(), 7, 1)
 	require.ErrorIs(t, err, ErrSupportTicketNotFound)
@@ -165,7 +224,7 @@ func TestSupportTicketAdminRejectsInvalidTransition(t *testing.T) {
 		Status:   SupportTicketStatusClosed,
 		ClosedAt: ptrSupportTime(time.Now()),
 	}}
-	svc := NewSupportTicketService(repo, nil, nil)
+	svc := NewSupportTicketService(repo, nil, nil, nil)
 
 	_, err := svc.UpdateAsAdmin(context.Background(), 99, 1, UpdateSupportTicketInput{
 		Status: ptrString(SupportTicketStatusResolved),
@@ -179,7 +238,7 @@ func TestSupportTicketAllowsImageOnlyMessageWhenStorageConfigured(t *testing.T) 
 	cfg := &config.Config{SupportTicket: config.SupportTicketConfig{Attachments: config.SupportTicketAttachmentConfig{
 		Enabled: true, Prefix: "support-tickets", MaxFileSizeMB: 1, MaxAttachmentsMessage: 2, URLExpiryMinutes: 10,
 	}}}
-	svc := NewSupportTicketService(repo, store, cfg)
+	svc := NewSupportTicketService(repo, store, cfg, nil)
 
 	ticket, err := svc.CreateForUser(context.Background(), 7, CreateSupportTicketInput{
 		Subject: "Screenshot", Category: SupportTicketCategoryTechnical, Priority: SupportTicketPriorityNormal,
@@ -206,7 +265,7 @@ func TestSupportTicketAllowsImageOnlyMessageWhenStorageConfigured(t *testing.T) 
 }
 
 func TestSupportTicketRejectsAttachmentWhenStorageDisabled(t *testing.T) {
-	svc := NewSupportTicketService(&supportTicketRepoStub{}, nil, nil)
+	svc := NewSupportTicketService(&supportTicketRepoStub{}, nil, nil, nil)
 	_, err := svc.CreateForUser(context.Background(), 7, CreateSupportTicketInput{
 		Subject: "Screenshot", Category: SupportTicketCategoryTechnical, Priority: SupportTicketPriorityNormal,
 		Attachments: []SupportTicketAttachmentUpload{{FileName: "error.png", Data: []byte("\x89PNG\r\n\x1a\nimage")}},
@@ -219,7 +278,7 @@ func TestSupportTicketRejectsNonImageAttachment(t *testing.T) {
 	cfg := &config.Config{SupportTicket: config.SupportTicketConfig{Attachments: config.SupportTicketAttachmentConfig{
 		Enabled: true, MaxFileSizeMB: 1, MaxAttachmentsMessage: 2,
 	}}}
-	svc := NewSupportTicketService(&supportTicketRepoStub{}, store, cfg)
+	svc := NewSupportTicketService(&supportTicketRepoStub{}, store, cfg, nil)
 	_, err := svc.CreateForUser(context.Background(), 7, CreateSupportTicketInput{
 		Subject: "Log file", Category: SupportTicketCategoryTechnical, Priority: SupportTicketPriorityNormal,
 		Attachments: []SupportTicketAttachmentUpload{{FileName: "error.txt", Data: []byte("not an image")}},

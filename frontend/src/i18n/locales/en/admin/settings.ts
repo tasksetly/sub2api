@@ -707,6 +707,15 @@ export default {
         addEmail: 'Add Email',
         emailPlaceholder: 'Enter email address',
       },
+      ticketNotify: {
+        title: 'Support Ticket Email Notifications',
+        description: 'Notify support about new tickets and user replies, and notify users about support replies and status changes',
+        enabled: 'Enable ticket email notifications',
+        emails: 'Support notification emails',
+        emailsHint: 'When empty, the first administrator email is used. User updates go to the primary and verified notification addresses.',
+        addEmail: 'Add Email',
+        emailPlaceholder: 'Enter support notification email',
+      },
       subscriptionExpiryNotify: {
         title: 'Subscription Expiry Reminder',
         description: 'Control whether users receive subscription expiry reminder emails.',

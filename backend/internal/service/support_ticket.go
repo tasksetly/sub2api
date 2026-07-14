@@ -147,6 +147,13 @@ type SupportTicketAttachmentStore interface {
 	PresignURL(ctx context.Context, key string, expiry time.Duration) (string, error)
 }
 
+type SupportTicketNotifier interface {
+	TicketCreated(ctx context.Context, ticket *SupportTicket, message *SupportTicketMessage)
+	UserReplied(ctx context.Context, ticket *SupportTicket, message *SupportTicketMessage)
+	AdminReplied(ctx context.Context, ticket *SupportTicket, message *SupportTicketMessage)
+	StatusChanged(ctx context.Context, ticket *SupportTicket, oldStatus string, adminID int64)
+}
+
 type SupportTicketAttachmentDownload struct {
 	Attachment SupportTicketAttachment
 	Body       io.ReadCloser
@@ -156,15 +163,16 @@ type SupportTicketService struct {
 	repo            SupportTicketRepository
 	attachmentStore SupportTicketAttachmentStore
 	attachmentCfg   config.SupportTicketAttachmentConfig
+	notifier        SupportTicketNotifier
 	now             func() time.Time
 }
 
-func NewSupportTicketService(repo SupportTicketRepository, attachmentStore SupportTicketAttachmentStore, cfg *config.Config) *SupportTicketService {
+func NewSupportTicketService(repo SupportTicketRepository, attachmentStore SupportTicketAttachmentStore, cfg *config.Config, notifier SupportTicketNotifier) *SupportTicketService {
 	attachmentCfg := config.SupportTicketAttachmentConfig{}
 	if cfg != nil {
 		attachmentCfg = cfg.SupportTicket.Attachments
 	}
-	return &SupportTicketService{repo: repo, attachmentStore: attachmentStore, attachmentCfg: attachmentCfg, now: time.Now}
+	return &SupportTicketService{repo: repo, attachmentStore: attachmentStore, attachmentCfg: attachmentCfg, notifier: notifier, now: time.Now}
 }
 
 func (s *SupportTicketService) AttachmentPolicy() SupportTicketAttachmentPolicy {
@@ -227,6 +235,9 @@ func (s *SupportTicketService) CreateForUser(ctx context.Context, userID int64, 
 		return nil, err
 	}
 	s.hydrateAttachmentURLs(ctx, ticket)
+	if s.notifier != nil {
+		s.notifier.TicketCreated(ctx, ticket, message)
+	}
 	return ticket, nil
 }
 
@@ -328,6 +339,9 @@ func (s *SupportTicketService) ReplyAsUserWithAttachments(ctx context.Context, u
 		return nil, err
 	}
 	s.hydrateAttachmentURLs(ctx, ticket)
+	if s.notifier != nil {
+		s.notifier.UserReplied(ctx, ticket, message)
+	}
 	return ticket, nil
 }
 
@@ -363,6 +377,9 @@ func (s *SupportTicketService) ReplyAsAdminWithAttachments(ctx context.Context, 
 		return nil, err
 	}
 	s.hydrateAttachmentURLs(ctx, ticket)
+	if s.notifier != nil {
+		s.notifier.AdminReplied(ctx, ticket, message)
+	}
 	return ticket, nil
 }
 
@@ -407,11 +424,12 @@ func (s *SupportTicketService) ReopenAsUser(ctx context.Context, userID, ticketI
 	return ticket, nil
 }
 
-func (s *SupportTicketService) UpdateAsAdmin(ctx context.Context, _ int64, ticketID int64, input UpdateSupportTicketInput) (*SupportTicket, error) {
+func (s *SupportTicketService) UpdateAsAdmin(ctx context.Context, adminID int64, ticketID int64, input UpdateSupportTicketInput) (*SupportTicket, error) {
 	ticket, err := s.repo.GetByID(ctx, ticketID)
 	if err != nil {
 		return nil, err
 	}
+	oldStatus := ticket.Status
 	if input.Priority != nil {
 		priority := strings.TrimSpace(*input.Priority)
 		if !isValidSupportTicketPriority(priority) {
@@ -441,6 +459,9 @@ func (s *SupportTicketService) UpdateAsAdmin(ctx context.Context, _ int64, ticke
 	}
 	if err := s.repo.Update(ctx, ticket); err != nil {
 		return nil, err
+	}
+	if s.notifier != nil && ticket.Status != oldStatus {
+		s.notifier.StatusChanged(ctx, ticket, oldStatus, adminID)
 	}
 	return ticket, nil
 }

@@ -377,6 +377,26 @@ const eventDisplayMeta: Record<string, EventDisplayMeta> = {
     timing: "运维日报、周报、错误摘要或账号健康报表到达配置的发送时间时发送。",
     categoryLabel: "运维",
   },
+  "support_ticket.created": {
+    label: "新工单通知",
+    timing: "用户创建工单后发送给工单通知邮箱。",
+    categoryLabel: "工单",
+  },
+  "support_ticket.user_reply": {
+    label: "用户回复工单",
+    timing: "用户回复已有工单后发送给工单通知邮箱。",
+    categoryLabel: "工单",
+  },
+  "support_ticket.admin_reply": {
+    label: "客服回复工单",
+    timing: "管理员回复后发送给工单用户的主邮箱及已验证通知邮箱。",
+    categoryLabel: "工单",
+  },
+  "support_ticket.status_changed": {
+    label: "工单状态变更",
+    timing: "管理员修改工单状态后发送给工单用户。",
+    categoryLabel: "工单",
+  },
 };
 
 const eventDisplayMetaEn: Record<string, EventDisplayMeta> = {
@@ -439,6 +459,26 @@ const eventDisplayMetaEn: Record<string, EventDisplayMeta> = {
     label: "Ops Scheduled Report",
     timing: "Sent when a configured daily, weekly, error digest, or account health report reaches its scheduled send time.",
     categoryLabel: "Ops",
+  },
+  "support_ticket.created": {
+    label: "New Support Ticket",
+    timing: "Sent to support notification recipients after a user creates a ticket.",
+    categoryLabel: "Support",
+  },
+  "support_ticket.user_reply": {
+    label: "User Replied to Ticket",
+    timing: "Sent to support notification recipients after a user replies.",
+    categoryLabel: "Support",
+  },
+  "support_ticket.admin_reply": {
+    label: "Support Replied to Ticket",
+    timing: "Sent to the user's primary and verified notification email addresses after an admin reply.",
+    categoryLabel: "Support",
+  },
+  "support_ticket.status_changed": {
+    label: "Ticket Status Changed",
+    timing: "Sent to the ticket owner after an administrator changes the status.",
+    categoryLabel: "Support",
   },
 };
 
