@@ -17,11 +17,15 @@ import (
 )
 
 type SupportTicketHandler struct {
-	service *service.SupportTicketService
+	service           *service.SupportTicketService
+	attachmentManager *service.SupportTicketAttachmentManager
 }
 
-func NewSupportTicketHandler(ticketService *service.SupportTicketService) *SupportTicketHandler {
-	return &SupportTicketHandler{service: ticketService}
+func NewSupportTicketHandler(
+	ticketService *service.SupportTicketService,
+	attachmentManager *service.SupportTicketAttachmentManager,
+) *SupportTicketHandler {
+	return &SupportTicketHandler{service: ticketService, attachmentManager: attachmentManager}
 }
 
 type adminSupportTicketReplyRequest struct {
@@ -31,6 +35,37 @@ type adminSupportTicketReplyRequest struct {
 
 func (h *SupportTicketHandler) AttachmentPolicy(c *gin.Context) {
 	response.Success(c, h.service.AttachmentPolicy())
+}
+
+func (h *SupportTicketHandler) GetAttachmentStorageConfig(c *gin.Context) {
+	response.Success(c, h.attachmentManager.GetConfig())
+}
+
+func (h *SupportTicketHandler) UpdateAttachmentStorageConfig(c *gin.Context) {
+	var req service.SupportTicketAttachmentStorageConfig
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	cfg, err := h.attachmentManager.UpdateConfig(c.Request.Context(), req)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, cfg)
+}
+
+func (h *SupportTicketHandler) TestAttachmentStorage(c *gin.Context) {
+	var req service.SupportTicketAttachmentStorageConfig
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if err := h.attachmentManager.TestConnection(c.Request.Context(), req); err != nil {
+		response.Success(c, gin.H{"ok": false, "message": err.Error()})
+		return
+	}
+	response.Success(c, gin.H{"ok": true, "message": "connection successful"})
 }
 
 type adminSupportTicketUpdateRequest struct {

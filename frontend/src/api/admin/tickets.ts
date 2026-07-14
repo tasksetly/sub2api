@@ -8,6 +8,26 @@ import type {
   SupportTicketStatus
 } from '@/types/supportTicket'
 
+export interface SupportTicketAttachmentStorageConfig {
+  enabled: boolean
+  endpoint: string
+  region: string
+  bucket: string
+  access_key_id: string
+  secret_access_key: string
+  secret_configured: boolean
+  prefix: string
+  force_path_style: boolean
+  max_file_size_mb: number
+  max_attachments_per_message: number
+  url_expiry_minutes: number
+}
+
+export interface SupportTicketAttachmentStorageTestResult {
+  ok: boolean
+  message: string
+}
+
 export async function listTickets(
   page = 1,
   pageSize = 20,
@@ -26,6 +46,31 @@ export async function getTicket(id: number): Promise<SupportTicket> {
 
 export async function getAttachmentPolicy(): Promise<SupportTicketAttachmentPolicy> {
   const { data } = await apiClient.get<SupportTicketAttachmentPolicy>('/admin/tickets/attachment-policy')
+  return data
+}
+
+export async function getAttachmentStorageConfig(): Promise<SupportTicketAttachmentStorageConfig> {
+  const { data } = await apiClient.get<SupportTicketAttachmentStorageConfig>('/admin/tickets/attachment-storage')
+  return data
+}
+
+export async function updateAttachmentStorageConfig(
+  config: SupportTicketAttachmentStorageConfig
+): Promise<SupportTicketAttachmentStorageConfig> {
+  const { data } = await apiClient.put<SupportTicketAttachmentStorageConfig>(
+    '/admin/tickets/attachment-storage',
+    config
+  )
+  return data
+}
+
+export async function testAttachmentStorage(
+  config: SupportTicketAttachmentStorageConfig
+): Promise<SupportTicketAttachmentStorageTestResult> {
+  const { data } = await apiClient.post<SupportTicketAttachmentStorageTestResult>(
+    '/admin/tickets/attachment-storage/test',
+    config
+  )
   return data
 }
 
@@ -59,6 +104,9 @@ export async function updateTicket(
 export default {
   list: listTickets,
   attachmentPolicy: getAttachmentPolicy,
+  attachmentStorage: getAttachmentStorageConfig,
+  updateAttachmentStorage: updateAttachmentStorageConfig,
+  testAttachmentStorage,
   downloadAttachment,
   get: getTicket,
   reply: replyTicket,

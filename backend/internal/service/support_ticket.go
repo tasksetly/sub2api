@@ -147,6 +147,17 @@ type SupportTicketAttachmentStore interface {
 	PresignURL(ctx context.Context, key string, expiry time.Duration) (string, error)
 }
 
+type SupportTicketAttachmentObjectStore interface {
+	SupportTicketAttachmentStore
+	HeadBucket(ctx context.Context) error
+}
+
+type SupportTicketAttachmentStoreFactory func(ctx context.Context, cfg config.SupportTicketAttachmentConfig) (SupportTicketAttachmentObjectStore, error)
+
+type supportTicketAttachmentConfigProvider interface {
+	CurrentConfig() config.SupportTicketAttachmentConfig
+}
+
 type SupportTicketNotifier interface {
 	TicketCreated(ctx context.Context, ticket *SupportTicket, message *SupportTicketMessage)
 	UserReplied(ctx context.Context, ticket *SupportTicket, message *SupportTicketMessage)
@@ -176,16 +187,17 @@ func NewSupportTicketService(repo SupportTicketRepository, attachmentStore Suppo
 }
 
 func (s *SupportTicketService) AttachmentPolicy() SupportTicketAttachmentPolicy {
-	maxFileSizeMB := s.attachmentCfg.MaxFileSizeMB
+	attachmentCfg := s.currentAttachmentConfig()
+	maxFileSizeMB := attachmentCfg.MaxFileSizeMB
 	if maxFileSizeMB <= 0 {
 		maxFileSizeMB = 10
 	}
-	maxAttachments := s.attachmentCfg.MaxAttachmentsMessage
+	maxAttachments := attachmentCfg.MaxAttachmentsMessage
 	if maxAttachments <= 0 {
 		maxAttachments = 4
 	}
 	return SupportTicketAttachmentPolicy{
-		Enabled:                  s.attachmentCfg.Enabled && s.attachmentStore != nil,
+		Enabled:                  attachmentCfg.Enabled && s.attachmentStore != nil,
 		MaxFileSizeBytes:         int64(maxFileSizeMB) * 1024 * 1024,
 		MaxAttachmentsPerMessage: maxAttachments,
 	}
@@ -532,7 +544,7 @@ func (s *SupportTicketService) deleteAttachments(ctx context.Context, attachment
 }
 
 func (s *SupportTicketService) downloadAttachment(ctx context.Context, ticket *SupportTicket, attachmentID int64) (*SupportTicketAttachmentDownload, error) {
-	if ticket == nil || s.attachmentStore == nil || !s.attachmentCfg.Enabled {
+	if ticket == nil || s.attachmentStore == nil || !s.currentAttachmentConfig().Enabled {
 		return nil, ErrSupportTicketNotFound
 	}
 	for _, message := range ticket.Messages {
@@ -551,10 +563,11 @@ func (s *SupportTicketService) downloadAttachment(ctx context.Context, ticket *S
 }
 
 func (s *SupportTicketService) hydrateAttachmentURLs(ctx context.Context, ticket *SupportTicket) {
-	if ticket == nil || s.attachmentStore == nil || !s.attachmentCfg.Enabled {
+	attachmentCfg := s.currentAttachmentConfig()
+	if ticket == nil || s.attachmentStore == nil || !attachmentCfg.Enabled {
 		return
 	}
-	expiryMinutes := s.attachmentCfg.URLExpiryMinutes
+	expiryMinutes := attachmentCfg.URLExpiryMinutes
 	if expiryMinutes <= 0 {
 		expiryMinutes = 15
 	}
@@ -574,13 +587,20 @@ func (s *SupportTicketService) newAttachmentObjectKey(uploaderID int64, extensio
 	if _, err := rand.Read(randomBytes); err != nil {
 		return "", err
 	}
-	prefix := strings.Trim(strings.TrimSpace(s.attachmentCfg.Prefix), "/")
+	prefix := strings.Trim(strings.TrimSpace(s.currentAttachmentConfig().Prefix), "/")
 	fileName := hex.EncodeToString(randomBytes) + extension
 	key := path.Join(createdAt.UTC().Format("2006/01/02"), fmt.Sprintf("%d", uploaderID), fileName)
 	if prefix != "" {
 		key = path.Join(prefix, key)
 	}
 	return key, nil
+}
+
+func (s *SupportTicketService) currentAttachmentConfig() config.SupportTicketAttachmentConfig {
+	if provider, ok := s.attachmentStore.(supportTicketAttachmentConfigProvider); ok {
+		return provider.CurrentConfig()
+	}
+	return s.attachmentCfg
 }
 
 func supportTicketImageExtension(contentType string) (string, bool) {

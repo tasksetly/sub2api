@@ -227,7 +227,7 @@ func TestSupportTicketAdminRejectsInvalidTransition(t *testing.T) {
 	svc := NewSupportTicketService(repo, nil, nil, nil)
 
 	_, err := svc.UpdateAsAdmin(context.Background(), 99, 1, UpdateSupportTicketInput{
-		Status: ptrString(SupportTicketStatusResolved),
+		Status: ptrSupportTicketString(SupportTicketStatusResolved),
 	})
 	require.ErrorIs(t, err, ErrSupportTicketInvalidTransition)
 }
@@ -287,5 +287,5 @@ func TestSupportTicketRejectsNonImageAttachment(t *testing.T) {
 	require.Empty(t, store.uploads)
 }
 
-func ptrString(value string) *string            { return &value }
-func ptrSupportTime(value time.Time) *time.Time { return &value }
+func ptrSupportTicketString(value string) *string { return &value }
+func ptrSupportTime(value time.Time) *time.Time   { return &value }

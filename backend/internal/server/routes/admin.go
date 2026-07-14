@@ -368,6 +368,9 @@ func registerSupportTicketRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	{
 		tickets.GET("", h.Admin.SupportTicket.List)
 		tickets.GET("/attachment-policy", h.Admin.SupportTicket.AttachmentPolicy)
+		tickets.GET("/attachment-storage", h.Admin.SupportTicket.GetAttachmentStorageConfig)
+		tickets.PUT("/attachment-storage", h.Admin.SupportTicket.UpdateAttachmentStorageConfig)
+		tickets.POST("/attachment-storage/test", h.Admin.SupportTicket.TestAttachmentStorage)
 		tickets.GET("/:id", h.Admin.SupportTicket.Get)
 		tickets.GET("/:id/attachments/:attachmentID", h.Admin.SupportTicket.DownloadAttachment)
 		tickets.POST("/:id/messages", h.Admin.SupportTicket.Reply)

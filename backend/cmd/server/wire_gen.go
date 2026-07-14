@@ -165,12 +165,13 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	announcementService := service.NewAnnouncementService(announcementRepository, announcementReadRepository, userRepository, userSubscriptionRepository)
 	announcementHandler := handler.NewAnnouncementHandler(announcementService)
 	supportTicketRepository := repository.NewSupportTicketRepository(client)
-	supportTicketAttachmentStore, err := repository.NewSupportTicketAttachmentStore(configConfig)
+	supportTicketAttachmentStoreFactory := repository.NewSupportTicketAttachmentStoreFactory()
+	supportTicketAttachmentManager, err := service.ProvideSupportTicketAttachmentManager(settingRepository, configConfig, secretEncryptor, supportTicketAttachmentStoreFactory)
 	if err != nil {
 		return nil, err
 	}
 	supportTicketNotificationService := service.NewSupportTicketNotificationService(settingRepository, userRepository, emailQueueService)
-	supportTicketService := service.NewSupportTicketService(supportTicketRepository, supportTicketAttachmentStore, configConfig, supportTicketNotificationService)
+	supportTicketService := service.NewSupportTicketService(supportTicketRepository, supportTicketAttachmentManager, configConfig, supportTicketNotificationService)
 	supportTicketHandler := handler.NewSupportTicketHandler(supportTicketService)
 	channelMonitorRepository := repository.NewChannelMonitorRepository(client, db)
 	channelMonitorService := service.ProvideChannelMonitorService(channelMonitorRepository, secretEncryptor)
@@ -198,7 +199,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	crsSyncService := service.NewCRSSyncService(accountRepository, proxyRepository, oAuthService, openAIOAuthService, geminiOAuthService, configConfig)
 	accountHandler := admin.ProvideAccountHandler(adminService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, rateLimitService, accountUsageService, accountTestService, concurrencyService, crsSyncService, sessionLimitCache, rpmCache, compositeTokenCacheInvalidator, grokQuotaService)
 	adminAnnouncementHandler := admin.NewAnnouncementHandler(announcementService)
-	adminSupportTicketHandler := admin.NewSupportTicketHandler(supportTicketService)
+	adminSupportTicketHandler := admin.NewSupportTicketHandler(supportTicketService, supportTicketAttachmentManager)
 	dataManagementService := service.NewDataManagementService()
 	dataManagementHandler := admin.NewDataManagementHandler(dataManagementService)
 	backupObjectStoreFactory := repository.NewS3BackupStoreFactory()

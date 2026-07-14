@@ -24,12 +24,13 @@ type supportTicketS3Store struct {
 	bucket        string
 }
 
-func NewSupportTicketAttachmentStore(cfg *config.Config) (service.SupportTicketAttachmentStore, error) {
-	if cfg == nil || !cfg.SupportTicket.Attachments.Enabled {
-		slog.Info("support_ticket_attachment storage_disabled")
-		return nil, nil
+func NewSupportTicketAttachmentStoreFactory() service.SupportTicketAttachmentStoreFactory {
+	return func(ctx context.Context, storageCfg config.SupportTicketAttachmentConfig) (service.SupportTicketAttachmentObjectStore, error) {
+		return newSupportTicketAttachmentStore(ctx, storageCfg)
 	}
-	storageCfg := cfg.SupportTicket.Attachments
+}
+
+func newSupportTicketAttachmentStore(ctx context.Context, storageCfg config.SupportTicketAttachmentConfig) (service.SupportTicketAttachmentObjectStore, error) {
 	if strings.TrimSpace(storageCfg.Bucket) == "" || strings.TrimSpace(storageCfg.AccessKeyID) == "" || strings.TrimSpace(storageCfg.SecretAccessKey) == "" {
 		return nil, fmt.Errorf("support ticket attachment storage requires bucket, access_key_id, and secret_access_key")
 	}
@@ -37,7 +38,7 @@ func NewSupportTicketAttachmentStore(cfg *config.Config) (service.SupportTicketA
 	if region == "" {
 		region = "auto"
 	}
-	awsCfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithRegion(region),
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			storageCfg.AccessKeyID,
@@ -58,6 +59,14 @@ func NewSupportTicketAttachmentStore(cfg *config.Config) (service.SupportTicketA
 	})
 	slog.Info("support_ticket_attachment storage_initialized", "endpoint", storageCfg.Endpoint, "bucket", storageCfg.Bucket, "region", region, "force_path_style", storageCfg.ForcePathStyle)
 	return &supportTicketS3Store{client: client, presignClient: s3.NewPresignClient(client), bucket: storageCfg.Bucket}, nil
+}
+
+func (s *supportTicketS3Store) HeadBucket(ctx context.Context) error {
+	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(s.bucket)})
+	if err != nil {
+		return fmt.Errorf("S3 HeadBucket: %w", err)
+	}
+	return nil
 }
 
 func (s *supportTicketS3Store) Upload(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
