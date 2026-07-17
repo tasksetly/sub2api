@@ -47,6 +47,7 @@ export default {
     toggleMenu: 'Toggle menu',
     userMenu: 'User menu',
     pageNotFound: 'Page not found',
+    download: 'Download',
     enabled: 'Enabled',
     disabled: 'Disabled',
 	    total: 'Total',
@@ -152,6 +153,8 @@ export default {
   nav: {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
+    tickets: 'My Tickets',
+    ticketManagement: 'Tickets',
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
     usage: 'Usage',

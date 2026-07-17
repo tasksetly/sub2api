@@ -47,6 +47,7 @@ export default {
     toggleMenu: '切换菜单',
     userMenu: '用户菜单',
     pageNotFound: '页面不存在',
+    download: '下载',
     enabled: '已启用',
     disabled: '已禁用',
 	    total: '总计',
@@ -152,6 +153,8 @@ export default {
   nav: {
     dashboard: '仪表盘',
     announcements: '公告',
+    tickets: '我的工单',
+    ticketManagement: '工单管理',
     apiKeys: 'API 密钥',
     batchImage: '批量生图',
     usage: '使用记录',

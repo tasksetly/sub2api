@@ -98,6 +98,7 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+	SupportTicket           SupportTicketConfig           `mapstructure:"support_ticket"`
 }
 
 type LogConfig struct {
@@ -245,6 +246,21 @@ type ImageStorageConfig struct {
 	PublicBaseURL   string `mapstructure:"public_base_url"`      // 配了则返回 public_base_url/key 直链；否则 presigned
 	PresignExpiry   int    `mapstructure:"presign_expiry_hours"` // public_base_url 为空时的 presigned 过期时长(小时)
 	MaxDownloadByte int64  `mapstructure:"max_download_bytes"`   // 下载上游 url 图片的字节上限
+}
+
+// SupportTicketConfig is retained for compatibility with the legacy static
+// attachment service. The active ticket implementation reads its S3 settings
+// dynamically from the settings table.
+type SupportTicketConfig struct {
+	Attachments SupportTicketAttachmentConfig `mapstructure:"attachments"`
+}
+
+type SupportTicketAttachmentConfig struct {
+	Enabled               bool   `mapstructure:"enabled"`
+	Prefix                string `mapstructure:"prefix"`
+	MaxFileSizeMB         int    `mapstructure:"max_file_size_mb"`
+	MaxAttachmentsMessage int    `mapstructure:"max_attachments_per_message"`
+	URLExpiryMinutes      int    `mapstructure:"url_expiry_minutes"`
 }
 
 // IsConfigured 检查对象存储必要字段是否已配置

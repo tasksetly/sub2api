@@ -42,6 +42,9 @@ func RegisterAdminRoutes(
 		// 公告管理
 		registerAnnouncementRoutes(admin, h)
 
+		// 工单管理
+		registerTicketRoutes(admin, h)
+
 		// OpenAI OAuth
 		registerOpenAIOAuthRoutes(admin, h)
 
@@ -410,6 +413,17 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 }
 
+func registerTicketRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	tickets := admin.Group("/tickets")
+	{
+		tickets.GET("", h.Admin.Ticket.List)
+		tickets.GET("/:id", h.Admin.Ticket.Get)
+		tickets.PUT("/:id", h.Admin.Ticket.Update)
+		tickets.POST("/:id/messages", h.Admin.Ticket.Reply)
+		tickets.GET("/:id/messages/:message_id/attachments/:index", h.Admin.Ticket.Attachment)
+	}
+}
+
 func registerOpenAIOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	openai := admin.Group("/openai")
 	{
@@ -543,6 +557,10 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.PUT("/web-search-emulation", h.Admin.Setting.UpdateWebSearchEmulationConfig)
 		adminSettings.POST("/web-search-emulation/test", h.Admin.Setting.TestWebSearchEmulation)
 		adminSettings.POST("/web-search-emulation/reset-usage", h.Admin.Setting.ResetWebSearchUsage)
+		// 工单图片对象存储
+		adminSettings.GET("/ticket-storage", h.Admin.Ticket.GetStorageConfig)
+		adminSettings.PUT("/ticket-storage", h.Admin.Ticket.UpdateStorageConfig)
+		adminSettings.POST("/ticket-storage/test", h.Admin.Ticket.TestStorage)
 	}
 }
 
