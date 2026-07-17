@@ -21,6 +21,13 @@
 
       <!-- Redeem Form -->
       <div class="card">
+        <div
+          v-if="redeemStoreHtml"
+          class="flex items-start gap-3 border-b border-gray-100 bg-gray-50 px-6 py-4 dark:border-dark-700 dark:bg-dark-800/60"
+        >
+          <Icon name="externalLink" size="md" class="mt-0.5 shrink-0 text-primary-600 dark:text-primary-400" />
+          <div class="redeem-store-content min-w-0 text-sm text-gray-700 dark:text-gray-200" v-html="redeemStoreHtml"></div>
+        </div>
         <div class="p-6">
           <form @submit.prevent="handleRedeem" class="space-y-5">
             <div>
@@ -351,6 +358,7 @@ import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTime } from '@/utils/format'
+import { sanitizeRedeemStoreHtml } from '@/utils/sanitizeRedeemStoreHtml'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -376,6 +384,7 @@ const errorMessage = ref('')
 const history = ref<RedeemHistoryItem[]>([])
 const loadingHistory = ref(false)
 const contactInfo = ref('')
+const redeemStoreHtml = ref('')
 
 // Helper functions for history display
 const isBalanceType = (type: string) => {
@@ -481,8 +490,9 @@ onMounted(async () => {
   try {
     const settings = await authAPI.getPublicSettings()
     contactInfo.value = settings.contact_info || ''
+    redeemStoreHtml.value = sanitizeRedeemStoreHtml(settings.redeem_store_html || '')
   } catch (error) {
-    console.error('Failed to load contact info:', error)
+    console.error('Failed to load redeem page settings:', error)
   }
 })
 </script>
@@ -497,5 +507,25 @@ onMounted(async () => {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+.redeem-store-content :deep(p + p),
+.redeem-store-content :deep(ul),
+.redeem-store-content :deep(ol) {
+  margin-top: 0.5rem;
+}
+
+.redeem-store-content :deep(ul) {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.redeem-store-content :deep(ol) {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+
+.redeem-store-content :deep(a) {
+  @apply font-semibold text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300;
 }
 </style>
