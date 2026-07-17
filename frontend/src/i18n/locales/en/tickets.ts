@@ -1,0 +1,61 @@
+export default {
+  tickets: {
+    title: 'My Tickets',
+    description: 'View and manage support requests',
+    detailTitle: 'Ticket Details',
+    adminTitle: 'Ticket Management',
+    adminDescription: 'Handle user support requests',
+    adminDetailTitle: 'Handle Ticket',
+    create: 'New Ticket',
+    subject: 'Subject',
+    categoryLabel: 'Category',
+    priorityLabel: 'Priority',
+    submitTicket: 'Submit Ticket',
+    sendReply: 'Send Reply',
+    addImages: 'Add Images',
+    removeImage: 'Remove image',
+    previewImage: 'Preview image {name}',
+    viewOriginal: 'View full image',
+    imageLoadFailed: 'Image could not be loaded',
+    retryImage: 'Retry',
+    support: 'Support',
+    supportRole: 'Admin',
+    userRole: 'User',
+    user: 'User',
+    closeTicket: 'Close Ticket',
+    closeConfirm: 'Replies cannot be added after closing. Close this ticket?',
+    closedNotice: 'This ticket is closed.',
+    empty: 'No tickets yet',
+    adminEmpty: 'No tickets match these filters',
+    messagePlaceholder: 'Describe the issue that needs attention',
+    replyPlaceholder: 'Add a reply',
+    adminReplyPlaceholder: 'Reply to the user',
+    searchPlaceholder: 'Search subject, email, or username',
+    allStatuses: 'All statuses',
+    allPriorities: 'All priorities',
+    loadFailed: 'Failed to load tickets',
+    submitFailed: 'Failed to submit ticket',
+    replyFailed: 'Failed to send reply',
+    closeFailed: 'Failed to close ticket',
+    updateFailed: 'Failed to update ticket',
+    status: {
+      open: 'Open',
+      in_progress: 'In Progress',
+      waiting_user: 'Waiting for User',
+      closed: 'Closed'
+    },
+    priority: {
+      low: 'Low',
+      normal: 'Normal',
+      high: 'High',
+      urgent: 'Urgent'
+    },
+    category: {
+      technical: 'Technical',
+      billing: 'Billing & Balance',
+      account: 'Account',
+      suggestion: 'Suggestion',
+      other: 'Other'
+    }
+  }
+}

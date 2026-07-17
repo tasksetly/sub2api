@@ -44,6 +44,7 @@ export default {
     inactive: 'Inactive',
     more: 'More',
     close: 'Close',
+    download: 'Download',
     enabled: 'Enabled',
     disabled: 'Disabled',
 	    total: 'Total',
@@ -149,6 +150,8 @@ export default {
   nav: {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
+    tickets: 'My Tickets',
+    ticketManagement: 'Tickets',
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
     usage: 'Usage',

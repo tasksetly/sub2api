@@ -1,0 +1,61 @@
+export default {
+  tickets: {
+    title: '我的工单',
+    description: '查看和管理支持请求',
+    detailTitle: '工单详情',
+    adminTitle: '工单管理',
+    adminDescription: '处理用户支持请求',
+    adminDetailTitle: '处理工单',
+    create: '新建工单',
+    subject: '主题',
+    categoryLabel: '问题类型',
+    priorityLabel: '优先级',
+    submitTicket: '提交工单',
+    sendReply: '发送回复',
+    addImages: '添加图片',
+    removeImage: '移除图片',
+    previewImage: '查看图片 {name}',
+    viewOriginal: '查看大图',
+    imageLoadFailed: '图片加载失败',
+    retryImage: '重新加载',
+    support: '客服',
+    supportRole: '管理员',
+    userRole: '用户',
+    user: '用户',
+    closeTicket: '关闭工单',
+    closeConfirm: '关闭后将不能继续回复，确认关闭此工单？',
+    closedNotice: '此工单已关闭。',
+    empty: '还没有工单',
+    adminEmpty: '没有符合条件的工单',
+    messagePlaceholder: '请描述需要处理的问题',
+    replyPlaceholder: '补充回复',
+    adminReplyPlaceholder: '回复用户',
+    searchPlaceholder: '搜索主题、邮箱或用户名',
+    allStatuses: '全部状态',
+    allPriorities: '全部优先级',
+    loadFailed: '加载工单失败',
+    submitFailed: '提交工单失败',
+    replyFailed: '发送回复失败',
+    closeFailed: '关闭工单失败',
+    updateFailed: '更新工单失败',
+    status: {
+      open: '待处理',
+      in_progress: '处理中',
+      waiting_user: '待用户回复',
+      closed: '已关闭'
+    },
+    priority: {
+      low: '低',
+      normal: '普通',
+      high: '高',
+      urgent: '紧急'
+    },
+    category: {
+      technical: '技术问题',
+      billing: '账单与余额',
+      account: '账户问题',
+      suggestion: '意见建议',
+      other: '其他'
+    }
+  }
+}
