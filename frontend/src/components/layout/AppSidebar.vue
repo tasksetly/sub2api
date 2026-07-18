@@ -24,8 +24,6 @@
         >
           {{ siteName }}
         </router-link>
-        <!-- Version Badge -->
-        <VersionBadge :version="siteVersion" />
       </div>
     </div>
 
@@ -119,9 +117,18 @@
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
             @click="handleMenuItemClick(item.path)"
           >
-            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+            <span class="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
+              <span v-if="item.iconSvg" class="h-5 w-5 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+              <component v-else :is="item.icon" class="h-5 w-5" />
+              <span
+                v-if="showUserTicketAttention(item)"
+                data-testid="ticket-attention-dot"
+                class="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-dark-900"
+                aria-hidden="true"
+              ></span>
+            </span>
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+            <span v-if="showUserTicketAttention(item)" class="sr-only">{{ t('tickets.replyRequired') }}</span>
           </router-link>
         </div>
       </template>
@@ -139,9 +146,18 @@
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
             @click="handleMenuItemClick(item.path)"
           >
-            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+            <span class="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
+              <span v-if="item.iconSvg" class="h-5 w-5 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+              <component v-else :is="item.icon" class="h-5 w-5" />
+              <span
+                v-if="showUserTicketAttention(item)"
+                data-testid="ticket-attention-dot"
+                class="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-dark-900"
+                aria-hidden="true"
+              ></span>
+            </span>
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+            <span v-if="showUserTicketAttention(item)" class="sr-only">{{ t('tickets.replyRequired') }}</span>
           </router-link>
         </div>
       </template>
@@ -191,8 +207,13 @@
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
-import VersionBadge from '@/components/common/VersionBadge.vue'
+import {
+  useAdminSettingsStore,
+  useAppStore,
+  useAuthStore,
+  useOnboardingStore,
+  useTicketNotificationStore
+} from '@/stores'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
@@ -241,6 +262,7 @@ const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const onboardingStore = useOnboardingStore()
+const ticketNotificationStore = useTicketNotificationStore()
 const adminSettingsStore = useAdminSettingsStore()
 const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
 
@@ -258,7 +280,6 @@ const expandedGroups = ref<Set<string>>(new Set())
 // Site settings from appStore (cached, no flicker)
 const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
-const siteVersion = computed(() => appStore.siteVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
 // SVG Icon Components
@@ -873,6 +894,10 @@ function handleMenuItemClick(itemPath: string) {
 
 function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + '/')
+}
+
+function showUserTicketAttention(item: NavItem): boolean {
+  return item.path === '/tickets' && ticketNotificationStore.hasWaitingUserTickets
 }
 
 function isGroupActive(item: NavItem): boolean {

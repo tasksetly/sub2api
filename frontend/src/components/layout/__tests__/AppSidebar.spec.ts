@@ -53,3 +53,11 @@ describe('AppSidebar header styles', () => {
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
 })
+
+describe('AppSidebar ticket attention indicator', () => {
+  it('shows the notification only on the user ticket route', () => {
+    expect(componentSource).toContain('data-testid="ticket-attention-dot"')
+    expect(componentSource).toContain("item.path === '/tickets' && ticketNotificationStore.hasWaitingUserTickets")
+    expect(componentSource).toContain("t('tickets.replyRequired')")
+  })
+})

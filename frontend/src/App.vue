@@ -6,7 +6,15 @@ import NavigationProgress from '@/components/common/NavigationProgress.vue'
 import AdminComplianceDialog from '@/components/admin/AdminComplianceDialog.vue'
 import { resolveRouteDocumentTitle } from '@/router/title'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
-import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
+import {
+  useAdminComplianceStore,
+  useAdminSettingsStore,
+  useAnnouncementStore,
+  useAppStore,
+  useAuthStore,
+  useSubscriptionStore,
+  useTicketNotificationStore
+} from '@/stores'
 import { getSetupStatus } from '@/api/setup'
 
 const router = useRouter()
@@ -15,6 +23,7 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()
 const announcementStore = useAnnouncementStore()
+const ticketNotificationStore = useTicketNotificationStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
 
@@ -71,6 +80,7 @@ watch(
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && authStore.isAuthenticated) {
     announcementStore.fetchAnnouncements()
+    void ticketNotificationStore.fetchWaitingUserCount()
   }
 }
 
@@ -95,6 +105,11 @@ watch(
       })
       subscriptionStore.startPolling()
 
+      void ticketNotificationStore.fetchWaitingUserCount().catch((error) => {
+        console.error('Failed to preload ticket notifications:', error)
+      })
+      ticketNotificationStore.startPolling()
+
       // Announcements: new login vs page refresh restore
       if (oldValue === false) {
         // New login: delay 3s then force fetch
@@ -110,6 +125,7 @@ watch(
       // User logged out: clear data and stop polling
       subscriptionStore.clear()
       announcementStore.reset()
+      ticketNotificationStore.reset()
       adminComplianceStore.reset()
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
@@ -121,11 +137,13 @@ watch(
 router.afterEach(() => {
   if (authStore.isAuthenticated) {
     announcementStore.fetchAnnouncements()
+    void ticketNotificationStore.fetchWaitingUserCount()
   }
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  ticketNotificationStore.stopPolling()
   window.removeEventListener('admin-compliance-required', onAdminComplianceRequired)
 })
 

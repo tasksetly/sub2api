@@ -3,6 +3,7 @@ export default {
     title: '我的工单',
     description: '查看和管理支持请求',
     detailTitle: '工单详情',
+    replyRequired: '有工单待您回复',
     adminTitle: '工单管理',
     adminDescription: '处理用户支持请求',
     adminDetailTitle: '处理工单',
