@@ -158,6 +158,40 @@ func TestApplyHeaderOverrides(t *testing.T) {
 	require.Equal(t, 1, count)
 }
 
+func TestApplyHeaderOverridesPreservesCodexPrefixUserAgent(t *testing.T) {
+	acc := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
+		credKeyHeaderOverrideEnabled: true,
+		credKeyHeaderOverrides: map[string]any{
+			"user-agent": "override-agent/2.0",
+			"x-custom":   "custom-value",
+		},
+	})
+
+	h := http.Header{}
+	h.Set("User-Agent", "CoDeX_cli_rs/0.144.1")
+	h.Set("X-Custom", "before")
+	acc.ApplyHeaderOverrides(h)
+
+	require.Equal(t, "CoDeX_cli_rs/0.144.1", h.Get("User-Agent"))
+	require.Equal(t, "custom-value", h.Get("X-Custom"), "other header overrides must still apply")
+}
+
+func TestApplyHeaderOverridesReplacesNonCodexUserAgent(t *testing.T) {
+	acc := headerOverrideTestAccount(PlatformOpenAI, AccountTypeAPIKey, map[string]any{
+		credKeyHeaderOverrideEnabled: true,
+		credKeyHeaderOverrides: map[string]any{
+			"user-agent": "override-agent/2.0",
+		},
+	})
+
+	for _, original := range []string{"OpenAI/Python 2.3.0", "my-codex-client/1.0", ""} {
+		h := http.Header{}
+		h.Set("User-Agent", original)
+		acc.ApplyHeaderOverrides(h)
+		require.Equal(t, "override-agent/2.0", h.Get("User-Agent"), original)
+	}
+}
+
 func TestApplyHeaderOverridesNoOpPaths(t *testing.T) {
 	baseline := func() http.Header {
 		h := http.Header{}
