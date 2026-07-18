@@ -9,6 +9,7 @@ export { useAdminSettingsStore } from './adminSettings'
 export { useSubscriptionStore } from './subscriptions'
 export { useOnboardingStore } from './onboarding'
 export { useAnnouncementStore } from './announcements'
+export { useTicketNotificationStore } from './ticketNotifications'
 export { usePaymentStore } from './payment'
 export { useAdminComplianceStore } from './adminCompliance'
 

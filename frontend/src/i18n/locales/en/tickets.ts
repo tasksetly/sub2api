@@ -3,6 +3,7 @@ export default {
     title: 'My Tickets',
     description: 'View and manage support requests',
     detailTitle: 'Ticket Details',
+    replyRequired: 'A ticket is waiting for your reply',
     adminTitle: 'Ticket Management',
     adminDescription: 'Handle user support requests',
     adminDetailTitle: 'Handle Ticket',

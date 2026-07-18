@@ -20,7 +20,7 @@
               <div>
                 <div class="mb-2 flex items-center gap-2">
                   <span class="text-sm text-gray-500">#{{ ticket.id }}</span>
-                  <TicketBadge :value="ticket.status" />
+                  <TicketBadge :value="ticket.status" :attention="ticket.status === 'waiting_user'" />
                 </div>
                 <h1 class="text-xl font-semibold text-gray-900 dark:text-white">{{ ticket.subject }}</h1>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t(`tickets.category.${ticket.category}`) }} · {{ formatDate(ticket.created_at) }}</p>
@@ -82,7 +82,7 @@
               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t(`tickets.category.${item.category}`) }}</p>
             </div>
             <div class="flex items-center gap-3 sm:justify-end">
-              <TicketBadge :value="item.status" />
+              <TicketBadge :value="item.status" :attention="item.status === 'waiting_user'" />
               <time class="whitespace-nowrap text-xs text-gray-500">{{ formatDate(item.last_message_at) }}</time>
             </div>
           </button>
@@ -139,7 +139,7 @@ import TicketBadge from '@/components/tickets/TicketBadge.vue'
 import TicketComposer from '@/components/tickets/TicketComposer.vue'
 import TicketConversation from '@/components/tickets/TicketConversation.vue'
 import { ticketsAPI } from '@/api'
-import { useAppStore } from '@/stores'
+import { useAppStore, useTicketNotificationStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { Ticket, TicketCategory, TicketStatus } from '@/types/ticket'
 
@@ -147,6 +147,7 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const ticketNotificationStore = useTicketNotificationStore()
 const ticketId = computed(() => Number(route.params.id || 0))
 const tickets = ref<Ticket[]>([])
 const ticket = ref<Ticket | null>(null)
@@ -215,6 +216,7 @@ async function sendReply(payload: { content: string; images: File[] }) {
   try {
     ticket.value = await ticketsAPI.reply(ticketId.value, payload)
     composerKey.value++
+    void ticketNotificationStore.fetchWaitingUserCount(true)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('tickets.replyFailed')))
   } finally {
@@ -226,6 +228,7 @@ async function closeCurrentTicket() {
   showCloseConfirm.value = false
   try {
     ticket.value = await ticketsAPI.close(ticketId.value)
+    void ticketNotificationStore.fetchWaitingUserCount(true)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('tickets.closeFailed')))
   }
