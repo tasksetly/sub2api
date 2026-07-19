@@ -348,6 +348,65 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 	response.Success(c, stats)
 }
 
+// SupplierCosts returns account costs grouped by the supplier assigned to each account.
+// GET /api/v1/admin/usage/supplier-costs
+func (h *UsageHandler) SupplierCosts(c *gin.Context) {
+	if h.usageService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "Usage service unavailable")
+		return
+	}
+
+	parsed, err := parseDashboardSnapshotV2Filters(c)
+	if err != nil {
+		response.BadRequest(c, "Invalid usage filter: "+err.Error())
+		return
+	}
+
+	userTZ := c.Query("timezone")
+	now := timezone.NowInUserLocation(userTZ)
+	startTime := timezone.StartOfDayInUserLocation(now, userTZ)
+	endTime := now
+	startDate := strings.TrimSpace(c.Query("start_date"))
+	endDate := strings.TrimSpace(c.Query("end_date"))
+	if startDate != "" || endDate != "" {
+		if startDate == "" || endDate == "" {
+			response.BadRequest(c, "start_date and end_date must be provided together")
+			return
+		}
+		startTime, err = timezone.ParseInUserLocation("2006-01-02", startDate, userTZ)
+		if err != nil {
+			response.BadRequest(c, "Invalid start_date format, use YYYY-MM-DD")
+			return
+		}
+		endTime, err = timezone.ParseInUserLocation("2006-01-02", endDate, userTZ)
+		if err != nil {
+			response.BadRequest(c, "Invalid end_date format, use YYYY-MM-DD")
+			return
+		}
+		endTime = endTime.AddDate(0, 0, 1)
+	}
+
+	filters := usagestats.UsageLogFilters{
+		UserID:      parsed.UserID,
+		APIKeyID:    parsed.APIKeyID,
+		AccountID:   parsed.AccountID,
+		GroupID:     parsed.GroupID,
+		Model:       parsed.Model,
+		RequestType: parsed.RequestType,
+		Stream:      parsed.Stream,
+		BillingType: parsed.BillingType,
+		BillingMode: strings.TrimSpace(c.Query("billing_mode")),
+		StartTime:   &startTime,
+		EndTime:     &endTime,
+	}
+	stats, err := h.usageService.GetSupplierCostStats(c.Request.Context(), filters)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"suppliers": stats})
+}
+
 // SearchUsers handles searching users by email keyword
 // GET /api/v1/admin/usage/search-users
 func (h *UsageHandler) SearchUsers(c *gin.Context) {

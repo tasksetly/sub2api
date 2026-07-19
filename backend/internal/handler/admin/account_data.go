@@ -59,6 +59,7 @@ type DataProxy struct {
 // (外审第6轮裁决:保持排除 + 前端警告,而非升级格式做完整往返)。
 type DataAccount struct {
 	Name               string         `json:"name"`
+	Supplier           string         `json:"supplier,omitempty"`
 	Notes              *string        `json:"notes,omitempty"`
 	Platform           string         `json:"platform"`
 	Type               string         `json:"type"`
@@ -201,6 +202,7 @@ func (h *AccountHandler) ExportData(c *gin.Context) {
 		}
 		dataAccounts = append(dataAccounts, DataAccount{
 			Name:               acc.Name,
+			Supplier:           acc.Supplier,
 			Notes:              acc.Notes,
 			Platform:           acc.Platform,
 			Type:               acc.Type,
@@ -431,6 +433,7 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 
 		accountInput := &service.CreateAccountInput{
 			Name:                 item.Name,
+			Supplier:             item.Supplier,
 			Notes:                item.Notes,
 			Platform:             item.Platform,
 			Type:                 item.Type,

@@ -24,6 +24,8 @@ const (
 	FieldDeletedAt = "deleted_at"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldSupplier holds the string denoting the supplier field in the database.
+	FieldSupplier = "supplier"
 	// FieldNotes holds the string denoting the notes field in the database.
 	FieldNotes = "notes"
 	// FieldPlatform holds the string denoting the platform field in the database.
@@ -135,6 +137,7 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldDeletedAt,
 	FieldName,
+	FieldSupplier,
 	FieldNotes,
 	FieldPlatform,
 	FieldType,
@@ -196,6 +199,10 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultSupplier holds the default value on creation for the "supplier" field.
+	DefaultSupplier string
+	// SupplierValidator is a validator for the "supplier" field. It is called by the builders before save.
+	SupplierValidator func(string) error
 	// PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
 	PlatformValidator func(string) error
 	// TypeValidator is a validator for the "type" field. It is called by the builders before save.
@@ -274,6 +281,11 @@ func ByDeletedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// BySupplier orders the results by the supplier field.
+func BySupplier(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSupplier, opts...).ToFunc()
 }
 
 // ByNotes orders the results by the notes field.

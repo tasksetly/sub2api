@@ -21,6 +21,7 @@ import (
 type Account struct {
 	ID                      int64
 	Name                    string
+	Supplier                string
 	Notes                   *string
 	Platform                string
 	Type                    string

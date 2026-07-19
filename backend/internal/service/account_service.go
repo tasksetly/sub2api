@@ -135,6 +135,7 @@ type AdminAccountRepository interface {
 // Nil pointers mean "do not change".
 type AccountBulkUpdate struct {
 	Name           *string
+	Supplier       *string
 	ProxyID        *int64
 	Concurrency    *int
 	Priority       *int

@@ -267,6 +267,7 @@ type GrokSSOToOAuthRequest struct {
 	SSOTokens          []string       `json:"sso_tokens"`
 	SSOToken           string         `json:"sso_token"`
 	Name               string         `json:"name"`
+	Supplier           string         `json:"supplier"`
 	Notes              *string        `json:"notes"`
 	ProxyID            *int64         `json:"proxy_id"`
 	GroupIDs           []int64        `json:"group_ids"`
@@ -378,6 +379,7 @@ func (h *GrokOAuthHandler) createAccountFromSSOToken(ctx context.Context, req Gr
 	expiresAt, autoPauseOnExpired := grokSSOImportExpiry(req.ExpiresAt, req.AutoPauseOnExpired, tokenInfo)
 	account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 		Name:               name,
+		Supplier:           req.Supplier,
 		Notes:              req.Notes,
 		Platform:           service.PlatformGrok,
 		Type:               service.AccountTypeOAuth,

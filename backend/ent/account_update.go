@@ -71,6 +71,20 @@ func (_u *AccountUpdate) SetNillableName(v *string) *AccountUpdate {
 	return _u
 }
 
+// SetSupplier sets the "supplier" field.
+func (_u *AccountUpdate) SetSupplier(v string) *AccountUpdate {
+	_u.mutation.SetSupplier(v)
+	return _u
+}
+
+// SetNillableSupplier sets the "supplier" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableSupplier(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetSupplier(*v)
+	}
+	return _u
+}
+
 // SetNotes sets the "notes" field.
 func (_u *AccountUpdate) SetNotes(v string) *AccountUpdate {
 	_u.mutation.SetNotes(v)
@@ -762,6 +776,11 @@ func (_u *AccountUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Supplier(); ok {
+		if err := account.SupplierValidator(v); err != nil {
+			return &ValidationError{Name: "supplier", err: fmt.Errorf(`ent: validator failed for field "Account.supplier": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := account.PlatformValidator(v); err != nil {
 			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Account.platform": %w`, err)}
@@ -813,6 +832,9 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(account.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Supplier(); ok {
+		_spec.SetField(account.FieldSupplier, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Notes(); ok {
 		_spec.SetField(account.FieldNotes, field.TypeString, value)
@@ -1207,6 +1229,20 @@ func (_u *AccountUpdateOne) SetName(v string) *AccountUpdateOne {
 func (_u *AccountUpdateOne) SetNillableName(v *string) *AccountUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
+	}
+	return _u
+}
+
+// SetSupplier sets the "supplier" field.
+func (_u *AccountUpdateOne) SetSupplier(v string) *AccountUpdateOne {
+	_u.mutation.SetSupplier(v)
+	return _u
+}
+
+// SetNillableSupplier sets the "supplier" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableSupplier(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetSupplier(*v)
 	}
 	return _u
 }
@@ -1915,6 +1951,11 @@ func (_u *AccountUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Supplier(); ok {
+		if err := account.SupplierValidator(v); err != nil {
+			return &ValidationError{Name: "supplier", err: fmt.Errorf(`ent: validator failed for field "Account.supplier": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := account.PlatformValidator(v); err != nil {
 			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Account.platform": %w`, err)}
@@ -1983,6 +2024,9 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(account.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Supplier(); ok {
+		_spec.SetField(account.FieldSupplier, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Notes(); ok {
 		_spec.SetField(account.FieldNotes, field.TypeString, value)

@@ -316,6 +316,7 @@ type UpdateGroupInput struct {
 
 type CreateAccountInput struct {
 	Name               string
+	Supplier           string
 	Notes              *string
 	Platform           string
 	Type               string
@@ -347,6 +348,7 @@ type ShadowOptions struct {
 
 type UpdateAccountInput struct {
 	Name                  string
+	Supplier              *string
 	Notes                 *string
 	Type                  string // Account type: oauth, setup-token, apikey
 	Credentials           map[string]any
@@ -368,6 +370,7 @@ type BulkUpdateAccountsInput struct {
 	AccountIDs     []int64
 	Filters        *BulkUpdateAccountFilters
 	Name           string
+	Supplier       *string
 	ProxyID        *int64
 	Concurrency    *int
 	Priority       *int

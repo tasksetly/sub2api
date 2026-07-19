@@ -108,6 +108,7 @@ func NewAccountHandler(
 // CreateAccountRequest represents create account request
 type CreateAccountRequest struct {
 	Name                    string         `json:"name" binding:"required"`
+	Supplier                string         `json:"supplier"`
 	Notes                   *string        `json:"notes"`
 	Platform                string         `json:"platform" binding:"required"`
 	Type                    string         `json:"type" binding:"required,oneof=oauth setup-token apikey upstream bedrock service_account"`
@@ -128,6 +129,7 @@ type CreateAccountRequest struct {
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateAccountRequest struct {
 	Name                    string         `json:"name"`
+	Supplier                *string        `json:"supplier"`
 	Notes                   *string        `json:"notes"`
 	Type                    string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey upstream bedrock service_account"`
 	Credentials             map[string]any `json:"credentials"`
@@ -149,6 +151,7 @@ type BulkUpdateAccountsRequest struct {
 	AccountIDs              []int64                   `json:"account_ids"`
 	Filters                 *BulkUpdateAccountFilters `json:"filters"`
 	Name                    string                    `json:"name"`
+	Supplier                *string                   `json:"supplier"`
 	ProxyID                 *int64                    `json:"proxy_id"`
 	Concurrency             *int                      `json:"concurrency"`
 	Priority                *int                      `json:"priority"`
@@ -815,6 +818,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	result, err := executeAdminIdempotent(c, "admin.accounts.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		account, execErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 			Name:                  req.Name,
+			Supplier:              req.Supplier,
 			Notes:                 req.Notes,
 			Platform:              req.Platform,
 			Type:                  req.Type,
@@ -942,6 +946,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 
 	account, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
 		Name:                  req.Name,
+		Supplier:              req.Supplier,
 		Notes:                 req.Notes,
 		Type:                  req.Type,
 		Credentials:           req.Credentials,
@@ -1704,6 +1709,7 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 
 			account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 				Name:                  item.Name,
+				Supplier:              item.Supplier,
 				Notes:                 item.Notes,
 				Platform:              item.Platform,
 				Type:                  item.Type,
@@ -1898,6 +1904,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	hasUpdates := req.Name != "" ||
+		req.Supplier != nil ||
 		req.ProxyID != nil ||
 		req.Concurrency != nil ||
 		req.Priority != nil ||
@@ -1918,6 +1925,7 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		AccountIDs:            req.AccountIDs,
 		Filters:               toServiceBulkUpdateAccountFilters(req.Filters),
 		Name:                  req.Name,
+		Supplier:              req.Supplier,
 		ProxyID:               req.ProxyID,
 		Concurrency:           req.Concurrency,
 		Priority:              req.Priority,

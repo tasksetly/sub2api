@@ -47,6 +47,7 @@ export interface GrokTokenInfo {
 export interface GrokSSOToOAuthRequest {
   sso_tokens: string[]
   name?: string
+  supplier?: string
   notes?: string | null
   proxy_id?: number | null
   group_ids?: number[]

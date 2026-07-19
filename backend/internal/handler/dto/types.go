@@ -174,6 +174,7 @@ type AdminGroup struct {
 type Account struct {
 	ID       int64   `json:"id"`
 	Name     string  `json:"name"`
+	Supplier string  `json:"supplier"`
 	Notes    *string `json:"notes"`
 	Platform string  `json:"platform"`
 	Type     string  `json:"type"`

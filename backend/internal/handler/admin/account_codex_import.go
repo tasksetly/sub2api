@@ -25,6 +25,7 @@ type CodexSessionImportRequest struct {
 	Content                 string         `json:"content"`
 	Contents                []string       `json:"contents"`
 	Name                    string         `json:"name"`
+	Supplier                string         `json:"supplier"`
 	Notes                   *string        `json:"notes"`
 	GroupIDs                []int64        `json:"group_ids"`
 	ProxyID                 *int64         `json:"proxy_id"`
@@ -285,6 +286,9 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 				ExpiresAt:          effectiveExpiresAt,
 				AutoPauseOnExpired: autoPauseOnExpired,
 			}
+			if strings.TrimSpace(req.Supplier) != "" {
+				updateInput.Supplier = &req.Supplier
+			}
 			if req.ProxyID != nil {
 				updateInput.ProxyID = req.ProxyID
 			}
@@ -329,6 +333,7 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 
 		account, createErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 			Name:                  accountName,
+			Supplier:              req.Supplier,
 			Notes:                 req.Notes,
 			Platform:              service.PlatformOpenAI,
 			Type:                  service.AccountTypeOAuth,

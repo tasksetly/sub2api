@@ -220,6 +220,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 	out := &Account{
 		ID:                      a.ID,
 		Name:                    a.Name,
+		Supplier:                a.Supplier,
 		Notes:                   a.Notes,
 		Platform:                a.Platform,
 		Type:                    a.Type,

@@ -31,6 +31,31 @@
         </p>
       </div>
 
+      <!-- Supplier -->
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <label class="input-label mb-0" for="bulk-edit-supplier">
+            {{ t('admin.accounts.supplier') }}
+          </label>
+          <input
+            v-model="enableSupplier"
+            type="checkbox"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <input
+          id="bulk-edit-supplier"
+          v-model="supplier"
+          type="text"
+          maxlength="100"
+          :disabled="!enableSupplier"
+          class="input"
+          :class="!enableSupplier && 'cursor-not-allowed opacity-50'"
+          :placeholder="t('admin.accounts.supplierPlaceholder')"
+        />
+        <p class="input-hint">{{ t('admin.accounts.bulkEdit.supplierNotice') }}</p>
+      </div>
+
       <!-- OpenAI passthrough -->
       <div
         v-if="allOpenAIPassthroughCapable"
@@ -1347,6 +1372,7 @@ interface ModelMapping {
 
 // State - field enable flags
 const enableBaseUrl = ref(false)
+const enableSupplier = ref(false)
 const enableModelRestriction = ref(false)
 const enableCustomErrorCodes = ref(false)
 const enableInterceptWarmup = ref(false)
@@ -1373,6 +1399,7 @@ const showMixedChannelWarning = ref(false)
 const mixedChannelWarningMessage = ref('')
 const pendingUpdatesForConfirm = ref<Record<string, unknown> | null>(null)
 const baseUrl = ref('')
+const supplier = ref('')
 const modelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
 const allowedModels = ref<string[]>([])
 const modelMappings = ref<ModelMapping[]>([])
@@ -1544,6 +1571,10 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
       updates.extra = {}
     }
     return updates.extra as Record<string, unknown>
+  }
+
+  if (enableSupplier.value) {
+    updates.supplier = supplier.value.trim()
   }
 
   if (enableProxy.value) {
@@ -1755,6 +1786,7 @@ const handleSubmit = async () => {
   }
 
   const hasAnyFieldEnabled =
+    enableSupplier.value ||
     enableBaseUrl.value ||
     enableOpenAIPassthrough.value ||
     enableModelRestriction.value ||
@@ -1884,6 +1916,7 @@ watch(
     if (!newShow) {
       // Reset all enable flags
       enableBaseUrl.value = false
+      enableSupplier.value = false
       enableModelRestriction.value = false
       enableCustomErrorCodes.value = false
       enableInterceptWarmup.value = false
@@ -1906,6 +1939,7 @@ watch(
 
       // Reset all values
       baseUrl.value = ''
+      supplier.value = ''
       openaiPassthroughEnabled.value = false
       modelRestrictionMode.value = 'whitelist'
       allowedModels.value = []
