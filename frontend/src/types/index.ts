@@ -909,9 +909,10 @@ export interface UpstreamBillingProbeResult {
 }
 
 export interface Account {
-  id: number
-  name: string
-  notes?: string | null
+	id: number
+	name: string
+	supplier?: string
+	notes?: string | null
   platform: AccountPlatform
   type: AccountType
   // 后端响应里 credentials 已脱敏：access_token / refresh_token / id_token /
@@ -1194,8 +1195,9 @@ export interface OpenAIResponsesState {
 }
 
 export interface CreateAccountRequest {
-  name: string
-  notes?: string | null
+	name: string
+	supplier?: string
+	notes?: string | null
   platform: AccountPlatform
   type: AccountType
   credentials: Record<string, unknown>
@@ -1213,8 +1215,9 @@ export interface CreateAccountRequest {
 }
 
 export interface UpdateAccountRequest {
-  name?: string
-  notes?: string | null
+	name?: string
+	supplier?: string | null
+	notes?: string | null
   type?: AccountType
   credentials?: Record<string, unknown>
   extra?: Record<string, unknown>
@@ -1300,8 +1303,9 @@ export interface AdminDataProxy {
 }
 
 export interface AdminDataAccount {
-  name: string
-  notes?: string | null
+	name: string
+	supplier?: string
+	notes?: string | null
   platform: AccountPlatform
   type: AccountType
   credentials: Record<string, unknown>
@@ -1334,6 +1338,7 @@ export interface CodexSessionImportRequest {
   content?: string
   contents?: string[]
   name?: string
+  supplier?: string
   notes?: string | null
   group_ids?: number[]
   proxy_id?: number | null
@@ -1353,6 +1358,7 @@ export interface CodexSessionImportRequest {
 export interface OpenAICodexPATCreateRequest {
   access_token: string
   name?: string
+  supplier?: string
   notes?: string | null
   group_ids?: number[]
   proxy_id?: number | null
@@ -1676,6 +1682,22 @@ export interface GroupStat {
   cost: number // 标准计费
   actual_cost: number // 实际扣除
   account_cost?: number // 账号成本（仅管理员接口返回）
+}
+
+export interface SupplierCostStat {
+  supplier: string
+  account_count: number
+  requests: number
+  input_tokens: number
+  output_tokens: number
+  cache_tokens: number
+  total_tokens: number
+  standard_cost: number
+  account_cost: number
+  user_billed: number
+  gross_profit: number
+  gross_margin: number
+  cost_percentage: number
 }
 
 export interface UserBreakdownItem {

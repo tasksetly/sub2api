@@ -244,6 +244,12 @@
               </span>
             </div>
           </template>
+          <template #cell-supplier="{ value }">
+            <span v-if="value" class="inline-flex max-w-[180px] items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200" :title="value">
+              {{ value }}
+            </span>
+            <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{ t('admin.accounts.supplierUnset') }}</span>
+          </template>
           <template #cell-notes="{ value }">
             <span v-if="value" :title="value" class="block max-w-xs truncate text-sm text-gray-600 dark:text-gray-300">{{ value }}</span>
             <span v-else class="text-sm text-gray-400 dark:text-dark-500">-</span>
@@ -1360,6 +1366,7 @@ const allColumns = computed(() => {
   const c = [
     { key: 'select', label: '', sortable: false },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
+    { key: 'supplier', label: t('admin.accounts.columns.supplier'), sortable: true },
     { key: 'id', label: t('admin.accounts.columns.id'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },

@@ -16,6 +16,17 @@
         <input v-model="form.name" type="text" required class="input" data-tour="edit-account-form-name" />
       </div>
       <div>
+        <label class="input-label">{{ t('admin.accounts.supplier') }}</label>
+        <input
+          v-model="form.supplier"
+          type="text"
+          maxlength="100"
+          class="input"
+          :placeholder="t('admin.accounts.supplierPlaceholder')"
+        />
+        <p class="input-hint">{{ t('admin.accounts.supplierHint') }}</p>
+      </div>
+      <div>
         <label class="input-label">{{ t('admin.accounts.notes') }}</label>
         <textarea
           v-model="form.notes"
@@ -3135,6 +3146,7 @@ const mixedChannelWarningMessageText = computed(() => {
 
 const form = reactive({
   name: '',
+  supplier: '',
   notes: '',
   proxy_id: null as number | null,
   concurrency: 1,
@@ -3224,6 +3236,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   mixedChannelWarningRawMessage.value = ''
   mixedChannelWarningAction.value = null
   form.name = newAccount.name
+  form.supplier = newAccount.supplier || ''
   form.notes = newAccount.notes || ''
   form.proxy_id = newAccount.proxy_id
   form.concurrency = newAccount.concurrency

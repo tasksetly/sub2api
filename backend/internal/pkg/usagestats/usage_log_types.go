@@ -301,6 +301,24 @@ type UsageStats struct {
 	EndpointPaths            []EndpointStat `json:"endpoint_paths,omitempty"`
 }
 
+// SupplierCostStat represents account costs grouped by the supplier assigned to accounts.
+// An empty Supplier value means the account has not been assigned to a supplier yet.
+type SupplierCostStat struct {
+	Supplier       string  `json:"supplier"`
+	AccountCount   int64   `json:"account_count"`
+	Requests       int64   `json:"requests"`
+	InputTokens    int64   `json:"input_tokens"`
+	OutputTokens   int64   `json:"output_tokens"`
+	CacheTokens    int64   `json:"cache_tokens"`
+	TotalTokens    int64   `json:"total_tokens"`
+	StandardCost   float64 `json:"standard_cost"`
+	AccountCost    float64 `json:"account_cost"`
+	UserBilled     float64 `json:"user_billed"`
+	GrossProfit    float64 `json:"gross_profit"`
+	GrossMargin    float64 `json:"gross_margin"`
+	CostPercentage float64 `json:"cost_percentage"`
+}
+
 // PlatformUsage 表示某用户/某 API key 在单个"有效平台"维度的用量明细。
 // Platform 取值与 ops 路径口径一致：优先 groups.platform，否则 accounts.platform。
 type PlatformUsage struct {

@@ -289,6 +289,7 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 	}
 	input := &CreateAccountInput{
 		Name:                  duplicateAccountName(source.Name),
+		Supplier:              source.Supplier,
 		Notes:                 cloneAccountValuePointer(source.Notes),
 		Platform:              source.Platform,
 		Type:                  source.Type,
@@ -458,6 +459,7 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	delete(accountExtra, UpstreamBillingProbeExtraKey)
 	account := &Account{
 		Name:        input.Name,
+		Supplier:    strings.TrimSpace(input.Supplier),
 		Notes:       normalizeAccountNotes(input.Notes),
 		Platform:    input.Platform,
 		Type:        input.Type,
@@ -643,6 +645,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 
 	if input.Name != "" {
 		account.Name = input.Name
+	}
+	if input.Supplier != nil {
+		account.Supplier = strings.TrimSpace(*input.Supplier)
 	}
 	if input.Type != "" {
 		account.Type = input.Type
@@ -998,6 +1003,10 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 	if input.Name != "" {
 		repoUpdates.Name = &input.Name
+	}
+	if input.Supplier != nil {
+		supplier := strings.TrimSpace(*input.Supplier)
+		repoUpdates.Supplier = &supplier
 	}
 	if input.ProxyID != nil {
 		repoUpdates.ProxyID = input.ProxyID

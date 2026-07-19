@@ -73,6 +73,20 @@ func (_c *AccountCreate) SetName(v string) *AccountCreate {
 	return _c
 }
 
+// SetSupplier sets the "supplier" field.
+func (_c *AccountCreate) SetSupplier(v string) *AccountCreate {
+	_c.mutation.SetSupplier(v)
+	return _c
+}
+
+// SetNillableSupplier sets the "supplier" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableSupplier(v *string) *AccountCreate {
+	if v != nil {
+		_c.SetSupplier(*v)
+	}
+	return _c
+}
+
 // SetNotes sets the "notes" field.
 func (_c *AccountCreate) SetNotes(v string) *AccountCreate {
 	_c.mutation.SetNotes(v)
@@ -539,6 +553,10 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.Supplier(); !ok {
+		v := account.DefaultSupplier
+		_c.mutation.SetSupplier(v)
+	}
 	if _, ok := _c.mutation.Credentials(); !ok {
 		if account.DefaultCredentials == nil {
 			return fmt.Errorf("ent: uninitialized account.DefaultCredentials (forgotten import ent/runtime?)")
@@ -598,6 +616,14 @@ func (_c *AccountCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := account.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.Supplier(); !ok {
+		return &ValidationError{Name: "supplier", err: errors.New(`ent: missing required field "Account.supplier"`)}
+	}
+	if v, ok := _c.mutation.Supplier(); ok {
+		if err := account.SupplierValidator(v); err != nil {
+			return &ValidationError{Name: "supplier", err: fmt.Errorf(`ent: validator failed for field "Account.supplier": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Platform(); !ok {
@@ -700,6 +726,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(account.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.Supplier(); ok {
+		_spec.SetField(account.FieldSupplier, field.TypeString, value)
+		_node.Supplier = value
 	}
 	if value, ok := _c.mutation.Notes(); ok {
 		_spec.SetField(account.FieldNotes, field.TypeString, value)
@@ -978,6 +1008,18 @@ func (u *AccountUpsert) SetName(v string) *AccountUpsert {
 // UpdateName sets the "name" field to the value that was provided on create.
 func (u *AccountUpsert) UpdateName() *AccountUpsert {
 	u.SetExcluded(account.FieldName)
+	return u
+}
+
+// SetSupplier sets the "supplier" field.
+func (u *AccountUpsert) SetSupplier(v string) *AccountUpsert {
+	u.Set(account.FieldSupplier, v)
+	return u
+}
+
+// UpdateSupplier sets the "supplier" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateSupplier() *AccountUpsert {
+	u.SetExcluded(account.FieldSupplier)
 	return u
 }
 
@@ -1522,6 +1564,20 @@ func (u *AccountUpsertOne) SetName(v string) *AccountUpsertOne {
 func (u *AccountUpsertOne) UpdateName() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateName()
+	})
+}
+
+// SetSupplier sets the "supplier" field.
+func (u *AccountUpsertOne) SetSupplier(v string) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetSupplier(v)
+	})
+}
+
+// UpdateSupplier sets the "supplier" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateSupplier() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateSupplier()
 	})
 }
 
@@ -2307,6 +2363,20 @@ func (u *AccountUpsertBulk) SetName(v string) *AccountUpsertBulk {
 func (u *AccountUpsertBulk) UpdateName() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateName()
+	})
+}
+
+// SetSupplier sets the "supplier" field.
+func (u *AccountUpsertBulk) SetSupplier(v string) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetSupplier(v)
+	})
+}
+
+// UpdateSupplier sets the "supplier" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateSupplier() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateSupplier()
 	})
 }
 

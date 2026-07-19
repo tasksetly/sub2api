@@ -54,6 +54,10 @@ func (Account) Fields() []ent.Field {
 		field.String("name").
 			MaxLen(100).
 			NotEmpty(),
+		// supplier: 上游供应商标识，用于成本统计；空字符串表示尚未设置。
+		field.String("supplier").
+			MaxLen(100).
+			Default(""),
 		// notes: 管理员备注（可为空）
 		field.String("notes").
 			Optional().
@@ -235,6 +239,7 @@ func (Account) Edges() []ent.Edge {
 func (Account) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("platform"),            // 按平台筛选
+		index.Fields("supplier"),            // 按供应商筛选和成本归类
 		index.Fields("type"),                // 按认证类型筛选
 		index.Fields("status"),              // 按状态筛选
 		index.Fields("proxy_id"),            // 按代理筛选

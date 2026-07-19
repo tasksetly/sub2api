@@ -461,3 +461,18 @@ func (s *UsageService) GetStatsWithFilters(ctx context.Context, filters usagesta
 	}
 	return stats, nil
 }
+
+// GetSupplierCostStats returns account costs grouped by the supplier assigned to each account.
+func (s *UsageService) GetSupplierCostStats(ctx context.Context, filters usagestats.UsageLogFilters) ([]usagestats.SupplierCostStat, error) {
+	reader, ok := s.usageRepo.(interface {
+		GetSupplierCostStats(context.Context, usagestats.UsageLogFilters) ([]usagestats.SupplierCostStat, error)
+	})
+	if !ok {
+		return nil, errors.New("supplier cost statistics are unavailable")
+	}
+	stats, err := reader.GetSupplierCostStats(ctx, filters)
+	if err != nil {
+		return nil, fmt.Errorf("get supplier cost stats: %w", err)
+	}
+	return stats, nil
+}

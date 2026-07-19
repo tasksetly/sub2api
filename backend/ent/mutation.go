@@ -2287,6 +2287,7 @@ type AccountMutation struct {
 	updated_at                  *time.Time
 	deleted_at                  *time.Time
 	name                        *string
+	supplier                    *string
 	notes                       *string
 	platform                    *string
 	_type                       *string
@@ -2589,6 +2590,40 @@ func (m *AccountMutation) OldName(ctx context.Context) (v string, err error) {
 // ResetName resets all changes to the "name" field.
 func (m *AccountMutation) ResetName() {
 	m.name = nil
+}
+
+// SetSupplier sets the "supplier" field.
+func (m *AccountMutation) SetSupplier(s string) {
+	m.supplier = &s
+}
+
+// Supplier returns the value of the "supplier" field in the mutation.
+func (m *AccountMutation) Supplier() (r string, exists bool) {
+	v := m.supplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSupplier returns the old "supplier" field's value of the Account entity.
+func (m *AccountMutation) OldSupplier(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSupplier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSupplier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSupplier: %w", err)
+	}
+	return oldValue.Supplier, nil
+}
+
+// ResetSupplier resets all changes to the "supplier" field.
+func (m *AccountMutation) ResetSupplier() {
+	m.supplier = nil
 }
 
 // SetNotes sets the "notes" field.
@@ -4136,7 +4171,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 32)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4148,6 +4183,9 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.name != nil {
 		fields = append(fields, account.FieldName)
+	}
+	if m.supplier != nil {
+		fields = append(fields, account.FieldSupplier)
 	}
 	if m.notes != nil {
 		fields = append(fields, account.FieldNotes)
@@ -4246,6 +4284,8 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.DeletedAt()
 	case account.FieldName:
 		return m.Name()
+	case account.FieldSupplier:
+		return m.Supplier()
 	case account.FieldNotes:
 		return m.Notes()
 	case account.FieldPlatform:
@@ -4317,6 +4357,8 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldDeletedAt(ctx)
 	case account.FieldName:
 		return m.OldName(ctx)
+	case account.FieldSupplier:
+		return m.OldSupplier(ctx)
 	case account.FieldNotes:
 		return m.OldNotes(ctx)
 	case account.FieldPlatform:
@@ -4407,6 +4449,13 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetName(v)
+		return nil
+	case account.FieldSupplier:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSupplier(v)
 		return nil
 	case account.FieldNotes:
 		v, ok := value.(string)
@@ -4825,6 +4874,9 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldName:
 		m.ResetName()
+		return nil
+	case account.FieldSupplier:
+		m.ResetSupplier()
 		return nil
 	case account.FieldNotes:
 		m.ResetNotes()

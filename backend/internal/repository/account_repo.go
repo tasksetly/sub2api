@@ -103,6 +103,7 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 
 	builder := client.Account.Create().
 		SetName(account.Name).
+		SetSupplier(account.Supplier).
 		SetNillableNotes(account.Notes).
 		SetPlatform(account.Platform).
 		SetType(account.Type).
@@ -465,6 +466,7 @@ func (r *accountRepository) updateLockedAccount(ctx context.Context, client *dbe
 
 	builder := client.Account.UpdateOneID(account.ID).
 		SetName(account.Name).
+		SetSupplier(account.Supplier).
 		SetNillableNotes(account.Notes).
 		SetPlatform(account.Platform).
 		SetType(account.Type).
@@ -792,7 +794,10 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 		}
 	}
 	if search != "" {
-		q = q.Where(dbaccount.NameContainsFold(search))
+		q = q.Where(dbaccount.Or(
+			dbaccount.NameContainsFold(search),
+			dbaccount.SupplierContainsFold(search),
+		))
 	}
 	if groupID == service.AccountListGroupUngrouped {
 		q = q.Where(dbaccount.Not(dbaccount.HasAccountGroups()))
@@ -913,6 +918,9 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 	switch sortBy {
 	case "", "name":
 		field = dbaccount.FieldName
+	case "supplier":
+		field = dbaccount.FieldSupplier
+		defaultOrder = false
 	case "id":
 		field = dbaccount.FieldID
 		defaultOrder = false
@@ -2619,6 +2627,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		args = append(args, *updates.Name)
 		idx++
 	}
+	if updates.Supplier != nil {
+		setClauses = append(setClauses, "supplier = $"+itoa(idx))
+		args = append(args, strings.TrimSpace(*updates.Supplier))
+		idx++
+	}
 	if updates.ProxyID != nil {
 		// 0 表示清除代理（前端发送 0 而不是 null 来表达清除意图）
 		if *updates.ProxyID == 0 {
@@ -3101,6 +3114,7 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 	return &service.Account{
 		ID:                      m.ID,
 		Name:                    m.Name,
+		Supplier:                m.Supplier,
 		Notes:                   m.Notes,
 		Platform:                m.Platform,
 		Type:                    m.Type,

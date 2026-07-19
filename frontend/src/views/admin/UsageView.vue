@@ -2,6 +2,7 @@
   <AppLayout>
     <div class="space-y-6">
       <UsageStatsCards :stats="usageStats" />
+      <SupplierCostTable :rows="supplierCosts" :loading="supplierCostsLoading" />
       <!-- Charts Section -->
       <div class="space-y-4">
         <div class="card p-4">
@@ -192,6 +193,7 @@ import { formatReasoningEffort } from '@/utils/format'
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
 import AppLayout from '@/components/layout/AppLayout.vue'; import Pagination from '@/components/common/Pagination.vue'; import Select from '@/components/common/Select.vue'; import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'; import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
+import SupplierCostTable from '@/components/admin/usage/SupplierCostTable.vue'
 import UsageTable from '@/components/admin/usage/UsageTable.vue'; import UsageExportProgress from '@/components/admin/usage/UsageExportProgress.vue'
 import UserTokenRanking from '@/components/admin/usage/UserTokenRanking.vue'
 import UsageCleanupDialog from '@/components/admin/usage/UsageCleanupDialog.vue'
@@ -203,7 +205,7 @@ import type { OpsErrorLog } from '@/api/admin/ops'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'; import GroupDistributionChart from '@/components/charts/GroupDistributionChart.vue'; import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
 import Icon from '@/components/icons/Icon.vue'
-import type { AdminUsageLog, TrendDataPoint, ModelStat, GroupStat, EndpointStat, AdminUser } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/api/admin/usage'
+import type { AdminUsageLog, TrendDataPoint, ModelStat, GroupStat, EndpointStat, AdminUser, SupplierCostStat } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/api/admin/usage'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -212,6 +214,8 @@ type EndpointSource = 'inbound' | 'upstream' | 'path'
 type ModelDistributionSource = 'requested' | 'upstream' | 'mapping'
 const route = useRoute()
 const usageStats = ref<AdminUsageStatsResponse | null>(null); const usageLogs = ref<AdminUsageLog[]>([]); const loading = ref(false); const exporting = ref(false)
+const supplierCosts = ref<SupplierCostStat[]>([])
+const supplierCostsLoading = ref(false)
 const trendData = ref<TrendDataPoint[]>([]); const requestedModelStats = ref<ModelStat[]>([]); const upstreamModelStats = ref<ModelStat[]>([]); const mappingModelStats = ref<ModelStat[]>([]); const groupStats = ref<GroupStat[]>([]); const chartsLoading = ref(false); const modelStatsLoading = ref(false); const granularity = ref<'day' | 'hour'>('hour')
 const modelDistributionMetric = ref<DistributionMetric>('tokens')
 const modelDistributionSource = ref<ModelDistributionSource>('requested')
@@ -230,6 +234,7 @@ const endpointStatsLoading = ref(false)
 let abortController: AbortController | null = null; let exportAbortController: AbortController | null = null
 let chartReqSeq = 0
 let statsReqSeq = 0
+let supplierCostsReqSeq = 0
 let modelStatsReqSeq = 0
 const exportProgress = reactive({ show: false, progress: 0, current: 0, total: 0, estimatedTime: '' })
 const cleanupDialogVisible = ref(false)
@@ -402,6 +407,36 @@ const loadStats = async (force = false) => {
   }
 }
 
+const loadSupplierCosts = async () => {
+  const seq = ++supplierCostsReqSeq
+  supplierCostsLoading.value = true
+  try {
+    const requestType = filters.value.request_type
+    const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
+    const response = await adminUsageAPI.getSupplierCosts({
+      user_id: filters.value.user_id,
+      api_key_id: filters.value.api_key_id,
+      account_id: filters.value.account_id,
+      group_id: filters.value.group_id,
+      model: filters.value.model,
+      request_type: requestType,
+      stream: legacyStream === null ? undefined : legacyStream,
+      billing_type: filters.value.billing_type,
+      billing_mode: filters.value.billing_mode,
+      start_date: filters.value.start_date || startDate.value,
+      end_date: filters.value.end_date || endDate.value,
+    })
+    if (seq !== supplierCostsReqSeq) return
+    supplierCosts.value = response.suppliers || []
+  } catch (error) {
+    if (seq !== supplierCostsReqSeq) return
+    console.error('Failed to load supplier cost stats:', error)
+    supplierCosts.value = []
+  } finally {
+    if (seq === supplierCostsReqSeq) supplierCostsLoading.value = false
+  }
+}
+
 // 失效模型统计缓存:仅标记需要重取,保留旧数据直到新数据到达(避免刷新时图表闪空)。
 const invalidateModelStatsCache = () => {
   loadedModelSources.requested = false
@@ -495,6 +530,7 @@ const applyFilters = () => {
   invalidateModelStatsCache()
   loadLogs()
   loadStats()
+  loadSupplierCosts()
   loadModelStats(modelDistributionSource.value, true)
   loadChartData()
   errPage.value = 1
@@ -508,6 +544,7 @@ const refreshData = () => {
   invalidateModelStatsCache()
   loadLogs()
   loadStats(true)
+  loadSupplierCosts()
   loadModelStats(modelDistributionSource.value, true)
   loadChartData()
   if (activeTab.value === 'errors') loadAdminErrors()
@@ -823,6 +860,7 @@ onMounted(() => {
   applyRouteQueryFilters()
   loadLogs()
   loadStats()
+  loadSupplierCosts()
   loadModelStats(modelDistributionSource.value, true)
   window.setTimeout(() => {
     void loadChartData()

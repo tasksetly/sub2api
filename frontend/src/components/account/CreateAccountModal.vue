@@ -57,6 +57,17 @@
         />
       </div>
       <div>
+        <label class="input-label">{{ t('admin.accounts.supplier') }}</label>
+        <input
+          v-model="form.supplier"
+          type="text"
+          maxlength="100"
+          class="input"
+          :placeholder="t('admin.accounts.supplierPlaceholder')"
+        />
+        <p class="input-hint">{{ t('admin.accounts.supplierHint') }}</p>
+      </div>
+      <div>
         <label class="input-label">{{ t('admin.accounts.notes') }}</label>
         <textarea
           v-model="form.notes"
@@ -4058,6 +4069,7 @@ const tempUnschedPresets = computed(() => [
 
 const form = reactive({
   name: '',
+  supplier: '',
   notes: '',
   platform: 'anthropic' as AccountPlatform,
   type: 'oauth' as AccountType, // Will be 'oauth', 'setup-token', or 'apikey'
@@ -4608,6 +4620,7 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
 const resetForm = () => {
   step.value = 1
   form.name = ''
+  form.supplier = ''
   form.notes = ''
   form.platform = 'anthropic'
   form.type = 'oauth'
@@ -5241,6 +5254,7 @@ const createAccountAndFinish = async (
   }
   await doCreateAccount({
     name: form.name,
+    supplier: form.supplier.trim(),
     notes: form.notes,
     platform,
     type,
@@ -5305,6 +5319,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
 
         await adminAPI.accounts.create({
           name: accountName,
+          supplier: form.supplier.trim(),
           notes: form.notes,
           platform: 'grok',
           type: 'oauth',
@@ -5375,6 +5390,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
     const result = await adminAPI.grok.createFromSSO({
       sso_tokens: ssoTokens,
       name: form.name || undefined,
+      supplier: form.supplier.trim() || undefined,
       notes: form.notes || undefined,
       proxy_id: form.proxy_id,
       group_ids: form.group_ids,
@@ -5471,6 +5487,7 @@ const handleOpenAIExchange = async (authCode: string) => {
     if (shouldCreateOpenAI) {
       await adminAPI.accounts.create({
         name: form.name,
+        supplier: form.supplier.trim(),
         notes: form.notes,
         platform: 'openai',
         type: 'oauth',
@@ -5580,6 +5597,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
     const result = await adminAPI.accounts.importCodexSession({
       content: trimmed,
       name: form.name,
+      supplier: form.supplier.trim() || undefined,
       notes: form.notes || null,
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
@@ -5658,6 +5676,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
     await adminAPI.accounts.createOpenAICodexPAT({
       access_token: trimmed,
       name: form.name,
+      supplier: form.supplier.trim() || undefined,
       notes: form.notes || null,
       proxy_id: form.proxy_id,
       concurrency: form.concurrency,
@@ -5752,6 +5771,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
         if (shouldCreateOpenAI) {
           await adminAPI.accounts.create({
             name: accountName,
+            supplier: form.supplier.trim(),
             notes: form.notes,
             platform: 'openai',
             type: 'oauth',
@@ -5851,6 +5871,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
         // Note: Antigravity doesn't have buildExtraInfo, so we pass empty extra or rely on credentials
         const createPayload = withAntigravityConfirmFlag({
           name: accountName,
+          supplier: form.supplier.trim(),
           notes: form.notes,
           platform: 'antigravity',
           type: 'oauth',
@@ -6232,6 +6253,7 @@ const handleCookieAuth = async (sessionKey: string) => {
 
         await adminAPI.accounts.create({
           name: accountName,
+          supplier: form.supplier.trim(),
           notes: form.notes,
           platform: form.platform,
           type: addMethod.value, // Use addMethod as type: 'oauth' or 'setup-token'

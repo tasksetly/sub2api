@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from '../client'
-import type { AdminUsageLog, UsageQueryParams, PaginatedResponse, UsageRequestType } from '@/types'
+import type { AdminUsageLog, UsageQueryParams, PaginatedResponse, UsageRequestType, SupplierCostStat } from '@/types'
 import type { EndpointStat } from '@/types'
 
 // ==================== Types ====================
@@ -24,6 +24,10 @@ export interface AdminUsageStatsResponse {
   endpoints?: EndpointStat[]
   upstream_endpoints?: EndpointStat[]
   endpoint_paths?: EndpointStat[]
+}
+
+export interface SupplierCostStatsResponse {
+  suppliers: SupplierCostStat[]
 }
 
 export interface SimpleUser {
@@ -135,6 +139,24 @@ export async function getStats(params: {
   return data
 }
 
+export async function getSupplierCosts(params: {
+  user_id?: number
+  api_key_id?: number
+  account_id?: number
+  group_id?: number
+  model?: string
+  request_type?: UsageRequestType
+  stream?: boolean
+  billing_type?: number | null
+  billing_mode?: string
+  start_date?: string
+  end_date?: string
+  timezone?: string
+}): Promise<SupplierCostStatsResponse> {
+  const { data } = await apiClient.get<SupplierCostStatsResponse>('/admin/usage/supplier-costs', { params })
+  return data
+}
+
 /**
  * Search users by email keyword (admin only)
  * @param keyword - Email keyword to search
@@ -207,6 +229,7 @@ export async function cancelCleanupTask(taskId: number): Promise<{ id: number; s
 export const adminUsageAPI = {
   list,
   getStats,
+  getSupplierCosts,
   searchUsers,
   searchApiKeys,
   listCleanupTasks,

@@ -799,6 +799,130 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 	return stats, nil
 }
 
+// GetSupplierCostStats returns usage and cost totals grouped by the current supplier
+// assigned to each account. Keeping unassigned accounts as an empty supplier ensures
+// the supplier rows always reconcile with the overall account-cost total.
+func (r *usageLogRepository) GetSupplierCostStats(ctx context.Context, filters UsageLogFilters) (results []usagestats.SupplierCostStat, err error) {
+	conditions := make([]string, 0, 9)
+	args := make([]any, 0, 9)
+
+	appendIDFilter := func(column string, value int64) {
+		if value <= 0 {
+			return
+		}
+		conditions = append(conditions, fmt.Sprintf("ul.%s = $%d", column, len(args)+1))
+		args = append(args, value)
+	}
+	appendIDFilter("user_id", filters.UserID)
+	appendIDFilter("api_key_id", filters.APIKeyID)
+	appendIDFilter("account_id", filters.AccountID)
+	appendIDFilter("group_id", filters.GroupID)
+
+	if strings.TrimSpace(filters.Model) != "" {
+		modelExpr := "ul.model"
+		if strings.TrimSpace(filters.ModelFilterSource) != "" {
+			modelExpr = resolveModelDimensionExpressionWithAlias(filters.ModelFilterSource, "ul")
+		}
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", modelExpr, len(args)+1))
+		args = append(args, filters.Model)
+	}
+	if filters.RequestType != nil {
+		condition, conditionArgs := buildRequestTypeFilterConditionWithAlias(len(args)+1, *filters.RequestType, "ul")
+		conditions = append(conditions, condition)
+		args = append(args, conditionArgs...)
+	} else if filters.Stream != nil {
+		conditions = append(conditions, fmt.Sprintf("ul.stream = $%d", len(args)+1))
+		args = append(args, *filters.Stream)
+	}
+	if filters.BillingType != nil {
+		conditions = append(conditions, fmt.Sprintf("ul.billing_type = $%d", len(args)+1))
+		args = append(args, int16(*filters.BillingType))
+	}
+	conditions, args = appendUsageLogBillingModeWhereConditionWithAlias(conditions, args, filters.BillingMode, "ul")
+	if filters.StartTime != nil {
+		conditions = append(conditions, fmt.Sprintf("ul.created_at >= $%d", len(args)+1))
+		args = append(args, *filters.StartTime)
+	}
+	if filters.EndTime != nil {
+		conditions = append(conditions, fmt.Sprintf("ul.created_at < $%d", len(args)+1))
+		args = append(args, *filters.EndTime)
+	}
+
+	query := fmt.Sprintf(`
+		WITH supplier_costs AS (
+			SELECT
+				COALESCE(NULLIF(BTRIM(a.supplier), ''), '') AS supplier,
+				COUNT(DISTINCT ul.account_id) AS account_count,
+				COUNT(*) AS requests,
+				COALESCE(SUM(ul.input_tokens), 0) AS input_tokens,
+				COALESCE(SUM(ul.output_tokens), 0) AS output_tokens,
+				COALESCE(SUM(ul.cache_creation_tokens + ul.cache_read_tokens), 0) AS cache_tokens,
+				COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0) AS total_tokens,
+				COALESCE(SUM(ul.total_cost), 0) AS standard_cost,
+				COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost) * COALESCE(ul.account_rate_multiplier, 1)), 0) AS account_cost,
+				COALESCE(SUM(ul.actual_cost), 0) AS user_billed
+			FROM usage_logs ul
+			LEFT JOIN accounts a ON a.id = ul.account_id
+			%s
+			GROUP BY 1
+		)
+		SELECT
+			supplier,
+			account_count,
+			requests,
+			input_tokens,
+			output_tokens,
+			cache_tokens,
+			total_tokens,
+			standard_cost,
+			account_cost,
+			user_billed,
+			user_billed - account_cost AS gross_profit,
+			CASE WHEN user_billed > 0 THEN (user_billed - account_cost) / user_billed ELSE 0 END AS gross_margin,
+			CASE WHEN SUM(account_cost) OVER () > 0 THEN account_cost / SUM(account_cost) OVER () ELSE 0 END AS cost_percentage
+		FROM supplier_costs
+		ORDER BY account_cost DESC, supplier ASC
+	`, buildWhere(conditions))
+
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+			results = nil
+		}
+	}()
+
+	results = make([]usagestats.SupplierCostStat, 0)
+	for rows.Next() {
+		var row usagestats.SupplierCostStat
+		if err = rows.Scan(
+			&row.Supplier,
+			&row.AccountCount,
+			&row.Requests,
+			&row.InputTokens,
+			&row.OutputTokens,
+			&row.CacheTokens,
+			&row.TotalTokens,
+			&row.StandardCost,
+			&row.AccountCost,
+			&row.UserBilled,
+			&row.GrossProfit,
+			&row.GrossMargin,
+			&row.CostPercentage,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, row)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 // AccountUsageHistory represents daily usage history for an account
 type AccountUsageHistory = usagestats.AccountUsageHistory
 

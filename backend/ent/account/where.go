@@ -75,6 +75,11 @@ func Name(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldName, v))
 }
 
+// Supplier applies equality check predicate on the "supplier" field. It's identical to SupplierEQ.
+func Supplier(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldSupplier, v))
+}
+
 // Notes applies equality check predicate on the "notes" field. It's identical to NotesEQ.
 func Notes(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldNotes, v))
@@ -388,6 +393,71 @@ func NameEqualFold(v string) predicate.Account {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.Account {
 	return predicate.Account(sql.FieldContainsFold(FieldName, v))
+}
+
+// SupplierEQ applies the EQ predicate on the "supplier" field.
+func SupplierEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldSupplier, v))
+}
+
+// SupplierNEQ applies the NEQ predicate on the "supplier" field.
+func SupplierNEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldSupplier, v))
+}
+
+// SupplierIn applies the In predicate on the "supplier" field.
+func SupplierIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldSupplier, vs...))
+}
+
+// SupplierNotIn applies the NotIn predicate on the "supplier" field.
+func SupplierNotIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldSupplier, vs...))
+}
+
+// SupplierGT applies the GT predicate on the "supplier" field.
+func SupplierGT(v string) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldSupplier, v))
+}
+
+// SupplierGTE applies the GTE predicate on the "supplier" field.
+func SupplierGTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldSupplier, v))
+}
+
+// SupplierLT applies the LT predicate on the "supplier" field.
+func SupplierLT(v string) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldSupplier, v))
+}
+
+// SupplierLTE applies the LTE predicate on the "supplier" field.
+func SupplierLTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldSupplier, v))
+}
+
+// SupplierContains applies the Contains predicate on the "supplier" field.
+func SupplierContains(v string) predicate.Account {
+	return predicate.Account(sql.FieldContains(FieldSupplier, v))
+}
+
+// SupplierHasPrefix applies the HasPrefix predicate on the "supplier" field.
+func SupplierHasPrefix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasPrefix(FieldSupplier, v))
+}
+
+// SupplierHasSuffix applies the HasSuffix predicate on the "supplier" field.
+func SupplierHasSuffix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasSuffix(FieldSupplier, v))
+}
+
+// SupplierEqualFold applies the EqualFold predicate on the "supplier" field.
+func SupplierEqualFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldEqualFold(FieldSupplier, v))
+}
+
+// SupplierContainsFold applies the ContainsFold predicate on the "supplier" field.
+func SupplierContainsFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldContainsFold(FieldSupplier, v))
 }
 
 // NotesEQ applies the EQ predicate on the "notes" field.
