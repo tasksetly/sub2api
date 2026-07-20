@@ -90,7 +90,7 @@ watch(
       })
       subscriptionStore.startPolling()
 
-      void ticketNotificationStore.fetchWaitingUserCount().catch((error) => {
+      void ticketNotificationStore.fetchWaitingUserCount().catch((error: unknown) => {
         console.error('Failed to preload ticket notifications:', error)
       })
       ticketNotificationStore.startPolling()
