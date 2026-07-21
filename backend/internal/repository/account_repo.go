@@ -2550,7 +2550,54 @@ func (r *accountRepository) updateUpstreamBillingProbeSnapshotInTx(
 	if affected == 0 {
 		return service.ErrUpstreamBillingProbeIdentityChanged
 	}
-	return enqueueSchedulerOutbox(ctx, client, service.SchedulerOutboxEventAccountChanged, &account.ID, nil, nil)
+	if effectiveRate, ok := upstreamBillingProbeEffectiveRate(snapshot); ok {
+		if _, err := client.ExecContext(ctx, `
+			DELETE FROM account_groups AS ag
+			USING groups AS g
+			WHERE ag.account_id = $1
+				AND g.id = ag.group_id
+				AND $2::double precision > g.rate_multiplier
+		`, account.ID, effectiveRate); err != nil {
+			return err
+		}
+	}
+	return enqueueSchedulerOutbox(ctx, client, service.SchedulerOutboxEventAccountChanged, &account.ID, nil, buildSchedulerGroupPayload(account.GroupIDs))
+}
+
+func upstreamBillingProbeEffectiveRate(snapshot *service.UpstreamBillingProbeSnapshot) (float64, bool) {
+	if snapshot == nil || snapshot.Status != service.UpstreamBillingProbeStatusOK || snapshot.Data == nil {
+		return 0, false
+	}
+	raw, exists := snapshot.Data["effective_rate_multiplier"]
+	if !exists || raw == nil {
+		return 0, false
+	}
+	var rate float64
+	switch value := raw.(type) {
+	case float64:
+		rate = value
+	case float32:
+		rate = float64(value)
+	case int:
+		rate = float64(value)
+	case int64:
+		rate = float64(value)
+	case json.Number:
+		parsed, err := value.Float64()
+		if err != nil {
+			return 0, false
+		}
+		rate = parsed
+	case string:
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return 0, false
+		}
+		rate = parsed
+	default:
+		return 0, false
+	}
+	return rate, rate >= 0
 }
 
 func lockAndMatchProbeProxyIdentity(ctx context.Context, client *dbent.Client, account *service.Account) (bool, error) {

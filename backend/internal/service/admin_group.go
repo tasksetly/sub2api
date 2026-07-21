@@ -329,7 +329,12 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		accountIDsToCopy = filtered
 	}
 
-	// 如果有需要复制的账号，绑定到新分组
+	// 如果有需要复制的账号，绑定到新分组；高于分组倍率的账号不重新绑定。
+	filteredAccountIDs, err := s.filterAccountIDsByGroupRate(ctx, accountIDsToCopy, group.RateMultiplier)
+	if err != nil {
+		return nil, fmt.Errorf("failed to filter accounts by group rate: %w", err)
+	}
+	accountIDsToCopy = filteredAccountIDs
 	if len(accountIDsToCopy) > 0 {
 		if err := s.groupRepo.BindAccountsToGroup(ctx, group.ID, accountIDsToCopy); err != nil {
 			return nil, fmt.Errorf("failed to bind accounts to new group: %w", err)
@@ -620,6 +625,13 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 	sanitizeGroupMessagesDispatchFields(group)
 
+	// 分组倍率降低后，先移除所有倍率更高的账号，避免留下无效绑定。
+	if input.RateMultiplier != nil && group.RateMultiplier != 0 {
+		if err := s.removeAccountsExceedingGroupRate(ctx, id, group.RateMultiplier); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.groupRepo.Update(ctx, group); err != nil {
 		return nil, err
 	}
@@ -688,7 +700,11 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 			accountIDsToCopy = filtered
 		}
 
-		// 再绑定源分组的账号
+		// 再绑定源分组的账号，并过滤掉账号倍率高于目标分组倍率的账号。
+		accountIDsToCopy, err = s.filterAccountIDsByGroupRate(ctx, accountIDsToCopy, group.RateMultiplier)
+		if err != nil {
+			return nil, fmt.Errorf("failed to filter accounts by group rate: %w", err)
+		}
 		if len(accountIDsToCopy) > 0 {
 			if err := s.groupRepo.BindAccountsToGroup(ctx, id, accountIDsToCopy); err != nil {
 				return nil, fmt.Errorf("failed to bind accounts to group: %w", err)

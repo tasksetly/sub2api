@@ -80,6 +80,45 @@ func TestProbeSnapshotAlignsAccountRateMultiplierOnlyOnSuccess(t *testing.T) {
 	require.InDelta(t, 0.75, *unchanged.RateMultiplier, 1e-9)
 }
 
+func TestProbeSnapshotRemovesGroupsBelowSyncedAccountRate(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	repo := newAccountRepositoryWithSQL(tx.Client(), tx, nil)
+	lowerRateGroup := mustCreateGroup(t, tx.Client(), &service.Group{
+		Name:           "probe-rate-lower-group",
+		Platform:       service.PlatformOpenAI,
+		RateMultiplier: 1.0,
+	})
+	higherRateGroup := mustCreateGroup(t, tx.Client(), &service.Group{
+		Name:           "probe-rate-higher-group",
+		Platform:       service.PlatformOpenAI,
+		RateMultiplier: 2.0,
+	})
+	initialRate := 0.5
+	account := mustCreateAccount(t, tx.Client(), &service.Account{
+		Name:           "probe-rate-group-cleanup",
+		Platform:       service.PlatformOpenAI,
+		Type:           service.AccountTypeAPIKey,
+		Credentials:    map[string]any{"api_key": "sk-test"},
+		RateMultiplier: &initialRate,
+	})
+	mustBindAccountToGroup(t, tx.Client(), account.ID, lowerRateGroup.ID, 1)
+	mustBindAccountToGroup(t, tx.Client(), account.ID, higherRateGroup.ID, 2)
+
+	loaded, err := repo.GetByID(ctx, account.ID)
+	require.NoError(t, err)
+	require.NoError(t, repo.UpdateUpstreamBillingProbeSnapshot(ctx, loaded, &service.UpstreamBillingProbeSnapshot{
+		Status: service.UpstreamBillingProbeStatusOK,
+		Data:   map[string]any{"effective_rate_multiplier": 1.5},
+	}))
+
+	updated, err := repo.GetByID(ctx, account.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.RateMultiplier)
+	require.InDelta(t, 1.5, *updated.RateMultiplier, 1e-9)
+	require.Equal(t, []int64{higherRateGroup.ID}, updated.GroupIDs)
+}
+
 func TestAccountUpdatePreservesConcurrentProbeEnableFlag(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)

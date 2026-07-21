@@ -538,6 +538,12 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		}
 	}
 
+	// 账号倍率高于分组倍率时，不允许建立绑定关系。
+	groupIDs, err = s.filterGroupIDsByAccountRate(ctx, input.RateMultiplier, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	// 检查混合渠道风险（除非用户已确认）
 	if len(groupIDs) > 0 && !input.SkipMixedChannelCheck {
 		if err := s.checkMixedChannelRisk(ctx, 0, input.Platform, groupIDs); err != nil {
@@ -776,17 +782,44 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		account.AutoPauseOnExpired = *input.AutoPauseOnExpired
 	}
 
-	// 先验证分组是否存在（在任何写操作之前）
+	var groupIDsToBind []int64
+	bindGroups := false
+	groupsBoundBeforeUpdate := false
+
+	// 先验证分组是否存在（在任何写操作之前），再移除倍率不匹配的分组。
 	if input.GroupIDs != nil {
 		if err := s.validateGroupIDsExist(ctx, *input.GroupIDs); err != nil {
 			return nil, err
 		}
+		groupIDsToBind, err = s.filterGroupIDsByAccountRate(ctx, account.RateMultiplier, *input.GroupIDs)
+		if err != nil {
+			return nil, err
+		}
+		bindGroups = true
 
 		// 检查混合渠道风险（除非用户已确认）
 		if !input.SkipMixedChannelCheck {
-			if err := s.checkMixedChannelRisk(ctx, account.ID, account.Platform, *input.GroupIDs); err != nil {
+			if err := s.checkMixedChannelRisk(ctx, account.ID, account.Platform, groupIDsToBind); err != nil {
 				return nil, err
 			}
+		}
+	} else if input.RateMultiplier != nil {
+		// 只修改账号倍率时，也要清理当前已绑定但倍率较低的分组。
+		groupIDsToBind, err = s.filterGroupIDsByAccountRate(ctx, account.RateMultiplier, account.GroupIDs)
+		if err != nil {
+			return nil, err
+		}
+		bindGroups = !sameInt64s(groupIDsToBind, account.GroupIDs)
+	}
+
+	// 倍率变更导致绑定关系失效时，先解除绑定，再保存账号倍率。
+	if bindGroups && input.RateMultiplier != nil {
+		shouldBindBeforeUpdate := input.GroupIDs == nil || !sameInt64s(groupIDsToBind, *input.GroupIDs)
+		if shouldBindBeforeUpdate {
+			if err := s.accountRepo.BindGroups(ctx, account.ID, groupIDsToBind); err != nil {
+				return nil, err
+			}
+			groupsBoundBeforeUpdate = true
 		}
 	}
 
@@ -820,9 +853,9 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 	}
 
-	// 绑定分组
-	if input.GroupIDs != nil {
-		if err := s.accountRepo.BindGroups(ctx, account.ID, *input.GroupIDs); err != nil {
+	// 绑定分组。groupIDsToBind 已经过账号/分组倍率校验。
+	if bindGroups && !groupsBoundBeforeUpdate {
+		if err := s.accountRepo.BindGroups(ctx, account.ID, groupIDsToBind); err != nil {
 			return nil, err
 		}
 	}
@@ -883,12 +916,19 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 	}
 
+	if input.RateMultiplier != nil {
+		if *input.RateMultiplier < 0 {
+			return nil, errors.New("rate_multiplier must be >= 0")
+		}
+	}
+
 	needMixedChannelCheck := input.GroupIDs != nil && !input.SkipMixedChannelCheck
+	needGroupRateCheck := input.GroupIDs != nil || input.RateMultiplier != nil
 	_, hasLongContextBillingUpdate := input.Extra[openAILongContextBillingEnabledKey]
 
-	// 预取所有目标账号，供凭据守卫/代理守卫/混合渠道检查共用，避免多次 DB 查询。
+	// 预取所有目标账号，供凭据守卫/代理守卫/混合渠道检查和倍率校验共用，避免多次 DB 查询。
 	var cachedTargets []*Account
-	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || hasLongContextBillingUpdate || input.ProbeEnabled != nil {
+	if len(input.Credentials) > 0 || input.ProxyID != nil || needMixedChannelCheck || needGroupRateCheck || hasLongContextBillingUpdate || input.ProbeEnabled != nil {
 		loaded, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
 		if err != nil {
 			return nil, err
@@ -947,6 +987,40 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 	}
 
+	// 为每个账号计算最终分组列表：批量设置倍率时，各账号当前倍率可能不同，必须分别判断。
+	groupsByAccount := make(map[int64][]int64)
+	bindGroupsByAccount := make(map[int64]bool)
+	targetsByID := make(map[int64]*Account, len(cachedTargets))
+	for _, account := range cachedTargets {
+		if account != nil {
+			targetsByID[account.ID] = account
+		}
+	}
+	if needGroupRateCheck {
+		for _, accountID := range input.AccountIDs {
+			account := targetsByID[accountID]
+			candidateGroupIDs := []int64(nil)
+			if input.GroupIDs != nil {
+				candidateGroupIDs = *input.GroupIDs
+			} else if account != nil {
+				candidateGroupIDs = account.GroupIDs
+			}
+			rate := (*float64)(nil)
+			if account != nil {
+				rate = account.RateMultiplier
+			}
+			if input.RateMultiplier != nil {
+				rate = input.RateMultiplier
+			}
+			filtered, err := s.filterGroupIDsByAccountRate(ctx, rate, candidateGroupIDs)
+			if err != nil {
+				return nil, err
+			}
+			groupsByAccount[accountID] = filtered
+			bindGroupsByAccount[accountID] = input.GroupIDs != nil || account == nil || !sameInt64s(filtered, candidateGroupIDs)
+		}
+	}
+
 	// 预加载账号平台信息（混合渠道检查需要）。
 	platformByID := map[int64]string{}
 	if needMixedChannelCheck {
@@ -964,15 +1038,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 			if platform == "" {
 				continue
 			}
-			if err := s.checkMixedChannelRisk(ctx, accountID, platform, *input.GroupIDs); err != nil {
+			if err := s.checkMixedChannelRisk(ctx, accountID, platform, groupsByAccount[accountID]); err != nil {
 				return nil, err
 			}
-		}
-	}
-
-	if input.RateMultiplier != nil {
-		if *input.RateMultiplier < 0 {
-			return nil, errors.New("rate_multiplier must be >= 0")
 		}
 	}
 
@@ -1058,8 +1126,8 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	for _, accountID := range input.AccountIDs {
 		entry := BulkUpdateAccountResult{AccountID: accountID}
 
-		if input.GroupIDs != nil {
-			if err := s.accountRepo.BindGroups(ctx, accountID, *input.GroupIDs); err != nil {
+		if bindGroupsByAccount[accountID] {
+			if err := s.accountRepo.BindGroups(ctx, accountID, groupsByAccount[accountID]); err != nil {
 				entry.Success = false
 				entry.Error = err.Error()
 				result.Failed++
@@ -1076,6 +1144,87 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 
 	return result, nil
+}
+
+func accountRateMultiplier(rate *float64) float64 {
+	if rate == nil {
+		return 1.0
+	}
+	return *rate
+}
+
+// filterGroupIDsByAccountRate keeps only groups whose rate multiplier is at
+// least the account multiplier. A non-positive group rate is treated as an
+// unset legacy value and does not filter the binding.
+func (s *adminServiceImpl) filterGroupIDsByAccountRate(ctx context.Context, accountRate *float64, groupIDs []int64) ([]int64, error) {
+	return filterGroupIDsByRate(ctx, s.groupRepo, accountRate, groupIDs)
+}
+
+func sameInt64s(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *adminServiceImpl) filterAccountIDsByGroupRate(ctx context.Context, accountIDs []int64, groupRate float64) ([]int64, error) {
+	if len(accountIDs) == 0 || s.accountRepo == nil || groupRate <= 0 {
+		return accountIDs, nil
+	}
+	accounts, err := s.accountRepo.GetByIDs(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	allowed := make(map[int64]struct{}, len(accounts))
+	for _, account := range accounts {
+		if account != nil && accountRateMultiplier(account.RateMultiplier) <= groupRate {
+			allowed[account.ID] = struct{}{}
+		}
+	}
+	filtered := make([]int64, 0, len(accountIDs))
+	for _, accountID := range accountIDs {
+		if _, ok := allowed[accountID]; ok {
+			filtered = append(filtered, accountID)
+		}
+	}
+	return filtered, nil
+}
+
+// removeAccountsExceedingGroupRate removes existing bindings before a group
+// rate is lowered. The account repository returns group IDs in priority order,
+// so retaining the remaining IDs also preserves the account's priorities.
+func (s *adminServiceImpl) removeAccountsExceedingGroupRate(ctx context.Context, groupID int64, groupRate float64) error {
+	if s.accountRepo == nil || s.groupRepo == nil || groupRate <= 0 {
+		return nil
+	}
+	accountIDs, err := s.groupRepo.GetAccountIDsByGroupIDs(ctx, []int64{groupID})
+	if err != nil {
+		return fmt.Errorf("get accounts in group %d: %w", groupID, err)
+	}
+	accounts, err := s.accountRepo.GetByIDs(ctx, accountIDs)
+	if err != nil {
+		return fmt.Errorf("get accounts in group %d: %w", groupID, err)
+	}
+	for _, account := range accounts {
+		if account == nil || accountRateMultiplier(account.RateMultiplier) <= groupRate {
+			continue
+		}
+		remaining := make([]int64, 0, len(account.GroupIDs))
+		for _, boundGroupID := range account.GroupIDs {
+			if boundGroupID != groupID {
+				remaining = append(remaining, boundGroupID)
+			}
+		}
+		if err := s.accountRepo.BindGroups(ctx, account.ID, remaining); err != nil {
+			return fmt.Errorf("remove account %d from group %d: %w", account.ID, groupID, err)
+		}
+	}
+	return nil
 }
 
 func updatesUpstreamBillingProbeIdentity(credentials map[string]any) bool {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -196,6 +197,34 @@ type groupExistenceBatchChecker interface {
 	ExistsByIDs(ctx context.Context, ids []int64) (map[int64]bool, error)
 }
 
+func filterGroupIDsByRate(ctx context.Context, groupRepo GroupRepository, accountRate *float64, groupIDs []int64) ([]int64, error) {
+	if len(groupIDs) == 0 {
+		return groupIDs, nil
+	}
+	if groupRepo == nil {
+		return nil, errors.New("group repository not configured")
+	}
+
+	filtered := make([]int64, 0, len(groupIDs))
+	seen := make(map[int64]struct{}, len(groupIDs))
+	accountRateValue := accountRateMultiplier(accountRate)
+	for _, groupID := range groupIDs {
+		if _, exists := seen[groupID]; exists {
+			continue
+		}
+		seen[groupID] = struct{}{}
+
+		group, err := groupRepo.GetByIDLite(ctx, groupID)
+		if err != nil {
+			return nil, fmt.Errorf("get group %d: %w", groupID, err)
+		}
+		if group == nil || group.RateMultiplier <= 0 || accountRateValue <= group.RateMultiplier {
+			filtered = append(filtered, groupID)
+		}
+	}
+	return filtered, nil
+}
+
 // NewAccountService 创建账号服务实例
 func NewAccountService(accountRepo AccountRepository, groupRepo GroupRepository) *AccountService {
 	return &AccountService{
@@ -211,6 +240,10 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 		if err := s.validateGroupIDsExist(ctx, req.GroupIDs); err != nil {
 			return nil, err
 		}
+	}
+	groupIDs, err := filterGroupIDsByRate(ctx, s.groupRepo, nil, req.GroupIDs)
+	if err != nil {
+		return nil, err
 	}
 
 	// 创建账号
@@ -238,8 +271,8 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 	}
 
 	// require_oauth_only 检查：apikey 类型账号不可加入限制分组
-	if account.Type == AccountTypeAPIKey && len(req.GroupIDs) > 0 {
-		for _, gid := range req.GroupIDs {
+	if account.Type == AccountTypeAPIKey && len(groupIDs) > 0 {
+		for _, gid := range groupIDs {
 			g, err := s.groupRepo.GetByID(ctx, gid)
 			if err != nil {
 				return nil, err
@@ -251,8 +284,8 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 	}
 
 	// 绑定分组
-	if len(req.GroupIDs) > 0 {
-		if err := s.accountRepo.BindGroups(ctx, account.ID, req.GroupIDs); err != nil {
+	if len(groupIDs) > 0 {
+		if err := s.accountRepo.BindGroups(ctx, account.ID, groupIDs); err != nil {
 			return nil, fmt.Errorf("bind groups: %w", err)
 		}
 	}
@@ -341,9 +374,14 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 		account.AutoPauseOnExpired = *req.AutoPauseOnExpired
 	}
 
-	// 先验证分组是否存在（在任何写操作之前）
+	// 先验证分组是否存在（在任何写操作之前），再过滤倍率不匹配的分组。
+	var groupIDsToBind []int64
 	if req.GroupIDs != nil {
 		if err := s.validateGroupIDsExist(ctx, *req.GroupIDs); err != nil {
+			return nil, err
+		}
+		groupIDsToBind, err = filterGroupIDsByRate(ctx, s.groupRepo, account.RateMultiplier, *req.GroupIDs)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -355,7 +393,7 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 
 	// require_oauth_only 检查
 	if account.Type == AccountTypeAPIKey && req.GroupIDs != nil {
-		for _, gid := range *req.GroupIDs {
+		for _, gid := range groupIDsToBind {
 			g, err := s.groupRepo.GetByID(ctx, gid)
 			if err != nil {
 				return nil, err
@@ -368,7 +406,7 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 
 	// 绑定分组
 	if req.GroupIDs != nil {
-		if err := s.accountRepo.BindGroups(ctx, account.ID, *req.GroupIDs); err != nil {
+		if err := s.accountRepo.BindGroups(ctx, account.ID, groupIDsToBind); err != nil {
 			return nil, fmt.Errorf("bind groups: %w", err)
 		}
 	}

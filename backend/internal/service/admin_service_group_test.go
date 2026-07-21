@@ -125,6 +125,21 @@ func (s *groupRepoStubForAdmin) UpdateSortOrders(_ context.Context, _ []GroupSor
 	return nil
 }
 
+func TestFilterGroupIDsByRate_AllowsEqualRateAndRejectsLowerGroupRate(t *testing.T) {
+	ctx := context.Background()
+	accountRate := 1.5
+
+	equalGroup := &groupRepoStubForAdmin{getByID: &Group{ID: 10, RateMultiplier: 1.5}}
+	filtered, err := filterGroupIDsByRate(ctx, equalGroup, &accountRate, []int64{10})
+	require.NoError(t, err)
+	require.Equal(t, []int64{10}, filtered)
+
+	lowerGroup := &groupRepoStubForAdmin{getByID: &Group{ID: 10, RateMultiplier: 1.49}}
+	filtered, err = filterGroupIDsByRate(ctx, lowerGroup, &accountRate, []int64{10})
+	require.NoError(t, err)
+	require.Empty(t, filtered)
+}
+
 func TestAdminService_ListGroups_PassesSortParams(t *testing.T) {
 	repo := &groupRepoStubForAdmin{
 		listWithFiltersGroups: []Group{{ID: 1, Name: "g1"}},
