@@ -371,6 +371,15 @@
 
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
+              <!-- Test Connection Button -->
+              <button
+                @click="openTestModal(row)"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20 dark:hover:text-primary-400"
+                :title="t('keys.testConnection')"
+              >
+                <Icon name="beaker" size="sm" />
+                <span class="text-xs">{{ t('keys.testConnection') }}</span>
+              </button>
               <!-- Use Key Button -->
               <button
                 @click="openUseKeyModal(row)"
@@ -988,6 +997,13 @@
       @cancel="showResetRateLimitDialog = false"
     />
 
+    <!-- Test Connection Modal -->
+    <KeyTestModal
+      :show="showTestModal"
+      :api-key="selectedKey"
+      @close="closeTestModal"
+    />
+
     <!-- Use Key Modal -->
     <UseKeyModal
       :show="showUseKeyModal"
@@ -1137,6 +1153,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import SearchInput from '@/components/common/SearchInput.vue'
 	import Icon from '@/components/icons/Icon.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
+	import KeyTestModal from '@/components/keys/KeyTestModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
@@ -1299,6 +1316,7 @@ const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const showResetQuotaDialog = ref(false)
 const showResetRateLimitDialog = ref(false)
+const showTestModal = ref(false)
 const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
 const showColumnDropdown = ref(false)
@@ -1527,6 +1545,16 @@ const loadPublicSettings = async () => {
   } catch (error) {
     console.error('Failed to load public settings:', error)
   }
+}
+
+const openTestModal = (key: ApiKey) => {
+  selectedKey.value = key
+  showTestModal.value = true
+}
+
+const closeTestModal = () => {
+  showTestModal.value = false
+  selectedKey.value = null
 }
 
 const openUseKeyModal = (key: ApiKey) => {
