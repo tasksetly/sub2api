@@ -46,6 +46,40 @@ func TestAccountUpdatePreservesConcurrentProbeSnapshot(t *testing.T) {
 	require.NotContains(t, disabled.Extra, service.UpstreamBillingProbeExtraKey)
 }
 
+func TestProbeSnapshotAlignsAccountRateMultiplierOnlyOnSuccess(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	repo := newAccountRepositoryWithSQL(tx.Client(), tx, nil)
+	initialRate := 1.25
+	account := mustCreateAccount(t, tx.Client(), &service.Account{
+		Name:           "probe-rate-alignment",
+		Platform:       service.PlatformOpenAI,
+		Type:           service.AccountTypeAPIKey,
+		Credentials:    map[string]any{"api_key": "sk-test"},
+		RateMultiplier: &initialRate,
+	})
+
+	loaded, err := repo.GetByID(ctx, account.ID)
+	require.NoError(t, err)
+	require.NoError(t, repo.UpdateUpstreamBillingProbeSnapshot(ctx, loaded, &service.UpstreamBillingProbeSnapshot{
+		Status: service.UpstreamBillingProbeStatusOK,
+		Data:   map[string]any{"effective_rate_multiplier": 0.75},
+	}))
+	aligned, err := repo.GetByID(ctx, account.ID)
+	require.NoError(t, err)
+	require.NotNil(t, aligned.RateMultiplier)
+	require.InDelta(t, 0.75, *aligned.RateMultiplier, 1e-9)
+
+	require.NoError(t, repo.UpdateUpstreamBillingProbeSnapshot(ctx, aligned, &service.UpstreamBillingProbeSnapshot{
+		Status: service.UpstreamBillingProbeStatusFailed,
+		Data:   map[string]any{"effective_rate_multiplier": 0.5},
+	}))
+	unchanged, err := repo.GetByID(ctx, account.ID)
+	require.NoError(t, err)
+	require.NotNil(t, unchanged.RateMultiplier)
+	require.InDelta(t, 0.75, *unchanged.RateMultiplier, 1e-9)
+}
+
 func TestAccountUpdatePreservesConcurrentProbeEnableFlag(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)

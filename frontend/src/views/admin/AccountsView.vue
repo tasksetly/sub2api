@@ -1782,8 +1782,12 @@ const patchUpstreamBillingSnapshot = (accountID: number, snapshot: UpstreamBilli
   if (!account) return
   markUpstreamBillingSortRefresh()
   upstreamBillingNow.value = Date.now()
+  const declaredRate = snapshot.status === 'ok' ? snapshot.data?.effective_rate_multiplier : undefined
   patchAccountInList({
     ...account,
+    rate_multiplier: typeof declaredRate === 'number' && Number.isFinite(declaredRate) && declaredRate >= 0
+      ? declaredRate
+      : account.rate_multiplier,
     extra: { ...account.extra, upstream_billing_probe: snapshot }
   })
 }

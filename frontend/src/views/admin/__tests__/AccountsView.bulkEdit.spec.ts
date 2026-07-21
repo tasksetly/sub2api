@@ -74,6 +74,7 @@ const DataTableStub = {
       <span v-for="column in columns" :key="column.key" data-test="column-key">{{ column.key }}</span>
       <div v-for="row in data" :key="row.id">
         <div data-test="select-row"><slot name="cell-select" :row="row" /></div>
+        <span data-test="row-rate">{{ row.rate_multiplier }}</span>
         <slot name="cell-created_at" :value="row.created_at" :row="row" />
       </div>
     </div>
@@ -445,5 +446,77 @@ describe('admin AccountsView bulk edit scope', () => {
 
     expect(probeUpstreamBillingBatch).toHaveBeenCalledWith([7])
     expect(listAccounts).toHaveBeenCalledTimes(2)
+  })
+
+  it('updates the visible account rate to the successful upstream declaration', async () => {
+    listAccounts.mockResolvedValue({
+      items: [{
+        id: 7,
+        name: 'account-7',
+        platform: 'openai',
+        type: 'apikey',
+        status: 'active',
+        schedulable: true,
+        rate_multiplier: 1,
+        created_at: '2026-07-13T00:00:00Z',
+        updated_at: '2026-07-13T00:00:00Z'
+      }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+    probeUpstreamBillingBatch.mockResolvedValue([{
+      account_id: 7,
+      snapshot: {
+        status: 'ok',
+        data: { effective_rate_multiplier: 0.5 },
+        last_attempt_at: '2026-07-13T00:00:00Z',
+        next_probe_at: '2026-07-13T00:30:00Z'
+      }
+    }])
+
+    const wrapper = mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /></div>' },
+          DataTable: DataTableStub,
+          AccountBulkActionsBar: AccountBulkActionsBarStub,
+          AccountTableActions: true,
+          AccountTableFilters: true,
+          AccountActionMenu: true,
+          Pagination: true,
+          ConfirmDialog: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditAccountModalStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+    expect(wrapper.get('[data-test="row-rate"]').text()).toBe('1')
+    await wrapper.get('[data-test="select-row"] input').trigger('change')
+    await wrapper.get('[data-test="probe-upstream-billing"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="row-rate"]').text()).toBe('0.5')
   })
 })

@@ -289,6 +289,7 @@ export default {
       accountCost: 'Upstream Cost',
       userBilled: 'User Billed',
       grossProfit: 'Gross Profit',
+      grossMargin: 'Gross Margin',
       share: 'Cost Share',
       unset: 'Supplier not set',
       empty: 'No supplier cost data in the selected range',

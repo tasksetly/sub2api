@@ -2445,7 +2445,8 @@ func (r *accountRepository) UpdateExtra(ctx context.Context, id int64, updates m
 }
 
 // UpdateUpstreamBillingProbeSnapshot stores a probe result only while the
-// network identity used by that probe is still current.
+// network identity used by that probe is still current. Successful snapshots
+// also align the account cost multiplier with the declared effective rate.
 func (r *accountRepository) UpdateUpstreamBillingProbeSnapshot(
 	ctx context.Context,
 	account *service.Account,
@@ -2521,7 +2522,15 @@ func (r *accountRepository) updateUpstreamBillingProbeSnapshotInTx(
 	}
 	result, err := client.ExecContext(ctx, `
 		UPDATE accounts
-		SET extra = COALESCE(extra, '{}'::jsonb) || $1::jsonb, updated_at = NOW()
+		SET
+			extra = COALESCE(extra, '{}'::jsonb) || $1::jsonb,
+			rate_multiplier = CASE
+				WHEN $1::jsonb #>> '{upstream_billing_probe,status}' = 'ok'
+					AND $1::jsonb #>> '{upstream_billing_probe,data,effective_rate_multiplier}' IS NOT NULL
+				THEN ($1::jsonb #>> '{upstream_billing_probe,data,effective_rate_multiplier}')::double precision
+				ELSE rate_multiplier
+			END,
+			updated_at = NOW()
 		WHERE id = $2
 			AND platform = $3
 			AND type = $4

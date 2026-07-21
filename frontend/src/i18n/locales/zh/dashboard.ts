@@ -294,6 +294,7 @@ export default {
       accountCost: '上游成本',
       userBilled: '用户扣费',
       grossProfit: '毛利',
+      grossMargin: '毛利率',
       share: '成本占比',
       unset: '未设置供应商',
       empty: '所选范围内暂无供应商成本数据',
