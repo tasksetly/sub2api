@@ -129,7 +129,7 @@
             <!-- CTA Button -->
             <div>
               <router-link
-                :to="isAuthenticated ? dashboardPath : '/register'"
+                :to="primaryDestination"
                 class="btn btn-primary px-8 py-3 text-base shadow-lg shadow-primary-500/30"
               >
                 {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
@@ -315,9 +315,14 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  getHomeDocsUrl,
+  getHomePrimaryDestination,
+  resolveHomeSubtitle,
+} from '@/utils/landing'
 import { sanitizeUrl } from '@/utils/url'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const authStore = useAuthStore()
 const appStore = useAppStore()
@@ -325,7 +330,19 @@ const appStore = useAppStore()
 // Site settings - directly from appStore (already initialized from injected config)
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
-const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''))
+const siteSubtitle = computed(() =>
+  resolveHomeSubtitle(
+    appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform',
+    String(locale.value),
+    t('home.heroSubtitle'),
+  ),
+)
+const docUrl = computed(() =>
+  sanitizeUrl(
+    getHomeDocsUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''),
+    { allowRelative: true },
+  ),
+)
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
 
 // Check if homeContent is a URL (for iframe display)
@@ -341,6 +358,9 @@ const isDark = ref(document.documentElement.classList.contains('dark'))
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => isAdmin.value ? '/admin/dashboard' : '/dashboard')
+const primaryDestination = computed(() =>
+  getHomePrimaryDestination(isAuthenticated.value, dashboardPath.value),
+)
 const userInitial = computed(() => {
   const user = authStore.user
   if (!user || !user.email) return ''

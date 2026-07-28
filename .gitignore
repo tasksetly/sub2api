@@ -33,6 +33,7 @@ backend/.gocache/
 # ===================
 node_modules/
 frontend/node_modules/
+frontend/.pnpm-store/
 frontend/dist/
 *.local
 *.tsbuildinfo
@@ -136,6 +137,8 @@ vite.config.js
 !docs/ADMIN_PAYMENT_INTEGRATION_API.md
 !docs/ASYNC_IMAGE_TASKS.md
 !docs/CLOUDFLARE_CADDY_SECURITY.zh.md
+!docs/marketing/
+!docs/marketing/EXECUTION_LOG.md
 !docs/legal/
 !docs/legal/*.md
 .serena/
