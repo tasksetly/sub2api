@@ -1,9 +1,8 @@
 import httpx
 
-
 url = "https://aihub.top/api/v1/public/monitor/summary?timezone=Asia%2FShanghai"
 headers = {
-  "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo3MzksImVtYWlsIjoiMjUwMTczMzk2QHFxLmNvbSIsInJvbGUiOiJ1c2VyIiwidG9rZW5fdmVyc2lvbiI6MTA3MjUwMjcxODEwNjMxNDczNSwic2lkIjoiOTk1MmU5MThhMzI1OGUzZjliZmFhMzk5NTc2NWEwYjEiLCJibmQiOiI1MDk5NTZmZDE1MWYzYTE2ODdjZGMxNTZjODI3MzIwNiIsImV4cCI6MTc4NDkwMTM5OSwibmJmIjoxNzg0ODE0OTk5LCJpYXQiOjE3ODQ4MTQ5OTl9.I08aESMwFa6Qx4YRxIUCc4pFH5s83LsBBlDn5Y03cy8"
+  "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo3MzksImVtYWlsIjoiMjUwMTczMzk2QHFxLmNvbSIsInJvbGUiOiJ1c2VyIiwidG9rZW5fdmVyc2lvbiI6MTA3MjUwMjcxODEwNjMxNDczNSwic2lkIjoiYmNkM2U1NGE4MDJkMjY2MzhjNTg2YzVkNDQxZmUzMDEiLCJibmQiOiI2MTc5YzRkZDFiNmJkZDRkMTA1Y2FjMzg1MjkwZmRiYiIsImV4cCI6MTc4NTMxMjQwMSwibmJmIjoxNzg1MjI2MDAxLCJpYXQiOjE3ODUyMjYwMDF9.THzFF1Rts-uWpFy9RsdWnCm3yuct85EhFL8E0dPsrgA"
 }
 
 create_aihub_key_url = "https://aihub.top/api/v1/keys"
@@ -30,10 +29,17 @@ with httpx.Client() as h:
 
     r = h.get(url,headers=headers)
     r_json = r.json()
+
+    keys = h.get(create_aihub_key_url,headers=headers)
+    names = [i.get("name") for i in keys.json().get("data").get("items")]
+    print(names)
+    # exit()
     for api in r_json.get("apis"):
         available = api.get("available")
         if available:
             key_name = f"{api.get('planType')}_{api.get('id')}"
+            if key_name in names:
+                continue
             group_id = api.get('group_id')
             data = {
                 "name":key_name,
