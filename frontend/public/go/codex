@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Tasksetly 为 Codex CLI 提供按量计费的 API 接入。注册后可通过站内工单申请 3 美元体验兑换码。">
+    <link rel="canonical" href="https://ai.tasksetly.com/go/codex">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Codex CLI API 接入与价格 | Tasksetly">
+    <meta property="og:description" content="余额按量计费，注册后通过站内工单申请 3 美元体验兑换码。">
+    <meta property="og:url" content="https://ai.tasksetly.com/go/codex">
+    <meta property="og:image" content="https://ai.tasksetly.com/logo.svg">
+    <meta name="twitter:card" content="summary">
+    <title>Codex CLI API 接入与价格 | Tasksetly</title>
+    <style>
+      :root { color: #17212b; background: #f6f8fa; font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; line-height: 1.6; }
+      a { color: inherit; }
+      .container { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+      .site-header { min-height: 68px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d9e0e6; }
+      .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; }
+      .brand img { width: 28px; height: 28px; }
+      .header-link { color: #415162; font-size: 14px; }
+      main { padding: 72px 0 48px; }
+      .eyebrow { margin: 0 0 12px; color: #176b87; font-size: 14px; font-weight: 700; }
+      h1 { max-width: 780px; margin: 0; color: #101820; font-size: clamp(34px, 5vw, 56px); line-height: 1.16; letter-spacing: 0; }
+      .lead { max-width: 720px; margin: 20px 0 0; color: #415162; font-size: 19px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+      .button { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 20px; border: 1px solid #0b607c; background: #0b607c; color: #fff; font-weight: 700; text-decoration: none; }
+      .button:hover { background: #084a60; }
+      .button.secondary { border-color: #aab7c2; background: transparent; color: #17212b; }
+      .button.secondary:hover { background: #eaf0f4; }
+      .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 56px; border: 1px solid #d9e0e6; background: #d9e0e6; }
+      .fact { min-height: 132px; padding: 22px; background: #fff; }
+      .fact strong { display: block; margin-bottom: 6px; color: #101820; font-size: 20px; }
+      .fact span { color: #536273; font-size: 14px; }
+      section { padding: 56px 0; border-top: 1px solid #d9e0e6; }
+      h2 { margin: 0 0 22px; color: #101820; font-size: 28px; letter-spacing: 0; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+      .step { padding: 0 18px 0 0; }
+      .step-number { display: block; margin-bottom: 12px; color: #176b87; font-size: 14px; font-weight: 700; }
+      .step h3 { margin: 0 0 8px; font-size: 18px; }
+      .step p { margin: 0; color: #536273; }
+      .price-table { width: 100%; border-collapse: collapse; background: #fff; }
+      .price-table th, .price-table td { padding: 16px; border: 1px solid #d9e0e6; text-align: left; vertical-align: top; }
+      .price-table th { width: 28%; background: #eef3f6; color: #283746; font-size: 14px; }
+      .note { margin-top: 14px; color: #647383; font-size: 14px; }
+      .terminal { overflow-x: auto; padding: 22px; background: #101820; color: #d9e7ed; font: 14px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; }
+      .terminal .comment { color: #90a4ae; }
+      .terminal .prompt { color: #75c7e1; }
+      .terminal .placeholder { color: #f2c46f; }
+      .cta { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 30px; background: #e7f3f7; }
+      .cta h2 { margin: 0 0 6px; }
+      .cta p { margin: 0; color: #415162; }
+      footer { padding: 28px 0; border-top: 1px solid #d9e0e6; color: #647383; font-size: 13px; }
+      @media (max-width: 720px) { main { padding-top: 48px; } .facts, .grid { grid-template-columns: 1fr; } .cta { align-items: flex-start; flex-direction: column; } .cta .button { width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <header class="container site-header">
+      <a class="brand" href="https://ai.tasksetly.com/home"><img src="/logo.svg" alt="">Tasksetly</a>
+      <a class="header-link" href="https://ai.tasksetly.com/login">登录</a>
+    </header>
+    <main class="container">
+      <p class="eyebrow">CODEX CLI API</p>
+      <h1>为 Codex CLI 准备的按量计费 API 接入</h1>
+      <p class="lead">使用一个 API Key 完成 Codex CLI 接入。面向中国用户，余额按量计费；注册并验证邮箱后，可在站内工单申请 3 美元体验兑换码。</p>
+      <div class="actions">
+        <a class="button" href="https://ai.tasksetly.com/register">注册并申请体验码</a>
+        <a class="button secondary" href="#pricing">查看计费说明</a>
+      </div>
+      <div class="facts" aria-label="服务摘要">
+        <div class="fact"><strong>GPT 5.4+</strong><span>以控制台实际可用模型为准</span></div>
+        <div class="fact"><strong>1 CNY = 1 USD</strong><span>充值余额按此规则折算</span></div>
+        <div class="fact"><strong>0.1 倍起</strong><span>Token 消耗按模型基准价格计费</span></div>
+      </div>
+    </main>
+    <section>
+      <div class="container">
+        <h2>从注册到首次调用</h2>
+        <div class="grid">
+          <article class="step"><span class="step-number">01</span><h3>注册并验证邮箱</h3><p>创建账号后完成邮箱验证，进入控制台。</p></article>
+          <article class="step"><span class="step-number">02</span><h3>提交体验工单</h3><p>在站内工单说明用途，24 小时内处理并人工发放 3 美元兑换码。</p></article>
+          <article class="step"><span class="step-number">03</span><h3>创建 Key 并配置 Codex</h3><p>兑换后创建 API Key，按控制台提供的地址和模型名完成配置。</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="pricing">
+      <div class="container">
+        <h2>计费说明</h2>
+        <table class="price-table">
+          <tbody>
+            <tr><th scope="row">充值余额</th><td>充值 1 CNY 折算为 1 USD 余额。</td></tr>
+            <tr><th scope="row">Token 消耗</th><td>按模型基准价格的 0.1 倍起计算；不同模型的最终模型名、输入/输出价格与适用条件以控制台当前价格为准。</td></tr>
+            <tr><th scope="row">体验兑换码</th><td>注册并完成邮箱验证后，通过站内工单申请。每个兑换码面额为 3 USD，由人工处理发放。</td></tr>
+          </tbody>
+        </table>
+        <p class="note">价格信息最后核验：2026-07-29。价格或模型变动时，以控制台显示为准。</p>
+      </div>
+    </section>
+    <section>
+      <div class="container">
+        <h2>配置示意</h2>
+        <div class="terminal"><span class="comment"># 在控制台创建 API Key 后，将实际值填入本地环境</span>
+<span class="prompt">export</span> OPENAI_BASE_URL=<span class="placeholder">&quot;https://ai.tasksetly.com/v1&quot;</span>
+<span class="prompt">export</span> OPENAI_API_KEY=<span class="placeholder">&quot;你的 Tasksetly API Key&quot;</span>
+
+<span class="comment"># 使用控制台中当前可用的精确模型 ID</span>
+<span class="prompt">codex</span></div>
+        <p class="note">示意仅说明环境变量形式。具体 Codex CLI 命令、模型 ID 与兼容性应在首次发布前由真实账号完成验证。</p>
+      </div>
+    </section>
+    <section>
+      <div class="container cta">
+        <div><h2>先完成一次真实调用</h2><p>注册、工单申请体验码、创建 Key，再用你的 Codex CLI 工作流验证。</p></div>
+        <a class="button" href="https://ai.tasksetly.com/register">开始注册</a>
+      </div>
+    </section>
+    <footer class="container">Tasksetly AI API · 面向中国用户的 Codex CLI API 接入页</footer>
+  </body>
+</html>

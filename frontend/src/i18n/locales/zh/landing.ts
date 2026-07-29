@@ -11,15 +11,15 @@ export default {
     switchToDark: '切换到深色模式',
     dashboard: '控制台',
     login: '登录',
-    getStarted: '立即开始',
+    getStarted: '注册并申请体验码',
     goToDashboard: '进入控制台',
     // 新增：面向用户的价值主张
-    heroSubtitle: '一个密钥，畅用多个 AI 模型',
+    heroSubtitle: 'Codex CLI API 接入，余额按量计费。注册并验证邮箱后，可在站内工单申请 3 美元体验兑换码。',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
     tags: {
-      subscriptionToApi: '订阅转 API',
-      stickySession: '会话保持',
-      realtimeBilling: '按量计费'
+      subscriptionToApi: 'Codex CLI API 接入',
+      stickySession: 'GPT 5.4+ 版本',
+      realtimeBilling: 'Token 0.1 倍起'
     },
     // 用户痛点区块
     painPoints: {
@@ -49,12 +49,12 @@ export default {
       subtitle: '简单三步，开始省心使用 AI'
     },
     features: {
-      unifiedGateway: '一键接入',
-      unifiedGatewayDesc: '获取一个 API 密钥，即可调用所有已接入的 AI 模型，无需分别申请。',
-      multiAccount: '稳定可靠',
-      multiAccountDesc: '智能调度多个上游账号，自动切换和负载均衡，告别频繁报错。',
-      balanceQuota: '用多少付多少',
-      balanceQuotaDesc: '按实际使用量计费，支持设置配额上限，团队用量一目了然。'
+      unifiedGateway: 'Codex CLI 快速接入',
+      unifiedGatewayDesc: '创建 API Key 并复制控制台配置，即可开始调用。',
+      multiAccount: '注册后工单领体验码',
+      multiAccountDesc: '完成邮箱验证后提交站内工单，24 小时内人工处理 3 美元兑换码。',
+      balanceQuota: '余额按量计费',
+      balanceQuotaDesc: '充值 1 CNY 折算 1 USD 余额，Token 消耗按模型基准价格 0.1 倍起。'
     },
     // 优势对比
     comparison: {

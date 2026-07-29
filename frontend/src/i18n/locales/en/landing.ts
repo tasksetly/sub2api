@@ -11,15 +11,15 @@ export default {
     switchToDark: 'Switch to Dark Mode',
     dashboard: 'Dashboard',
     login: 'Login',
-    getStarted: 'Get Started',
+    getStarted: 'Sign Up for Trial Credit',
     goToDashboard: 'Go to Dashboard',
     // User-focused value proposition
-    heroSubtitle: 'One Key, All AI Models',
+    heroSubtitle: 'API access for Codex CLI with usage-based billing. Verify your email after signup, then request a USD 3 trial redemption code through an in-app ticket.',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
     tags: {
-      subscriptionToApi: 'Subscription to API',
-      stickySession: 'Session Persistence',
-      realtimeBilling: 'Pay As You Go'
+      subscriptionToApi: 'Codex CLI API Access',
+      stickySession: 'GPT 5.4+ Versions',
+      realtimeBilling: 'Token Rates from 0.1x'
     },
     // Pain points section
     painPoints: {
@@ -49,12 +49,12 @@ export default {
       subtitle: 'Three simple steps to stress-free AI access'
     },
     features: {
-      unifiedGateway: 'One-Click Access',
-      unifiedGatewayDesc: 'Get a single API key to call all connected AI models. No separate applications needed.',
-      multiAccount: 'Always Reliable',
-      multiAccountDesc: 'Smart routing across multiple upstream accounts with automatic failover. Say goodbye to errors.',
-      balanceQuota: 'Pay What You Use',
-      balanceQuotaDesc: 'Usage-based billing with quota limits. Full visibility into team consumption.'
+      unifiedGateway: 'Fast Codex CLI Setup',
+      unifiedGatewayDesc: 'Create an API key and copy the dashboard configuration to start calling the API.',
+      multiAccount: 'Request Trial Credit by Ticket',
+      multiAccountDesc: 'After email verification, submit an in-app ticket. A USD 3 redemption code is handled manually within 24 hours.',
+      balanceQuota: 'Usage-Based Balance Billing',
+      balanceQuotaDesc: 'Each CNY 1 recharge becomes USD 1 of balance. Token usage starts at 0.1x the model reference price.'
     },
     // Comparison section
     comparison: {
