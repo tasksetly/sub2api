@@ -3,7 +3,8 @@
  * Handles AI platform account management for administrators
  */
 
-import { apiClient } from '../client'
+import { apiClient, buildApiUrl } from '../client'
+import { ADMIN_UI_REQUEST_HEADER } from '../adminUIRequest'
 import type {
   Account,
   CreateAccountRequest,
@@ -235,12 +236,82 @@ export async function testAccount(id: number): Promise<{
   message: string
   latency_ms?: number
 }> {
-  const { data } = await apiClient.post<{
-    success: boolean
-    message: string
-    latency_ms?: number
-  }>(`/admin/accounts/${id}/test`)
-  return data
+  const startedAt = Date.now()
+  const response = await fetch(buildApiUrl(`/admin/accounts/${id}/test`), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}`,
+      'Content-Type': 'application/json',
+      [ADMIN_UI_REQUEST_HEADER]: '1'
+    },
+    credentials: 'include',
+    body: JSON.stringify({})
+  })
+
+  if (!response.ok) {
+    const responseText = await response.text().catch(() => '')
+    let message = `HTTP error! status: ${response.status}`
+    try {
+      const payload = JSON.parse(responseText) as { message?: string }
+      if (payload.message) message = payload.message
+    } catch {
+      if (responseText.trim()) message = responseText.trim()
+    }
+    throw new Error(message)
+  }
+
+  if (!response.body) {
+    throw new Error('No response body')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let completed = false
+  let success = false
+  let message = ''
+
+  const consumeLine = (line: string) => {
+    if (!line.startsWith('data:')) return
+    const jsonText = line.slice(5).trim()
+    if (!jsonText) return
+
+    try {
+      const event = JSON.parse(jsonText) as {
+        type?: string
+        success?: boolean
+        error?: string
+      }
+      if (event.type === 'test_complete') {
+        completed = true
+        success = event.success === true
+        message = event.error || (success ? 'Test completed successfully' : 'Test failed')
+      } else if (event.type === 'error') {
+        completed = true
+        success = false
+        message = event.error || 'Test failed'
+      }
+    } catch {
+      // Ignore non-JSON SSE lines and continue reading the stream.
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split(/\r?\n/)
+    buffer = lines.pop() || ''
+    lines.forEach(consumeLine)
+  }
+  buffer += decoder.decode()
+  if (buffer) consumeLine(buffer)
+
+  return {
+    success: completed && success,
+    message: message || (completed ? 'Test failed' : 'Test did not complete'),
+    latency_ms: Date.now() - startedAt
+  }
 }
 
 /**

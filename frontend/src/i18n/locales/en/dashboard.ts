@@ -187,6 +187,7 @@ export default {
         codexCli: 'Codex CLI',
         codexCliWs: 'Codex CLI (WebSocket)',
         grokCli: 'Grok CLI',
+        piAgent: 'Pi Agent',
         opencode: 'OpenCode',
       },
       antigravity: {
@@ -212,6 +213,13 @@ export default {
         claudeNote: 'Choose one method: run the terminal commands for the current session, or save settings.json for user-level persistent configuration.',
         codexNote: 'Save config.toml under ~/.codex and set SUB2API_API_KEY before starting Codex.',
         codexNoteWindows: 'Save config.toml under %USERPROFILE%\\.codex and set SUB2API_API_KEY in PowerShell before starting Codex.',
+      },
+      piAgent: {
+        description: 'Configure Pi Agent for the current group. OpenAI groups use Chat Completions; Claude groups use Anthropic Messages.',
+        modelsHint: 'models.json only overrides the built-in provider endpoint and contains no API key or model list. For live model discovery, use a Pi extension that requests /v1/models.',
+        authHint: 'auth.json stores the API key. Restrict its file permissions and do not commit it. Merge with existing Pi credentials instead of overwriting them.',
+        settingsHint: 'settings.json selects the default provider and model. Merge these two fields with existing Pi settings when needed.',
+        note: 'Save all three files under ~/.pi/agent/. After installing Pi, run pi and select a built-in provider model with /model. The default list comes from Pi; live gateway models require an extension.'
       },
       opencode: {
         title: 'OpenCode Example',

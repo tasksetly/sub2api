@@ -18,7 +18,7 @@ export default {
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
     tags: {
       subscriptionToApi: 'Codex CLI API Access',
-      stickySession: 'GPT 5.4+ Versions',
+      stickySession: '5.6+',
       realtimeBilling: 'Token Rates from 0.1x'
     },
     // Pain points section

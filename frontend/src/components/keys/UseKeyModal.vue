@@ -347,9 +347,16 @@ const clientTabs = computed((): TabConfig[] => {
       if (props.allowMessagesDispatch) {
         tabs.push({ id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon })
       }
+      tabs.push({ id: 'pi-agent', label: t('keys.useKeyModal.cliTabs.piAgent'), icon: TerminalIcon })
       tabs.push({ id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon })
       return tabs
     }
+    case 'anthropic':
+      return [
+        { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
+        { id: 'pi-agent', label: t('keys.useKeyModal.cliTabs.piAgent'), icon: TerminalIcon },
+        { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
+      ]
     case 'gemini':
       return [
         { id: 'gemini', label: t('keys.useKeyModal.cliTabs.geminiCli'), icon: SparkleIcon },
@@ -389,7 +396,7 @@ const openaiTabs: TabConfig[] = [
   { id: 'windows', label: 'Windows', icon: WindowsIcon }
 ]
 
-const showShellTabs = computed(() => activeClientTab.value !== 'opencode')
+const showShellTabs = computed(() => !['opencode', 'pi-agent'].includes(activeClientTab.value))
 
 const showCodexAuthMode = computed(() =>
   props.platform === 'openai' &&
@@ -405,6 +412,10 @@ const currentTabs = computed(() => {
 })
 
 const platformDescription = computed(() => {
+  if (activeClientTab.value === 'pi-agent') {
+    return t('keys.useKeyModal.piAgent.description')
+  }
+
   switch (props.platform) {
     case 'openai':
       if (activeClientTab.value === 'claude') {
@@ -429,6 +440,10 @@ const platformDescription = computed(() => {
 })
 
 const platformNote = computed(() => {
+  if (activeClientTab.value === 'pi-agent') {
+    return t('keys.useKeyModal.piAgent.note')
+  }
+
   switch (props.platform) {
     case 'openai':
       if (activeClientTab.value === 'claude') {
@@ -498,6 +513,12 @@ const currentFiles = computed((): FileConfig[] => {
     const trimmed = baseRoot.replace(/\/+$/, '')
     return trimmed.endsWith('/v1beta') ? trimmed : `${trimmed}/v1beta`
   })()
+
+  if (activeClientTab.value === 'pi-agent') {
+    const piPlatform = props.platform === 'anthropic' ? 'anthropic' : 'openai'
+    const piBaseUrl = piPlatform === 'anthropic' ? baseRoot : apiBase
+    return generatePiAgentFiles(piPlatform, piBaseUrl, apiKey)
+  }
 
   if (activeClientTab.value === 'opencode') {
     switch (props.platform) {
@@ -703,6 +724,46 @@ ${keyword('$env:')}${variable('GEMINI_MODEL')}${operator('=')}${string(`"${model
   }
 
   return { path, content, highlighted }
+}
+
+function generatePiAgentFiles(platform: 'openai' | 'anthropic', baseUrl: string, apiKey: string): FileConfig[] {
+  const provider = platform === 'anthropic' ? 'anthropic' : 'openai'
+  const model = platform === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-5.5'
+  const modelsContent = JSON.stringify({
+    providers: {
+      [provider]: {
+        baseUrl
+      }
+    }
+  }, null, 2)
+  const authContent = JSON.stringify({
+    [provider]: {
+      type: 'api_key',
+      key: apiKey
+    }
+  }, null, 2)
+  const settingsContent = JSON.stringify({
+    defaultProvider: provider,
+    defaultModel: model
+  }, null, 2)
+
+  return [
+    {
+      path: '~/.pi/agent/models.json',
+      content: modelsContent,
+      hint: t('keys.useKeyModal.piAgent.modelsHint')
+    },
+    {
+      path: '~/.pi/agent/auth.json',
+      content: authContent,
+      hint: t('keys.useKeyModal.piAgent.authHint')
+    },
+    {
+      path: '~/.pi/agent/settings.json',
+      content: settingsContent,
+      hint: t('keys.useKeyModal.piAgent.settingsHint')
+    }
+  ]
 }
 
 function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {

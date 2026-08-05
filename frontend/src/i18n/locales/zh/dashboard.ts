@@ -188,6 +188,7 @@ export default {
         codexCli: 'Codex CLI',
         codexCliWs: 'Codex CLI (WebSocket)',
         grokCli: 'Grok CLI',
+        piAgent: 'Pi Agent',
         opencode: 'OpenCode'
       },
       antigravity: {
@@ -216,6 +217,13 @@ export default {
         claudeNote: '二选一即可：终端命令仅在当前会话生效；保存 settings.json 可作为用户级持久配置。',
         codexNote: '将 config.toml 保存到 ~/.codex，并在启动 Codex 前设置 SUB2API_API_KEY。',
         codexNoteWindows: '将 config.toml 保存到 %USERPROFILE%\\.codex，并在 PowerShell 中设置 SUB2API_API_KEY 后启动 Codex。'
+      },
+      piAgent: {
+        description: '为 Pi Agent 配置当前分组的模型访问。OpenAI 分组使用 Chat Completions，Claude 分组使用 Anthropic Messages。',
+        modelsHint: 'models.json 仅覆盖内置 provider 的网关地址，不包含 API 密钥和模型列表。要动态发现网关模型，请使用 Pi extension 请求 /v1/models。',
+        authHint: 'auth.json 保存 API 密钥，请限制文件权限并勿提交到项目仓库。已有其他 Pi 凭证时请合并内容，不要直接覆盖。',
+        settingsHint: 'settings.json 设置默认 provider 和模型。已有其他 Pi 设置时请合并这两个字段。',
+        note: '将三个文件保存到 ~/.pi/agent/。安装 Pi 后运行 pi，并通过 /model 选择内置 provider 的模型；模型列表默认来自 Pi，动态列表需要额外安装 extension。'
       },
       opencode: {
         title: 'OpenCode 配置示例',

@@ -174,7 +174,9 @@
       <template #table>
         <AccountBulkActionsBar
           :selected-ids="selIds"
+          :testing="batchTesting"
           @delete="handleBulkDelete"
+          @test="handleBulkTest"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
           @probe-upstream-billing="handleBulkProbeUpstreamBilling"
@@ -576,6 +578,7 @@ const showCreateShadowDialog = ref(false)
 const showReAuth = ref(false)
 const showTest = ref(false)
 const showStats = ref(false)
+const batchTesting = ref(false)
 const showErrorPassthrough = ref(false)
 const showTLSFingerprintProfiles = ref(false)
 const edAcc = ref<Account | null>(null)
@@ -1462,6 +1465,56 @@ const toggleSelectAllVisible = (event: Event) => {
   toggleVisible(target.checked)
 }
 const handleBulkDelete = async () => { if(!confirm(t('common.confirm'))) return; try { await Promise.all(selIds.value.map(id => adminAPI.accounts.delete(id))); clearSelection(); reload() } catch (error) { console.error('Failed to bulk delete accounts:', error) } }
+const handleBulkTest = async () => {
+  if (batchTesting.value) return
+
+  const accountIds = [...selIds.value]
+  if (accountIds.length === 0) return
+  if (!confirm(t('admin.accounts.bulkActions.testConfirm', { count: accountIds.length }))) return
+
+  batchTesting.value = true
+  let successCount = 0
+  let failedCount = 0
+  let nextIndex = 0
+  const workerCount = Math.min(4, accountIds.length)
+
+  const runWorker = async () => {
+    while (true) {
+      const index = nextIndex++
+      if (index >= accountIds.length) return
+
+      const accountId = accountIds[index]
+      try {
+        const result = await adminAPI.accounts.testAccount(accountId)
+        if (result.success) {
+          successCount += 1
+          // Keep failed accounts selected so the existing bulk delete action can be used immediately.
+          deselect(accountId)
+        } else {
+          failedCount += 1
+        }
+      } catch (error) {
+        failedCount += 1
+        console.error(`Failed to test account ${accountId}:`, error)
+      }
+    }
+  }
+
+  try {
+    await Promise.all(Array.from({ length: workerCount }, () => runWorker()))
+    if (failedCount === 0) {
+      appStore.showSuccess(t('admin.accounts.bulkActions.testSuccess', { count: successCount }))
+    } else {
+      appStore.showError(t('admin.accounts.bulkActions.testPartialSuccess', {
+        success: successCount,
+        failed: failedCount
+      }))
+    }
+    await reload()
+  } finally {
+    batchTesting.value = false
+  }
+}
 const handleBulkResetStatus = async () => {
   if (!confirm(t('common.confirm'))) return
   try {

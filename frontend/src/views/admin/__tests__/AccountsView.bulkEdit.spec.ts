@@ -10,7 +10,8 @@ const {
   getUpstreamBillingProbeSettings,
   getAllProxies,
   getAllGroups,
-  probeUpstreamBillingBatch
+  probeUpstreamBillingBatch,
+  testAccount
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
@@ -18,7 +19,8 @@ const {
   getUpstreamBillingProbeSettings: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn(),
-  probeUpstreamBillingBatch: vi.fn()
+  probeUpstreamBillingBatch: vi.fn(),
+  testAccount: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -32,6 +34,7 @@ vi.mock('@/api/admin', () => ({
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
       probeUpstreamBillingBatch,
+      testAccount,
       toggleSchedulable: vi.fn()
     },
     proxies: {
@@ -83,11 +86,12 @@ const DataTableStub = {
 
 const AccountBulkActionsBarStub = {
   props: ['selectedIds'],
-  emits: ['edit-filtered', 'probe-upstream-billing'],
+  emits: ['edit-filtered', 'probe-upstream-billing', 'test'],
   template: `
     <div>
       <button data-test="edit-filtered" @click="$emit('edit-filtered')">edit filtered</button>
       <button data-test="probe-upstream-billing" @click="$emit('probe-upstream-billing')">probe</button>
+      <button data-test="test-accounts" @click="$emit('test')">test</button>
     </div>
   `
 }
@@ -113,6 +117,8 @@ describe('admin AccountsView bulk edit scope', () => {
     getAllProxies.mockReset()
     getAllGroups.mockReset()
     probeUpstreamBillingBatch.mockReset()
+    testAccount.mockReset()
+    vi.stubGlobal('confirm', vi.fn(() => true))
 
     listAccounts.mockResolvedValue({
       items: [],
@@ -131,6 +137,7 @@ describe('admin AccountsView bulk edit scope', () => {
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
     probeUpstreamBillingBatch.mockResolvedValue([])
+    testAccount.mockResolvedValue({ success: true, message: 'ok' })
   })
 
   it('opens bulk edit in filtered-results mode from the bulk actions dropdown', async () => {
@@ -375,6 +382,79 @@ describe('admin AccountsView bulk edit scope', () => {
     await flushPromises()
 
     expect(probeUpstreamBillingBatch).toHaveBeenCalledWith([7, 11])
+  })
+
+  it('deselects successful accounts and keeps failed accounts selected after batch testing', async () => {
+    const account = (id: number) => ({
+      id,
+      name: `account-${id}`,
+      platform: 'openai',
+      type: 'apikey',
+      status: 'active',
+      schedulable: true,
+      created_at: '2026-07-13T00:00:00Z',
+      updated_at: '2026-07-13T00:00:00Z'
+    })
+    listAccounts.mockResolvedValue({
+      items: [account(1), account(2), account(3)],
+      total: 3,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+    testAccount.mockImplementation(async (id: number) => ({
+      success: id !== 2,
+      message: id === 2 ? 'failed' : 'ok'
+    }))
+
+    const wrapper = mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /></div>' },
+          DataTable: DataTableStub,
+          AccountBulkActionsBar: AccountBulkActionsBarStub,
+          AccountTableActions: true,
+          AccountTableFilters: true,
+          AccountActionMenu: true,
+          Pagination: true,
+          ConfirmDialog: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditAccountModalStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+    const rowInputs = wrapper.findAll('[data-test="select-row"] input')
+    for (const input of rowInputs) await input.trigger('change')
+
+    await wrapper.get('[data-test="test-accounts"]').trigger('click')
+    await flushPromises()
+
+    expect(testAccount).toHaveBeenCalledTimes(3)
+    expect(testAccount).toHaveBeenCalledWith(1)
+    expect(testAccount).toHaveBeenCalledWith(2)
+    expect(testAccount).toHaveBeenCalledWith(3)
+    const selectedStates = wrapper.findAll('[data-test="select-row"] input').map(input => (input.element as HTMLInputElement).checked)
+    expect(selectedStates).toEqual([false, true, false])
   })
 
   it('reloads the server-sorted list after a batch probe changes a snapshot', async () => {

@@ -449,6 +449,123 @@ describe('UseKeyModal', () => {
     expect(wrapper.findAll('pre code').map((code) => code.text()).join('\n')).not.toContain('x-openai-actor-authorization')
   })
 
+  it('renders Pi Agent models.json for OpenAI groups', async () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-pi-test',
+        baseUrl: 'https://example.com/v1',
+        platform: 'openai'
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    const piTab = wrapper.findAll('button').find((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.piAgent')
+    )
+
+    expect(piTab).toBeDefined()
+    await piTab!.trigger('click')
+    await nextTick()
+
+    const codeBlocks = wrapper.findAll('pre code').map((code) => code.text())
+    expect(codeBlocks).toHaveLength(3)
+    expect(wrapper.text()).toContain('~/.pi/agent/models.json')
+    expect(wrapper.text()).toContain('~/.pi/agent/auth.json')
+    expect(wrapper.text()).toContain('~/.pi/agent/settings.json')
+
+    const models = JSON.parse(codeBlocks[0])
+    expect(models.providers.openai).toEqual({
+      baseUrl: 'https://example.com/v1'
+    })
+    expect(JSON.parse(codeBlocks[1])).toEqual({
+      openai: {
+        type: 'api_key',
+        key: 'sk-pi-test'
+      }
+    })
+    expect(JSON.parse(codeBlocks[2])).toEqual({
+      defaultProvider: 'openai',
+      defaultModel: 'gpt-5.5'
+    })
+    expect(wrapper.text()).not.toContain('config.toml')
+    expect(wrapper.findAll('button').some((button) => button.text().trim() === 'macOS / Linux')).toBe(false)
+  })
+
+  it('renders Pi Agent Anthropic Messages setup for Claude groups', async () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-pi-claude-test',
+        baseUrl: 'https://example.com/v1',
+        platform: 'anthropic'
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    const piTab = wrapper.findAll('button').find((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.piAgent')
+    )
+
+    expect(piTab).toBeDefined()
+    await piTab!.trigger('click')
+    await nextTick()
+
+    const codeBlocks = wrapper.findAll('pre code').map((code) => code.text())
+    const models = JSON.parse(codeBlocks[0])
+    expect(models.providers.anthropic).toEqual({
+      baseUrl: 'https://example.com'
+    })
+    expect(JSON.parse(codeBlocks[1]).anthropic.key).toBe('sk-pi-claude-test')
+    expect(JSON.parse(codeBlocks[2])).toEqual({
+      defaultProvider: 'anthropic',
+      defaultModel: 'claude-sonnet-4-6'
+    })
+  })
+
+  it('does not render Pi Agent for unsupported groups', () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-anthropic-test',
+        baseUrl: 'https://example.com/v1',
+        platform: 'gemini'
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.findAll('button').some((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.piAgent')
+    )).toBe(false)
+  })
+
   it('renders GPT-5.4 mini entry in OpenCode config', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {

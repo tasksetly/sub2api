@@ -18,7 +18,7 @@ export default {
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
     tags: {
       subscriptionToApi: 'Codex CLI API 接入',
-      stickySession: 'GPT 5.4+ 版本',
+      stickySession: '5.6+',
       realtimeBilling: 'Token 0.1 倍起'
     },
     // 用户痛点区块

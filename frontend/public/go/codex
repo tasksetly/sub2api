@@ -71,7 +71,7 @@
         <a class="button secondary" href="#pricing">查看计费说明</a>
       </div>
       <div class="facts" aria-label="服务摘要">
-        <div class="fact"><strong>GPT 5.4+</strong><span>以控制台实际可用模型为准</span></div>
+        <div class="fact"><strong>GPT 5.4 / 5.6+</strong><span>以控制台实际可用模型为准</span></div>
         <div class="fact"><strong>1 CNY = 1 USD</strong><span>充值余额按此规则折算</span></div>
         <div class="fact"><strong>0.1 倍起</strong><span>Token 消耗按模型基准价格计费</span></div>
       </div>
