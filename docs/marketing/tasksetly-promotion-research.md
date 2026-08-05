@@ -3,6 +3,8 @@
 > 研究日期：2026-08-05
 > 产品：<https://ai.tasksetly.com>
 > 目标：为 Tasksetly 建立可持续、可验证、不过度依赖社区广告帖的推广体系。
+>
+> 定位修正：Tasksetly 的核心是面向开发者的 OpenAI GPT 服务 API，主打低倍率、按量使用和人工服务；Codex CLI 是重要使用入口，但不是产品全部。
 
 ## 1. 结论摘要
 
@@ -18,9 +20,11 @@ Tasksetly 当前不应继续复制“中转站福利广告帖”的打法。Linu
 
 ## 2. 已核验的产品事实
 
-来自 2026-08-05 访问的公开页面：
+来自 2026-08-05 访问的公开页面及产品方补充说明：
 
-- 产品定位：面向中国用户的 Codex CLI API 接入。
+- 核心产品：面向开发者提供 OpenAI GPT 服务 API。
+- 核心卖点：低倍率、按量使用和人工服务；“高服务”应通过响应时间、工单处理和故障解决记录持续证明，不直接写成无法验证的绝对承诺。
+- Codex CLI 是重要接入场景，公开页面提供 Codex CLI 配置路径，但不应把产品宣传成只服务 Codex。
 - 注册功能开启，需要邮箱验证。
 - 注册并验证邮箱后，可通过站内工单申请 3 USD 体验兑换码；页面写明由人工处理。
 - 充值 1 CNY 折算 1 USD 余额。
@@ -82,11 +86,57 @@ Linux.do FAQ 的相关规则包括：
 - 如要恢复社区渠道，先阅读对应版块规则并向版主申请权限；
 - 即使获得权限，也应由人工写作、人工发布，并把技术价值放在第一位。
 
-## 4. Tasksetly 的定位和目标用户
+## 4. 搜索关键词分层
+
+### 主关键词
+
+- OpenAI API
+- GPT API
+- GPT API Key
+- OpenAI API Key
+- GPT API 价格
+- GPT API 充值
+- AI API 代理
+
+### 高意图场景词
+
+- Codex API
+- Codex CLI API 配置
+- Codex CLI API Key
+- Codex CLI API 价格
+- OpenAI API 低倍率
+- GPT API 低倍率
+- GPT API 按量计费
+- AI API 人工服务
+
+### “中转站”相关词
+
+Google 搜索建议和社区搜索中确实出现：
+
+- AI API 中转站
+- Codex 中转站
+- OpenAI API 中转
+- Codex 中转站怎么用
+- Codex 中转站教程
+- 中转站检测/排名/测试
+
+“中转站”是高意图但高风险词：用户会搜索它，但伴随跑路、掺水、封号、隐私和合规担忧。因此不把它作为 Tasksetly 的唯一主品牌词，也不使用“无限额度”“官方原价”“绝对稳定”等话术。建议在 FAQ、对比说明和排错文章中自然出现，例如“第三方 API 接入和中转服务的风险检查清单”，而不是标题直接做纯广告。
+
+### SEO 页面安排
+
+| 页面 | 主词 | 搜索意图 | CTA |
+|---|---|---|---|
+| OpenAI GPT API 接入页 | OpenAI API、GPT API | 找 API 服务和接入方式 | 查看控制台 |
+| GPT API 价格页 | GPT API 价格、低倍率、按量计费 | 比较价格和计费 | 查看当前价格 |
+| API Key 配置页 | GPT API Key、OpenAI API Key 配置 | 创建和使用 Key | 创建 Key |
+| Codex CLI 配置页 | Codex CLI API 配置 | 解决具体配置问题 | 查看配置指南 |
+| API 排错页 | 401、403、API error | 解决调用失败 | 提交工单 |
+
+## 5. Tasksetly 的定位和目标用户
 
 ### 定位句
 
-> Tasksetly 为需要在 Codex CLI 中使用 API 的开发者提供按量计费的接入、配置生成和故障排查路径。
+> Tasksetly 为开发者提供 OpenAI GPT 服务 API，主打低倍率、按量使用和人工服务，并覆盖 Codex CLI 等常见开发工具的接入、配置和故障排查。
 
 ### 优先 ICP
 
