@@ -803,8 +803,8 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 // assigned to each account. Keeping unassigned accounts as an empty supplier ensures
 // the supplier rows always reconcile with the overall account-cost total.
 func (r *usageLogRepository) GetSupplierCostStats(ctx context.Context, filters UsageLogFilters) (results []usagestats.SupplierCostStat, err error) {
-	conditions := make([]string, 0, 9)
-	args := make([]any, 0, 9)
+	conditions := make([]string, 0, 10)
+	args := make([]any, 0, 10)
 
 	appendIDFilter := func(column string, value int64) {
 		if value <= 0 {
@@ -817,6 +817,11 @@ func (r *usageLogRepository) GetSupplierCostStats(ctx context.Context, filters U
 	appendIDFilter("api_key_id", filters.APIKeyID)
 	appendIDFilter("account_id", filters.AccountID)
 	appendIDFilter("group_id", filters.GroupID)
+
+	if filters.Supplier != nil {
+		conditions = append(conditions, fmt.Sprintf("COALESCE(NULLIF(BTRIM(a.supplier), ''), '') = $%d", len(args)+1))
+		args = append(args, *filters.Supplier)
+	}
 
 	if strings.TrimSpace(filters.Model) != "" {
 		modelExpr := "ul.model"

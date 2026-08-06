@@ -320,6 +320,7 @@ export default {
     accountMultiplier: 'Account rate',
     supplierCost: {
       title: 'Supplier Costs',
+      pageDescription: 'Review upstream cost and gross profit by date range, with supplier filtering',
       description: 'Upstream cost and gross profit grouped by each account\'s current supplier',
       suppliers: 'Suppliers',
       supplier: 'Supplier',
@@ -333,7 +334,10 @@ export default {
       grossMargin: 'Gross Margin',
       share: 'Cost Share',
       unset: 'Supplier not set',
+      allSuppliers: 'All Suppliers',
+      supplierFilter: 'Supplier',
       empty: 'No supplier cost data in the selected range',
+      loadFailed: 'Failed to load supplier costs',
       total: 'Total'
     },
     avgDuration: 'Avg Duration',

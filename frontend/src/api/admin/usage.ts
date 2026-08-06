@@ -144,6 +144,8 @@ export async function getSupplierCosts(params: {
   api_key_id?: number
   account_id?: number
   group_id?: number
+  supplier?: string
+  supplier_unset?: boolean
   model?: string
   request_type?: UsageRequestType
   stream?: boolean

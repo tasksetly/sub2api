@@ -659,6 +659,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/supplier-costs',
+    name: 'AdminSupplierCosts',
+    component: () => import('@/views/admin/SupplierCostsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Supplier Costs',
+      titleKey: 'usage.supplierCost.title',
+      descriptionKey: 'usage.supplierCost.pageDescription'
+    }
+  },
+  {
     path: '/admin/affiliates',
     redirect: '/admin/affiliates/invites'
   },

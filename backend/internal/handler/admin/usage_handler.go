@@ -386,11 +386,35 @@ func (h *UsageHandler) SupplierCosts(c *gin.Context) {
 		endTime = endTime.AddDate(0, 0, 1)
 	}
 
+	var supplier *string
+	supplierQuery, hasSupplierQuery := c.GetQuery("supplier")
+	supplierUnsetQuery := strings.TrimSpace(c.Query("supplier_unset"))
+	if supplierUnsetQuery != "" {
+		supplierUnset, parseErr := strconv.ParseBool(supplierUnsetQuery)
+		if parseErr != nil {
+			response.BadRequest(c, "Invalid supplier_unset filter")
+			return
+		}
+		if supplierUnset {
+			if hasSupplierQuery && strings.TrimSpace(supplierQuery) != "" {
+				response.BadRequest(c, "supplier and supplier_unset cannot be used together")
+				return
+			}
+			supplierQuery = ""
+			hasSupplierQuery = true
+		}
+	}
+	if hasSupplierQuery {
+		normalizedSupplier := strings.TrimSpace(supplierQuery)
+		supplier = &normalizedSupplier
+	}
+
 	filters := usagestats.UsageLogFilters{
 		UserID:      parsed.UserID,
 		APIKeyID:    parsed.APIKeyID,
 		AccountID:   parsed.AccountID,
 		GroupID:     parsed.GroupID,
+		Supplier:    supplier,
 		Model:       parsed.Model,
 		RequestType: parsed.RequestType,
 		Stream:      parsed.Stream,

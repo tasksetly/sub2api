@@ -153,16 +153,31 @@ func TestAdminUsageSupplierCostsUsesSharedFilters(t *testing.T) {
 	repo := &adminUsageRepoCapture{}
 	router := newAdminUsageRequestTypeTestRouter(repo)
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/usage/supplier-costs?user_id=7&group_id=9&model=gpt-5&request_type=ws_v2&billing_mode=token&start_date=2026-07-01&end_date=2026-07-02", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/supplier-costs?user_id=7&group_id=9&supplier=alpha&model=gpt-5&request_type=ws_v2&billing_mode=token&start_date=2026-07-01&end_date=2026-07-02", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, int64(7), repo.supplierCostFilters.UserID)
 	require.Equal(t, int64(9), repo.supplierCostFilters.GroupID)
+	require.NotNil(t, repo.supplierCostFilters.Supplier)
+	require.Equal(t, "alpha", *repo.supplierCostFilters.Supplier)
 	require.Equal(t, "gpt-5", repo.supplierCostFilters.Model)
 	require.Equal(t, "token", repo.supplierCostFilters.BillingMode)
 	require.NotNil(t, repo.supplierCostFilters.RequestType)
 	require.Equal(t, int16(service.RequestTypeWSV2), *repo.supplierCostFilters.RequestType)
 	require.Equal(t, 48*time.Hour, repo.supplierCostFilters.EndTime.Sub(*repo.supplierCostFilters.StartTime))
+}
+
+func TestAdminUsageSupplierCostsFiltersUnsetSupplier(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/supplier-costs?supplier_unset=true", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, repo.supplierCostFilters.Supplier)
+	require.Equal(t, "", *repo.supplierCostFilters.Supplier)
 }

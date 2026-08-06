@@ -325,6 +325,7 @@ export default {
     accountMultiplier: '账号倍率',
     supplierCost: {
       title: '供应商成本',
+      pageDescription: '按日期范围查看各供应商的上游成本与毛利，并支持单独筛选供应商',
       description: '按账号当前供应商归集所选范围内的上游成本与毛利',
       suppliers: '供应商',
       supplier: '供应商',
@@ -338,7 +339,10 @@ export default {
       grossMargin: '毛利率',
       share: '成本占比',
       unset: '未设置供应商',
+      allSuppliers: '全部供应商',
+      supplierFilter: '供应商',
       empty: '所选范围内暂无供应商成本数据',
+      loadFailed: '加载供应商成本失败',
       total: '合计'
     },
     avgDuration: '平均耗时',

@@ -123,7 +123,7 @@
               {{ siteName }}
             </h1>
             <p class="mb-8 text-lg text-gray-600 dark:text-dark-300 md:text-xl">
-              {{ t('home.heroSubtitle') }}
+              {{ siteSubtitle }}
             </p>
 
             <!-- CTA Button -->
