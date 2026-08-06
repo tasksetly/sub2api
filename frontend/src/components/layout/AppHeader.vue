@@ -153,6 +153,16 @@
                   {{ t('nav.apiKeys') }}
                 </router-link>
 
+                <a
+                  href="https://t.me/+PAe07GnS7Es1NGZl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  @click="closeDropdown"
+                  class="dropdown-item"
+                >
+                  <Icon name="externalLink" size="sm" />
+                  {{ t('nav.telegramGroup') }}
+                </a>
               </div>
 
               <!-- Contact Support (only show if configured) -->
