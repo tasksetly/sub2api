@@ -65,3 +65,24 @@ func TestAccountFromServiceShallow_NilCredentialsOmitsStatus(t *testing.T) {
 	require.Nil(t, got.Credentials)
 	require.Nil(t, got.CredentialsStatus)
 }
+
+func TestAccountFromServiceShallow_MapsLastTestMetrics(t *testing.T) {
+	src := &service.Account{
+		ID:       42,
+		Name:     "demo",
+		Platform: "openai",
+		Type:     "apikey",
+		Extra: map[string]any{
+			service.AccountTestLatencyExtraKey:     json.Number("1234"),
+			service.AccountTestModelExtraKey:       "gpt-5.4",
+			service.AccountTestCompletedAtExtraKey: "2026-07-13T00:00:00Z",
+		},
+	}
+
+	got := AccountFromServiceShallow(src)
+	require.NotNil(t, got)
+	require.NotNil(t, got.LastTestLatencyMs)
+	require.Equal(t, int64(1234), *got.LastTestLatencyMs)
+	require.Equal(t, "gpt-5.4", got.LastTestModel)
+	require.Equal(t, "2026-07-13T00:00:00Z", got.LastTestCompletedAt)
+}

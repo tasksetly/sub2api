@@ -393,6 +393,25 @@ func TestBuildSchedulerMetadataAccount_KeepsQuotaAutoPauseFields(t *testing.T) {
 	require.Equal(t, false, got.Extra["auto_pause_7d_disabled"])
 }
 
+func TestBuildSchedulerMetadataAccount_KeepsLastTestMetrics(t *testing.T) {
+	account := service.Account{
+		ID: 89,
+		Extra: map[string]any{
+			service.AccountTestLatencyExtraKey:     int64(1234),
+			service.AccountTestModelExtraKey:       "gpt-5.4",
+			service.AccountTestCompletedAtExtraKey: "2026-07-13T00:00:00Z",
+			"unused_large_field":                   "drop-me",
+		},
+	}
+
+	got := buildSchedulerMetadataAccount(account)
+
+	require.Equal(t, int64(1234), got.Extra[service.AccountTestLatencyExtraKey])
+	require.Equal(t, "gpt-5.4", got.Extra[service.AccountTestModelExtraKey])
+	require.Equal(t, "2026-07-13T00:00:00Z", got.Extra[service.AccountTestCompletedAtExtraKey])
+	require.Nil(t, got.Extra["unused_large_field"])
+}
+
 func TestBuildSchedulerMetadataAccount_KeepsModelRateLimits(t *testing.T) {
 	account := service.Account{
 		ID:       90,

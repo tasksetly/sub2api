@@ -347,6 +347,18 @@
               {{ (row.rate_multiplier ?? 1).toFixed(2) }}x
             </span>
           </template>
+          <template #cell-test_latency="{ row }">
+            <div v-if="typeof row.last_test_latency_ms === 'number'" class="flex min-w-[5.5rem] flex-col gap-0.5">
+              <span class="font-mono text-sm text-gray-700 dark:text-gray-300">{{ formatTestLatency(row.last_test_latency_ms) }}</span>
+              <span v-if="row.last_test_model" class="max-w-[10rem] truncate text-xs text-gray-500 dark:text-dark-400" :title="row.last_test_model">
+                {{ row.last_test_model }}
+              </span>
+              <span v-if="row.last_test_completed_at" class="text-xs text-gray-400 dark:text-dark-500" :title="formatDateTime(row.last_test_completed_at)">
+                {{ formatRelativeTime(row.last_test_completed_at) }}
+              </span>
+            </div>
+            <span v-else class="text-sm text-gray-400 dark:text-dark-500">-</span>
+          </template>
           <template #header-upstream_billing_rate="{ column }">
             <div class="flex items-center gap-1">
               <span>{{ column.label }}</span>
@@ -440,6 +452,13 @@
     <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
+    <BulkTestAccountModal
+      :show="showBulkTestModal"
+      :account-ids="selIds"
+      :testing="batchTesting"
+      @close="showBulkTestModal = false"
+      @confirm="runBulkTest"
+    />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
     <ScheduledTestsPanel :show="showSchedulePanel" :account-id="scheduleAcc?.id ?? null" :model-options="scheduleModelOptions" @close="closeSchedulePanel" />
     <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @schedule="handleSchedule" @duplicate="handleDuplicateAccount" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" @create-spark-shadow="handleCreateSparkShadow" />
@@ -497,6 +516,7 @@ import AccountActionMenu from '@/components/admin/account/AccountActionMenu.vue'
 import ImportDataModal from '@/components/admin/account/ImportDataModal.vue'
 import ReAuthAccountModal from '@/components/admin/account/ReAuthAccountModal.vue'
 import AccountTestModal from '@/components/admin/account/AccountTestModal.vue'
+import BulkTestAccountModal from '@/components/admin/account/BulkTestAccountModal.vue'
 import AccountStatsModal from '@/components/admin/account/AccountStatsModal.vue'
 import ScheduledTestsPanel from '@/components/admin/account/ScheduledTestsPanel.vue'
 import type { SelectOption } from '@/components/common/Select.vue'
@@ -577,6 +597,7 @@ const showDeleteDialog = ref(false)
 const showCreateShadowDialog = ref(false)
 const showReAuth = ref(false)
 const showTest = ref(false)
+const showBulkTestModal = ref(false)
 const showStats = ref(false)
 const batchTesting = ref(false)
 const showErrorPassthrough = ref(false)
@@ -731,6 +752,13 @@ const formatSchedulerScore = (value: unknown): string => {
   const num = Number(value)
   if (!Number.isFinite(num)) return '-'
   return num.toFixed(6).replace(/\.?0+$/, '')
+}
+
+const formatTestLatency = (value: unknown): string => {
+  const latencyMs = Number(value)
+  if (!Number.isFinite(latencyMs) || latencyMs < 0) return '-'
+  if (latencyMs < 1_000) return `${Math.round(latencyMs)} ms`
+  return `${(latencyMs / 1_000).toFixed(latencyMs < 10_000 ? 2 : 1)} s`
 }
 
 const formatStickySchedulerScore = (score: AccountSchedulerGroupScore): string => {
@@ -1055,6 +1083,7 @@ const isAnyModalOpen = computed(() => {
     showDeleteDialog.value ||
     showReAuth.value ||
     showTest.value ||
+    showBulkTestModal.value ||
     showStats.value ||
     showSchedulePanel.value ||
     showErrorPassthrough.value ||
@@ -1082,6 +1111,9 @@ const shouldReplaceAutoRefreshRow = (current: Account, next: Account) => {
     current.rate_limit_reset_at !== next.rate_limit_reset_at ||
     current.overload_until !== next.overload_until ||
     current.temp_unschedulable_until !== next.temp_unschedulable_until ||
+    current.last_test_latency_ms !== next.last_test_latency_ms ||
+    current.last_test_model !== next.last_test_model ||
+    current.last_test_completed_at !== next.last_test_completed_at ||
     buildOpenAIUsageRefreshKey(current) !== buildOpenAIUsageRefreshKey(next)
   )
 }
@@ -1386,6 +1418,7 @@ const allColumns = computed(() => {
     { key: 'priority', label: t('admin.accounts.columns.priority'), sortable: true },
     { key: 'scheduler_score', label: t('admin.accounts.columns.schedulerScore'), sortable: false },
     { key: 'rate_multiplier', label: t('admin.accounts.columns.billingRateMultiplier'), sortable: true },
+    { key: 'test_latency', label: t('admin.accounts.columns.testLatency'), sortable: false },
     { key: 'upstream_billing_rate', label: t('admin.accounts.columns.upstreamBillingRate'), sortable: true },
     { key: 'last_used_at', label: t('admin.accounts.columns.lastUsed'), sortable: true },
     { key: 'created_at', label: t('admin.accounts.columns.createdAt'), sortable: true },
@@ -1465,13 +1498,18 @@ const toggleSelectAllVisible = (event: Event) => {
   toggleVisible(target.checked)
 }
 const handleBulkDelete = async () => { if(!confirm(t('common.confirm'))) return; try { await Promise.all(selIds.value.map(id => adminAPI.accounts.delete(id))); clearSelection(); reload() } catch (error) { console.error('Failed to bulk delete accounts:', error) } }
-const handleBulkTest = async () => {
-  if (batchTesting.value) return
+const handleBulkTest = () => {
+  if (batchTesting.value || selIds.value.length === 0) return
+  showBulkTestModal.value = true
+}
+
+const runBulkTest = async (modelId: string) => {
+  if (batchTesting.value || !modelId) return
 
   const accountIds = [...selIds.value]
   if (accountIds.length === 0) return
-  if (!confirm(t('admin.accounts.bulkActions.testConfirm', { count: accountIds.length }))) return
 
+  showBulkTestModal.value = false
   batchTesting.value = true
   let successCount = 0
   let failedCount = 0
@@ -1485,7 +1523,7 @@ const handleBulkTest = async () => {
 
       const accountId = accountIds[index]
       try {
-        const result = await adminAPI.accounts.testAccount(accountId)
+        const result = await adminAPI.accounts.testAccount(accountId, { modelId })
         if (result.success) {
           successCount += 1
           // Keep failed accounts selected so the existing bulk delete action can be used immediately.

@@ -1066,16 +1066,45 @@ func (h *AccountHandler) Test(c *gin.Context) {
 	// Allow empty body, model_id is optional
 	_ = c.ShouldBindJSON(&req)
 
-	// Use AccountTestService to test the account with SSE streaming
+	startedAt := time.Now()
+
+	// Use AccountTestService to test the account with SSE streaming.
 	if err := h.accountTestService.TestAccountConnection(c, accountID, req.ModelID, req.Prompt, req.Mode); err != nil {
-		// Error already sent via SSE, just log
+		// Error already sent via SSE, just log.
 		return
 	}
+
+	h.persistSuccessfulAccountTestMetrics(c.Request.Context(), accountID, req.ModelID, startedAt)
 
 	if h.rateLimitService != nil {
 		if _, err := h.rateLimitService.RecoverAccountAfterSuccessfulTest(c.Request.Context(), accountID); err != nil {
 			_ = c.Error(err)
 		}
+	}
+}
+
+// persistSuccessfulAccountTestMetrics records the server-side test duration.
+// It intentionally runs after a successful SSE test so failed probes preserve
+// the last known-good measurement used by later scheduling policy.
+func (h *AccountHandler) persistSuccessfulAccountTestMetrics(ctx context.Context, accountID int64, modelID string, startedAt time.Time) {
+	if h == nil || h.adminService == nil || accountID <= 0 {
+		return
+	}
+
+	latencyMs := time.Since(startedAt).Milliseconds()
+	if latencyMs < 0 {
+		latencyMs = 0
+	}
+	updates := map[string]any{
+		service.AccountTestLatencyExtraKey:     latencyMs,
+		service.AccountTestModelExtraKey:       nil,
+		service.AccountTestCompletedAtExtraKey: time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if modelID = strings.TrimSpace(modelID); modelID != "" {
+		updates[service.AccountTestModelExtraKey] = modelID
+	}
+	if err := h.adminService.UpdateAccountExtra(ctx, accountID, updates); err != nil {
+		slog.Warn("persist_account_test_metrics_failed", "account_id", accountID, "error", err)
 	}
 }
 

@@ -11,6 +11,7 @@ const {
   getAllProxies,
   getAllGroups,
   probeUpstreamBillingBatch,
+  getAvailableModels,
   testAccount
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
@@ -20,6 +21,7 @@ const {
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn(),
   probeUpstreamBillingBatch: vi.fn(),
+  getAvailableModels: vi.fn(),
   testAccount: vi.fn()
 }))
 
@@ -34,6 +36,7 @@ vi.mock('@/api/admin', () => ({
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
       probeUpstreamBillingBatch,
+      getAvailableModels,
       testAccount,
       toggleSchedulable: vi.fn()
     },
@@ -117,6 +120,7 @@ describe('admin AccountsView bulk edit scope', () => {
     getAllProxies.mockReset()
     getAllGroups.mockReset()
     probeUpstreamBillingBatch.mockReset()
+    getAvailableModels.mockReset()
     testAccount.mockReset()
     vi.stubGlobal('confirm', vi.fn(() => true))
 
@@ -137,6 +141,7 @@ describe('admin AccountsView bulk edit scope', () => {
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
     probeUpstreamBillingBatch.mockResolvedValue([])
+    getAvailableModels.mockResolvedValue([{ id: 'gpt-5.4', display_name: 'GPT-5.4' }])
     testAccount.mockResolvedValue({ success: true, message: 'ok' })
   })
 
@@ -422,6 +427,11 @@ describe('admin AccountsView bulk edit scope', () => {
           ImportDataModal: true,
           ReAuthAccountModal: true,
           AccountTestModal: true,
+          BulkTestAccountModal: {
+            props: ['show', 'accountIds', 'testing'],
+            emits: ['close', 'confirm'],
+            template: '<div data-test="bulk-test-modal" v-if="show"><button data-test="confirm-bulk-test" @click="$emit(\'confirm\', \'gpt-5.4\')">confirm</button></div>'
+          },
           AccountStatsModal: true,
           ScheduledTestsPanel: true,
           SyncFromCrsModal: true,
@@ -448,11 +458,13 @@ describe('admin AccountsView bulk edit scope', () => {
 
     await wrapper.get('[data-test="test-accounts"]').trigger('click')
     await flushPromises()
+    await wrapper.get('[data-test="confirm-bulk-test"]').trigger('click')
+    await flushPromises()
 
     expect(testAccount).toHaveBeenCalledTimes(3)
-    expect(testAccount).toHaveBeenCalledWith(1)
-    expect(testAccount).toHaveBeenCalledWith(2)
-    expect(testAccount).toHaveBeenCalledWith(3)
+    expect(testAccount).toHaveBeenCalledWith(1, { modelId: 'gpt-5.4' })
+    expect(testAccount).toHaveBeenCalledWith(2, { modelId: 'gpt-5.4' })
+    expect(testAccount).toHaveBeenCalledWith(3, { modelId: 'gpt-5.4' })
     const selectedStates = wrapper.findAll('[data-test="select-row"] input').map(input => (input.element as HTMLInputElement).checked)
     expect(selectedStates).toEqual([false, true, false])
   })

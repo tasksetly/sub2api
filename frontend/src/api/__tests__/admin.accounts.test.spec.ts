@@ -52,6 +52,18 @@ describe('admin account test API', () => {
     }))
   })
 
+  it('sends the selected model ID for a batch test', async () => {
+    const reader = streamReader(['data: {"type":"test_complete","success":true}\n\n'])
+    fetchMock.mockResolvedValue({ ok: true, body: { getReader: () => reader } })
+
+    await expect(testAccount(42, { modelId: 'gpt-5.4' })).resolves.toMatchObject({ success: true })
+
+    expect(fetchMock).toHaveBeenCalledWith('/admin/accounts/42/test', expect.objectContaining({
+      method: 'POST',
+      body: '{"model_id":"gpt-5.4"}'
+    }))
+  })
+
   it('keeps a failed test selected by returning a false result for error events', async () => {
     const reader = streamReader(['data: {"type":"error","error":"invalid token"}\n\n'])
     fetchMock.mockResolvedValue({ ok: true, body: { getReader: () => reader } })

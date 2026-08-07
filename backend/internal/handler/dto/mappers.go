@@ -2,6 +2,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -237,6 +238,9 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		Status:                  a.Status,
 		ErrorMessage:            a.ErrorMessage,
 		LastUsedAt:              a.LastUsedAt,
+		LastTestLatencyMs:       accountTestLatencyMs(a),
+		LastTestModel:           accountTestStringExtra(a, service.AccountTestModelExtraKey),
+		LastTestCompletedAt:     accountTestStringExtra(a, service.AccountTestCompletedAtExtraKey),
 		ExpiresAt:               timeToUnixSeconds(a.ExpiresAt),
 		AutoPauseOnExpired:      a.AutoPauseOnExpired,
 		CreatedAt:               a.CreatedAt,
@@ -412,6 +416,54 @@ func timeToUnixSeconds(value *time.Time) *int64 {
 	}
 	ts := value.Unix()
 	return &ts
+}
+
+func accountTestLatencyMs(account *service.Account) *int64 {
+	if account == nil || account.Extra == nil {
+		return nil
+	}
+	value, ok := account.Extra[service.AccountTestLatencyExtraKey]
+	if !ok {
+		return nil
+	}
+
+	var latency int64
+	switch typed := value.(type) {
+	case int:
+		latency = int64(typed)
+	case int64:
+		latency = typed
+	case float64:
+		latency = int64(typed)
+	case float32:
+		latency = int64(typed)
+	case json.Number:
+		parsed, err := typed.Int64()
+		if err != nil {
+			return nil
+		}
+		latency = parsed
+	case string:
+		parsed, err := strconv.ParseInt(typed, 10, 64)
+		if err != nil {
+			return nil
+		}
+		latency = parsed
+	default:
+		return nil
+	}
+	if latency < 0 {
+		return nil
+	}
+	return &latency
+}
+
+func accountTestStringExtra(account *service.Account, key string) string {
+	if account == nil || account.Extra == nil {
+		return ""
+	}
+	value, _ := account.Extra[key].(string)
+	return value
 }
 
 func AccountGroupFromService(ag *service.AccountGroup) *AccountGroup {

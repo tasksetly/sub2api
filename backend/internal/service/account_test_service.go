@@ -56,6 +56,10 @@ const (
 	defaultGeminiTextTestPrompt  = "hi"
 	defaultGeminiImageTestPrompt = "Generate a cute orange cat astronaut sticker on a clean pastel background."
 	defaultOpenAIImageTestPrompt = "Generate a cute orange cat astronaut sticker on a clean pastel background."
+
+	AccountTestLatencyExtraKey     = "last_test_latency_ms"
+	AccountTestModelExtraKey       = "last_test_model"
+	AccountTestCompletedAtExtraKey = "last_test_completed_at"
 )
 
 // isOpenAIImageModel checks if the model is an OpenAI image generation model (e.g. gpt-image-2).
@@ -173,20 +177,19 @@ func createTestPayload(modelID string) (map[string]any, error) {
 	}, nil
 }
 
-// TestAccountConnection tests an account's connection by sending a test request
-// All account types use full Claude Code client characteristics, only auth header differs
-// modelID is optional - if empty, defaults to claude.DefaultTestModel
-// mode is optional - "compact" routes OpenAI accounts to the /responses/compact probe path
+// TestAccountConnection tests an account's connection by sending a test request.
+// All account types use full Claude Code client characteristics, only auth header differs.
+// modelID is optional; each platform supplies its own default when it is empty.
+// mode is optional - "compact" routes OpenAI accounts to the /responses/compact probe path.
 func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int64, modelID string, prompt string, mode string) error {
 	ctx := c.Request.Context()
 
-	// Get account
 	account, err := s.accountRepo.GetByID(ctx, accountID)
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Account not found")
 	}
 
-	// Route to platform-specific test method
+	// Route to platform-specific test method.
 	if account.IsOpenAI() {
 		return s.testOpenAIAccountConnection(c, account, modelID, prompt, normalizeAccountTestMode(mode))
 	}

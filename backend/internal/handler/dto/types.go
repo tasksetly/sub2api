@@ -193,6 +193,9 @@ type Account struct {
 	Status                  string          `json:"status"`
 	ErrorMessage            string          `json:"error_message"`
 	LastUsedAt              *time.Time      `json:"last_used_at"`
+	LastTestLatencyMs       *int64         `json:"last_test_latency_ms,omitempty"`
+	LastTestModel           string         `json:"last_test_model,omitempty"`
+	LastTestCompletedAt     string         `json:"last_test_completed_at,omitempty"`
 	ExpiresAt               *int64          `json:"expires_at"`
 	AutoPauseOnExpired      bool            `json:"auto_pause_on_expired"`
 	CreatedAt               time.Time       `json:"created_at"`

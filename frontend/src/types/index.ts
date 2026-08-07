@@ -946,6 +946,9 @@ export interface Account {
   status: 'active' | 'inactive' | 'error'
   error_message: string | null
   last_used_at: string | null
+  last_test_latency_ms?: number | null
+  last_test_model?: string
+  last_test_completed_at?: string
   expires_at: number | null
   auto_pause_on_expired: boolean
   created_at: string
