@@ -14,6 +14,7 @@ const messages: Record<string, string> = {
   'admin.settings.payment.customMethodUpstreamType': 'Upstream type',
   'admin.settings.payment.customMethodDisplayName': 'Display name',
   'admin.settings.payment.customMethodDisplayNamePlaceholder': '信用卡',
+  'admin.settings.payment.customMethodRedirectToPayURL': 'Redirect to pay_url',
   'admin.settings.payment.paymentGuideTrigger': 'View payment guide',
   'admin.settings.payment.alipayGuideSummary': 'Desktop prefers QR precreate and falls back to cashier; mobile prefers WAP checkout.',
   'admin.settings.payment.wxpayGuideSummary': 'Desktop prefers Native QR; mobile routes to JSAPI or H5 based on browser context.',
@@ -88,7 +89,9 @@ function mountDialog(options: { editing?: ProviderInstance | null } = {}) {
           template: '<div />',
         },
         ToggleSwitch: {
-          template: '<div />',
+          props: ['label', 'checked'],
+          emits: ['toggle'],
+          template: '<button type="button" role="switch" :aria-checked="checked" @click="$emit(\'toggle\')">{{ label }}</button>',
         },
       },
     },
@@ -199,13 +202,19 @@ describe('PaymentProviderDialog payment guide', () => {
     await ldcTypeInput.setValue('ldc')
     await upstreamTypeInput.setValue('epay')
     await displayNameInput.setValue('LDC')
+    const redirectToggle = wrapper
+      .findAll('button[role="switch"]')
+      .find(toggle => toggle.text() === messages['admin.settings.payment.customMethodRedirectToPayURL'])
+    if (!redirectToggle) throw new Error('custom method redirect toggle not found')
+    expect(redirectToggle.attributes('aria-checked')).toBe('false')
+    await redirectToggle.trigger('click')
     await wrapper.find('form').trigger('submit.prevent')
 
     const payload = wrapper.emitted('save')?.[0]?.[0] as {
       config: Record<string, string>
       supported_types: string[]
     }
-    expect(payload.config.customMethods).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC"}]')
+    expect(payload.config.customMethods).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC","redirectToPayURL":true}]')
     expect(payload.supported_types).toEqual(['alipay', 'wxpay', 'ldc'])
   })
 

@@ -288,6 +288,61 @@ func TestEasyPaySupportedTypesIncludeCustomMethods(t *testing.T) {
 	}
 }
 
+func TestEasyPayCustomMethodRedirectToPayURL(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/mapi.php" {
+			t.Errorf("path = %q, want /mapi.php", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":1,"trade_no":"epay-91","payurl":"https://cashier.example.com/pay/91","qrcode":"weixin://wxpay/bizpayurl?pr=91"}`))
+	}))
+	defer server.Close()
+
+	provider, err := NewEasyPay("test-instance", map[string]string{
+		"pid":       "pid-1",
+		"pkey":      "pkey-1",
+		"apiBase":   server.URL,
+		"notifyUrl": "https://example.com/notify",
+		"returnUrl": "https://example.com/return",
+		"customMethods": `[{
+			"type":"ldc","upstreamType":"epay","redirectToPayURL":true
+		}]`,
+	})
+	if err != nil {
+		t.Fatalf("NewEasyPay: %v", err)
+	}
+	if !provider.shouldRedirectToPayURL("ldc") {
+		t.Fatal("custom EasyPay method should redirect to pay_url")
+	}
+	if provider.shouldRedirectToPayURL("alipay") {
+		t.Fatal("built-in EasyPay method should not inherit custom redirect setting")
+	}
+
+	resp, err := provider.CreatePayment(context.Background(), payment.CreatePaymentRequest{
+		OrderID:     "sub2-custom-redirect",
+		Amount:      "1.00",
+		PaymentType: "ldc",
+		Subject:     "Custom EasyPay redirect",
+	})
+	if err != nil {
+		t.Fatalf("CreatePayment: %v", err)
+	}
+	if resp.PayURL != "https://cashier.example.com/pay/91" {
+		t.Fatalf("pay_url = %q, want EasyPay API payurl", resp.PayURL)
+	}
+	if resp.QRCode != "" {
+		t.Fatalf("qr_code = %q, want empty for direct redirect", resp.QRCode)
+	}
+	if resp.PaymentMode != paymentModeRedirect {
+		t.Fatalf("payment mode = %q, want %q", resp.PaymentMode, paymentModeRedirect)
+	}
+	if !resp.DirectRedirect {
+		t.Fatal("direct_redirect = false, want true")
+	}
+}
+
 func newTestEasyPay(t *testing.T, apiBase string) *EasyPay {
 	t.Helper()
 

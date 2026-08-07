@@ -25,6 +25,8 @@ export interface EasyPayCustomMethod {
   type: string
   upstreamType: string
   displayName: string
+  /** Open the EasyPay API response's pay_url instead of rendering its QR code. */
+  redirectToPayURL: boolean
 }
 
 /** Callback URL paths for a provider. */
@@ -195,6 +197,7 @@ export function parseEasyPayCustomMethods(raw: string | undefined): EasyPayCusto
         type: String(item?.type || '').trim(),
         upstreamType: String(item?.upstreamType || '').trim(),
         displayName: String(item?.displayName || '').trim(),
+        redirectToPayURL: item?.redirectToPayURL === true,
       }))
       .filter(item => item.type && item.upstreamType)
   } catch {
@@ -208,6 +211,7 @@ export function serializeEasyPayCustomMethods(methods: EasyPayCustomMethod[]): s
       type: method.type.trim(),
       upstreamType: method.upstreamType.trim(),
       displayName: method.displayName.trim(),
+      redirectToPayURL: method.redirectToPayURL === true,
     }))
     .filter(method => method.type && method.upstreamType)
   return clean.length ? JSON.stringify(clean) : ''

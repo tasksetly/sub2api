@@ -88,7 +88,7 @@
           <div
             v-for="(method, index) in easyPayCustomMethods"
             :key="index"
-            class="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2"
+            class="grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
           >
             <div>
               <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.customMethodType') }}</label>
@@ -102,6 +102,11 @@
               <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.customMethodDisplayName') }}</label>
               <input v-model="method.displayName" type="text" class="input mt-0.5" :placeholder="t('admin.settings.payment.customMethodDisplayNamePlaceholder')" />
             </div>
+            <ToggleSwitch
+              :label="t('admin.settings.payment.customMethodRedirectToPayURL')"
+              :checked="method.redirectToPayURL"
+              @toggle="method.redirectToPayURL = !method.redirectToPayURL"
+            />
             <button
               type="button"
               class="rounded-lg border border-red-200 px-2.5 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800/60 dark:text-red-300 dark:hover:bg-red-900/20"
@@ -572,6 +577,7 @@ function normalizedEasyPayCustomMethods(): EasyPayCustomMethod[] {
       type: normalizeEasyPayCustomMethodCode(method.type),
       upstreamType: normalizeEasyPayCustomMethodCode(method.upstreamType),
       displayName: method.displayName.trim(),
+      redirectToPayURL: method.redirectToPayURL === true,
     }))
     .filter(method => method.type || method.upstreamType || method.displayName)
 }
@@ -581,7 +587,7 @@ function normalizeEasyPayCustomMethodCode(value: string): string {
 }
 
 function addEasyPayCustomMethod() {
-  easyPayCustomMethods.push({ type: '', upstreamType: '', displayName: '' })
+  easyPayCustomMethods.push({ type: '', upstreamType: '', displayName: '', redirectToPayURL: false })
 }
 
 function removeEasyPayCustomMethod(index: number) {

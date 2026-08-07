@@ -144,6 +144,26 @@ func TestBuildCreateOrderResponseCopiesJSAPIPayload(t *testing.T) {
 	}
 }
 
+func TestBuildCreateOrderResponseUsesProviderPaymentModeOverride(t *testing.T) {
+	t.Parallel()
+
+	resp := buildCreateOrderResponse(
+		&dbent.PaymentOrder{ID: 91, Amount: 10, ExpiresAt: time.Now(), OutTradeNo: "sub2_91"},
+		CreateOrderRequest{PaymentType: "ldc"},
+		10,
+		&payment.InstanceSelection{PaymentMode: "qrcode"},
+		&payment.CreatePaymentResponse{PayURL: "https://pay.example.com/checkout/91", PaymentMode: "redirect", DirectRedirect: true},
+		payment.CreatePaymentResultOrderCreated,
+	)
+
+	if resp.PaymentMode != "redirect" {
+		t.Fatalf("payment_mode = %q, want redirect", resp.PaymentMode)
+	}
+	if !resp.DirectRedirect {
+		t.Fatal("direct_redirect = false, want true")
+	}
+}
+
 func TestSanitizeCreatePaymentResponseDetailsRemovesNULBytes(t *testing.T) {
 	t.Parallel()
 

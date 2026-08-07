@@ -226,9 +226,10 @@ func validateProviderRequest(providerKey, name, supportedTypes string) error {
 var easyPayCustomMethodCodePattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
 
 type easyPayCustomMethodConfig struct {
-	Type         string `json:"type"`
-	UpstreamType string `json:"upstreamType"`
-	DisplayName  string `json:"displayName"`
+	Type             string `json:"type"`
+	UpstreamType     string `json:"upstreamType"`
+	DisplayName      string `json:"displayName"`
+	RedirectToPayURL bool   `json:"redirectToPayURL"`
 }
 
 func validateEasyPayCustomMethods(config map[string]string, supportedTypes string) error {

@@ -30,6 +30,7 @@ const (
 	tradeStatusSuccess     = "TRADE_SUCCESS"
 	signTypeMD5            = "MD5"
 	paymentModePopup       = "popup"
+	paymentModeRedirect    = "redirect"
 	deviceMobile           = "mobile"
 )
 
@@ -41,9 +42,10 @@ type EasyPay struct {
 }
 
 type easyPayCustomMethod struct {
-	Type         string `json:"type"`
-	UpstreamType string `json:"upstreamType"`
-	DisplayName  string `json:"displayName"`
+	Type             string `json:"type"`
+	UpstreamType     string `json:"upstreamType"`
+	DisplayName      string `json:"displayName"`
+	RedirectToPayURL bool   `json:"redirectToPayURL"`
 }
 
 // NewEasyPay creates a new EasyPay provider.
@@ -202,7 +204,16 @@ func (e *EasyPay) createAPIPayment(ctx context.Context, req payment.CreatePaymen
 	if req.IsMobile && resp.PayURL2 != "" {
 		payURL = resp.PayURL2
 	}
-	return &payment.CreatePaymentResponse{TradeNo: resp.TradeNo, PayURL: payURL, QRCode: resp.QRCode}, nil
+	response := &payment.CreatePaymentResponse{TradeNo: resp.TradeNo, PayURL: payURL, QRCode: resp.QRCode}
+	if payURL != "" && e.shouldRedirectToPayURL(req.PaymentType) {
+		response.PaymentMode = paymentModeRedirect
+		response.DirectRedirect = true
+		// A redirecting custom method must not initialize the QR renderer on the
+		// client. The upstream response may contain both fields, so discard the
+		// QR payload at this boundary.
+		response.QRCode = ""
+	}
+	return response, nil
 }
 
 // resolveURLs returns (notifyURL, returnURL) preferring request values,
@@ -252,6 +263,16 @@ func (e *EasyPay) upstreamPaymentType(paymentType string) string {
 		}
 	}
 	return paymentType
+}
+
+func (e *EasyPay) shouldRedirectToPayURL(paymentType string) bool {
+	paymentType = strings.TrimSpace(paymentType)
+	for _, method := range e.customMethods() {
+		if paymentType == method.Type {
+			return method.RedirectToPayURL
+		}
+	}
+	return false
 }
 
 func (e *EasyPay) QueryOrder(ctx context.Context, tradeNo string) (*payment.QueryOrderResponse, error) {

@@ -246,6 +246,7 @@ const props = defineProps<{
   expiresAt: string
   paymentType: string
   payUrl?: string
+  directRedirect?: boolean
   orderType?: string
   currency?: string
   outTradeNo?: string
@@ -345,6 +346,10 @@ function isSuccessStatus(status: string | null | undefined): boolean {
 
 function reopenPopup() {
   if (props.payUrl) {
+    if (props.directRedirect) {
+      window.location.href = props.payUrl
+      return
+    }
     const win = window.open(props.payUrl, 'paymentPopup', getPaymentPopupFeatures())
     if (!win || win.closed) {
       window.location.href = props.payUrl

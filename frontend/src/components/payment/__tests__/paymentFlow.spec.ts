@@ -160,6 +160,22 @@ describe('decidePaymentLaunch', () => {
     expect(decision.recovery.resumeToken).toBe('resume-2')
   })
 
+  it('uses pay_url on desktop when a custom EasyPay method explicitly requests redirect', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      pay_url: 'https://cashier.example.com/pay/91',
+      qr_code: 'weixin://wxpay/bizpayurl?pr=91',
+      payment_mode: 'redirect',
+      direct_redirect: true,
+    }), {
+      visibleMethod: 'ldc',
+      orderType: 'balance',
+      isMobile: false,
+    })
+
+    expect(decision.kind).toBe('direct_redirect')
+    expect(decision.paymentState.payUrl).toBe('https://cashier.example.com/pay/91')
+  })
+
   it('prefers redirect on mobile when both pay_url and qr_code are present', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       pay_url: 'https://pay.example.com/mobile/session',
