@@ -104,7 +104,7 @@
             </div>
             <ToggleSwitch
               :label="t('admin.settings.payment.customMethodRedirectToPayURL')"
-              :checked="method.redirectToPayURL"
+              :checked="method.redirectToPayURL === true"
               @toggle="method.redirectToPayURL = !method.redirectToPayURL"
             />
             <button

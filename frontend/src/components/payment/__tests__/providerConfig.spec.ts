@@ -76,6 +76,23 @@ describe('EasyPay custom methods config', () => {
     ])).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC"},{"type":"usdt_trc20","upstreamType":"usdt","displayName":""}]')
   })
 
+  it('preserves the redirect flag when enabled while keeping legacy false values omitted', () => {
+    expect(parseEasyPayCustomMethods(
+      '[{"type":"ldc","upstreamType":"epay","displayName":"LDC","redirectToPayURL":true}]',
+    )).toEqual([{
+      type: 'ldc',
+      upstreamType: 'epay',
+      displayName: 'LDC',
+      redirectToPayURL: true,
+    }])
+    expect(serializeEasyPayCustomMethods([{
+      type: 'ldc',
+      upstreamType: 'epay',
+      displayName: 'LDC',
+      redirectToPayURL: true,
+    }])).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC","redirectToPayURL":true}]')
+  })
+
   it('returns an empty string for invalid or empty custom methods', () => {
     expect(parseEasyPayCustomMethods('not-json')).toEqual([])
     expect(serializeEasyPayCustomMethods([{ type: '', upstreamType: 'epay', displayName: 'LDC' }])).toBe('')
