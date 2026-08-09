@@ -374,6 +374,8 @@ export default {
 	  sentUpstreamModel: '发往上游',
 	  upstreamResponseModel: '上游响应',
 	  upstreamModelMismatch: '上游响应模型不一致',
+	  upstreamModelMatched: '模型一致',
+	  upstreamModelNotObserved: '未观测到上游模型',
 	  modelVariant: '疑似版本变体',
 	  modelMismatch: '模型不一致',
     reasoningEffort: '推理强度',

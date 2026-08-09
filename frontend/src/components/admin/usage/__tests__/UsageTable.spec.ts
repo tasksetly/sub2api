@@ -54,6 +54,8 @@ const messages: Record<string, string> = {
 	'usage.requestedModel': 'Requested',
 	'usage.sentUpstreamModel': 'Sent upstream',
 	'usage.upstreamResponseModel': 'Upstream response',
+	'usage.upstreamModelMatched': 'Model matched',
+	'usage.upstreamModelNotObserved': 'Upstream model not observed',
 	'usage.modelVariant': 'Possible version variant',
 	'usage.modelMismatch': 'Different model',
 }
@@ -69,11 +71,21 @@ vi.mock('vue-i18n', async () => {
 })
 
 const DataTableStub = {
-  props: ['data'],
+  props: ['data', 'columns'],
+  computed: {
+    hasResponseModelColumn() {
+      return this.columns?.some((column: { key: string }) => column.key === 'upstream_response_model')
+    },
+    hasModelAuditColumn() {
+      return this.columns?.some((column: { key: string }) => column.key === 'upstream_model_mismatch')
+    },
+  },
   template: `
     <div>
       <div v-for="row in data" :key="row.request_id">
         <slot name="cell-model" :row="row" :value="row.model" />
+        <slot v-if="hasResponseModelColumn" name="cell-upstream_response_model" :row="row" :value="row.upstream_response_model" />
+        <slot v-if="hasModelAuditColumn" name="cell-upstream_model_mismatch" :row="row" :value="row.upstream_model_mismatch" />
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
@@ -286,6 +298,38 @@ describe('admin UsageTable tooltip', () => {
 		expect(text).toContain(responseModel)
 		expect(text).toContain(expectedBadge)
 	})
+
+  it('shows the upstream response model when it matches the sent model', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          request_id: 'req-matched-response-model',
+          model: 'gpt-5.5',
+          upstream_model: 'gpt-5.5',
+          upstream_response_model: 'gpt-5.5',
+          upstream_model_mismatch: false,
+        }],
+        loading: false,
+        columns: [
+          { key: 'upstream_response_model', label: 'Upstream response' },
+          { key: 'upstream_model_mismatch', label: 'Model audit' },
+        ],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('gpt-5.5')
+    expect(wrapper.text()).toContain('Model matched')
+    expect(wrapper.text()).not.toContain('Possible version variant')
+    expect(wrapper.text()).not.toContain('Different model')
+  })
 
   it.each([
     {
