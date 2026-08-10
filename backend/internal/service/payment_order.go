@@ -62,6 +62,12 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
 	}
 	feeRate := cfg.RechargeFeeRate
+	if s.configService != nil {
+		feeRate, err = s.configService.ResolveMethodFeeRate(ctx, req.PaymentType, feeRate)
+		if err != nil {
+			return nil, err
+		}
+	}
 	methodCurrency := payment.DefaultPaymentCurrency
 	if s.configService != nil {
 		methodCurrency, err = s.configService.ValidateMethodCurrencyConsistency(ctx, req.PaymentType)

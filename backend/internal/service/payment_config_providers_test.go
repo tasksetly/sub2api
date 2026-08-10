@@ -129,6 +129,23 @@ func TestValidateEasyPayCustomMethods(t *testing.T) {
 			supportedTypes: "alipay,wxpay,ldc",
 		},
 		{
+			name:           "valid custom method fee rate including zero",
+			config:         map[string]string{"customMethods": `[{"type":"ldc","upstreamType":"epay","feeRate":2.55},{"type":"usdt","upstreamType":"usdt","feeRate":0}]`},
+			supportedTypes: "alipay,wxpay,ldc,usdt",
+		},
+		{
+			name:           "custom method fee rate rejects more than two decimal places",
+			config:         map[string]string{"customMethods": `[{"type":"ldc","upstreamType":"epay","feeRate":2.555}]`},
+			supportedTypes: "alipay,wxpay,ldc",
+			wantErr:        "customMethods feeRate must be between 0 and 100 with at most 2 decimal places",
+		},
+		{
+			name:           "custom method fee rate rejects values above one hundred",
+			config:         map[string]string{"customMethods": `[{"type":"ldc","upstreamType":"epay","feeRate":100.01}]`},
+			supportedTypes: "alipay,wxpay,ldc",
+			wantErr:        "customMethods feeRate must be between 0 and 100 with at most 2 decimal places",
+		},
+		{
 			name:           "valid Epusdt token network selector mapping",
 			config:         map[string]string{"customMethods": `[{"type":"usdt_tron","upstreamType":"usdt.tron","displayName":"USDT-TRON"}]`},
 			supportedTypes: "alipay,usdt_tron",

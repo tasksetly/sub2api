@@ -25,6 +25,8 @@ export interface EasyPayCustomMethod {
   type: string
   upstreamType: string
   displayName: string
+  /** Optional method-specific fee percentage. Empty uses the global payment fee. */
+  feeRate?: number
   /** Open the EasyPay API response's pay_url instead of rendering its QR code. */
   redirectToPayURL?: boolean
 }
@@ -187,18 +189,28 @@ export function getAvailableTypes(
   return types.map(t => resolveTypeLabel(t, providerKey, allTypes, redirectLabel))
 }
 
+function optionalEasyPayCustomMethodFeeRate(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const feeRate = Number(value)
+  return Number.isFinite(feeRate) ? feeRate : undefined
+}
+
 export function parseEasyPayCustomMethods(raw: string | undefined): EasyPayCustomMethod[] {
   if (!raw || !raw.trim()) return []
   try {
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     return parsed
-      .map(item => ({
-        type: String(item?.type || '').trim(),
-        upstreamType: String(item?.upstreamType || '').trim(),
-        displayName: String(item?.displayName || '').trim(),
-        ...(item?.redirectToPayURL === true ? { redirectToPayURL: true } : {}),
-      }))
+      .map(item => {
+        const feeRate = optionalEasyPayCustomMethodFeeRate(item?.feeRate)
+        return {
+          type: String(item?.type || '').trim(),
+          upstreamType: String(item?.upstreamType || '').trim(),
+          displayName: String(item?.displayName || '').trim(),
+          ...(feeRate !== undefined ? { feeRate } : {}),
+          ...(item?.redirectToPayURL === true ? { redirectToPayURL: true } : {}),
+        }
+      })
       .filter(item => item.type && item.upstreamType)
   } catch {
     return []
@@ -207,12 +219,16 @@ export function parseEasyPayCustomMethods(raw: string | undefined): EasyPayCusto
 
 export function serializeEasyPayCustomMethods(methods: EasyPayCustomMethod[]): string {
   const clean = methods
-    .map(method => ({
-      type: method.type.trim(),
-      upstreamType: method.upstreamType.trim(),
-      displayName: method.displayName.trim(),
-      ...(method.redirectToPayURL === true ? { redirectToPayURL: true } : {}),
-    }))
+    .map(method => {
+      const feeRate = optionalEasyPayCustomMethodFeeRate(method.feeRate)
+      return {
+        type: method.type.trim(),
+        upstreamType: method.upstreamType.trim(),
+        displayName: method.displayName.trim(),
+        ...(feeRate !== undefined ? { feeRate } : {}),
+        ...(method.redirectToPayURL === true ? { redirectToPayURL: true } : {}),
+      }
+    })
     .filter(method => method.type && method.upstreamType)
   return clean.length ? JSON.stringify(clean) : ''
 }

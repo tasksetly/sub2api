@@ -80,6 +80,19 @@ describe('EasyPay custom methods config', () => {
     ])).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC"},{"type":"usdt_trc20","upstreamType":"usdt","displayName":""}]')
   })
 
+  it('preserves an optional method fee rate, including an explicit zero', () => {
+    expect(parseEasyPayCustomMethods(
+      '[{"type":"ldc","upstreamType":"epay","displayName":"LDC","feeRate":2.5},{"type":"usdt","upstreamType":"usdt","displayName":"USDT","feeRate":0}]',
+    )).toEqual([
+      { type: 'ldc', upstreamType: 'epay', displayName: 'LDC', feeRate: 2.5 },
+      { type: 'usdt', upstreamType: 'usdt', displayName: 'USDT', feeRate: 0 },
+    ])
+    expect(serializeEasyPayCustomMethods([
+      { type: 'ldc', upstreamType: 'epay', displayName: 'LDC', feeRate: 2.5 },
+      { type: 'usdt', upstreamType: 'usdt', displayName: 'USDT', feeRate: 0 },
+    ])).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC","feeRate":2.5},{"type":"usdt","upstreamType":"usdt","displayName":"USDT","feeRate":0}]')
+  })
+
   it('preserves the redirect flag when enabled while keeping legacy false values omitted', () => {
     expect(parseEasyPayCustomMethods(
       '[{"type":"ldc","upstreamType":"epay","displayName":"LDC","redirectToPayURL":true}]',

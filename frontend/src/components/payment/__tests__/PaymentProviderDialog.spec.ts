@@ -14,6 +14,8 @@ const messages: Record<string, string> = {
   'admin.settings.payment.customMethodUpstreamType': 'Upstream type',
   'admin.settings.payment.customMethodDisplayName': 'Display name',
   'admin.settings.payment.customMethodDisplayNamePlaceholder': '信用卡',
+  'admin.settings.payment.customMethodFeeRate': 'Fee rate',
+  'admin.settings.payment.customMethodFeeRatePlaceholder': 'Global',
   'admin.settings.payment.customMethodRedirectToPayURL': 'Redirect to pay_url',
   'admin.settings.payment.paymentGuideTrigger': 'View payment guide',
   'admin.settings.payment.alipayGuideSummary': 'Desktop prefers QR precreate and falls back to cashier; mobile prefers WAP checkout.',
@@ -195,13 +197,15 @@ describe('PaymentProviderDialog payment guide', () => {
     const usdtTronTypeInput = customTypeInputs[0]
     const upstreamTypeInput = customTypeInputs[1]
     const displayNameInput = inputs.find(input => (input.element as HTMLInputElement).placeholder === '信用卡')
-    if (!usdtTronTypeInput || !upstreamTypeInput || !displayNameInput) {
+    const feeRateInput = wrapper.find('input[type="number"]')
+    if (!usdtTronTypeInput || !upstreamTypeInput || !displayNameInput || !feeRateInput.exists()) {
       throw new Error('custom method inputs not found')
     }
 
     await usdtTronTypeInput.setValue('usdt_tron')
     await upstreamTypeInput.setValue('usdt.tron')
     await displayNameInput.setValue('USDT-TRON')
+    await feeRateInput.setValue('2.5')
     const redirectToggle = wrapper
       .findAll('button[role="switch"]')
       .find(toggle => toggle.text() === messages['admin.settings.payment.customMethodRedirectToPayURL'])
@@ -214,7 +218,7 @@ describe('PaymentProviderDialog payment guide', () => {
       config: Record<string, string>
       supported_types: string[]
     }
-    expect(payload.config.customMethods).toBe('[{"type":"usdt_tron","upstreamType":"usdt.tron","displayName":"USDT-TRON","redirectToPayURL":true}]')
+    expect(payload.config.customMethods).toBe('[{"type":"usdt_tron","upstreamType":"usdt.tron","displayName":"USDT-TRON","feeRate":2.5,"redirectToPayURL":true}]')
     expect(payload.supported_types).toEqual(['alipay', 'wxpay', 'usdt_tron'])
   })
 

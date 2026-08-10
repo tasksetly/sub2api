@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -275,6 +276,70 @@ func TestGetAvailableMethodLimitsIncludesEasyPayCustomMethodDisplayName(t *testi
 	limits, ok := resp.Methods["ldc"]
 	require.True(t, ok, "expected custom EasyPay method limits to be visible")
 	require.Equal(t, "LDC Pay", limits.DisplayName)
+}
+
+func TestCustomEasyPayMethodFeeRateIsReturnedAndUsedForOrderResolution(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	_, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeEasyPay).
+		SetName("EasyPay Custom").
+		SetConfig(`{"customMethods":"[{\"type\":\"ldc\",\"upstreamType\":\"ldc\",\"displayName\":\"LDC Pay\",\"feeRate\":2.5}]"}`).
+		SetSupportedTypes("ldc").
+		SetEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentConfigService{
+		entClient: client,
+		settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{
+			SettingRechargeFeeRate: "4",
+		}},
+	}
+	resp, err := svc.GetAvailableMethodLimits(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2.5, resp.Methods["ldc"].FeeRate)
+
+	feeRate, err := svc.ResolveMethodFeeRate(ctx, "ldc", 4)
+	require.NoError(t, err)
+	require.Equal(t, 2.5, feeRate)
+}
+
+func TestCustomEasyPayMethodFeeRateFallsBackWhenEnabledInstancesDisagree(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	for _, tc := range []struct {
+		name string
+		rate float64
+	}{
+		{name: "EasyPay A", rate: 2.5},
+		{name: "EasyPay B", rate: 3.5},
+	} {
+		config := fmt.Sprintf(`{"customMethods":"[{\"type\":\"ldc\",\"upstreamType\":\"ldc\",\"feeRate\":%g}]"}`, tc.rate)
+		_, err := client.PaymentProviderInstance.Create().
+			SetProviderKey(payment.TypeEasyPay).
+			SetName(tc.name).
+			SetConfig(config).
+			SetSupportedTypes("ldc").
+			SetEnabled(true).
+			Save(ctx)
+		require.NoError(t, err)
+	}
+
+	svc := &PaymentConfigService{
+		entClient: client,
+		settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{
+			SettingRechargeFeeRate: "4",
+		}},
+	}
+	resp, err := svc.GetAvailableMethodLimits(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 4.0, resp.Methods["ldc"].FeeRate)
+
+	feeRate, err := svc.ResolveMethodFeeRate(ctx, "ldc", 4)
+	require.NoError(t, err)
+	require.Equal(t, 4.0, feeRate)
 }
 
 func TestPcComputeGlobalRange(t *testing.T) {

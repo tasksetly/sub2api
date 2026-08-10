@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -227,22 +228,17 @@ var easyPayCustomMethodCodePattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
 var easyPayCustomMethodUpstreamTypePattern = regexp.MustCompile(`^[a-z0-9_.-]+$`)
 
 type easyPayCustomMethodConfig struct {
-	Type             string `json:"type"`
-	UpstreamType     string `json:"upstreamType"`
-	DisplayName      string `json:"displayName"`
-	RedirectToPayURL bool   `json:"redirectToPayURL"`
+	Type             string   `json:"type"`
+	UpstreamType     string   `json:"upstreamType"`
+	DisplayName      string   `json:"displayName"`
+	RedirectToPayURL bool     `json:"redirectToPayURL"`
+	FeeRate          *float64 `json:"feeRate"`
 }
 
 func validateEasyPayCustomMethods(config map[string]string, supportedTypes string) error {
-	if config == nil {
-		config = map[string]string{}
-	}
-	raw := strings.TrimSpace(config["customMethods"])
-	methods := make([]easyPayCustomMethodConfig, 0)
-	if raw != "" {
-		if err := json.Unmarshal([]byte(raw), &methods); err != nil {
-			return infraerrors.BadRequest("VALIDATION_ERROR", "customMethods must be a JSON array")
-		}
+	methods, err := parseEasyPayCustomMethodConfigs(config)
+	if err != nil {
+		return err
 	}
 
 	customTypes := make(map[string]struct{}, len(methods))
@@ -260,6 +256,9 @@ func validateEasyPayCustomMethods(config map[string]string, supportedTypes strin
 		}
 		if easyPayCustomMethodTypeConflictsWithBuiltin(method.Type) {
 			return infraerrors.BadRequest("VALIDATION_ERROR", "customMethods type cannot start with alipay or wxpay")
+		}
+		if method.FeeRate != nil && !isValidEasyPayCustomMethodFeeRate(*method.FeeRate) {
+			return infraerrors.BadRequest("VALIDATION_ERROR", "customMethods feeRate must be between 0 and 100 with at most 2 decimal places")
 		}
 		if _, exists := customTypes[method.Type]; exists {
 			return infraerrors.BadRequest("VALIDATION_ERROR", "duplicate customMethods type")
@@ -280,6 +279,29 @@ func validateEasyPayCustomMethods(config map[string]string, supportedTypes strin
 		}
 	}
 	return nil
+}
+
+func parseEasyPayCustomMethodConfigs(config map[string]string) ([]easyPayCustomMethodConfig, error) {
+	if config == nil {
+		return nil, nil
+	}
+	raw := strings.TrimSpace(config["customMethods"])
+	if raw == "" {
+		return nil, nil
+	}
+	methods := make([]easyPayCustomMethodConfig, 0)
+	if err := json.Unmarshal([]byte(raw), &methods); err != nil {
+		return nil, infraerrors.BadRequest("VALIDATION_ERROR", "customMethods must be a JSON array")
+	}
+	return methods, nil
+}
+
+func isValidEasyPayCustomMethodFeeRate(rate float64) bool {
+	return !math.IsNaN(rate) &&
+		!math.IsInf(rate, 0) &&
+		rate >= 0 &&
+		rate <= 100 &&
+		math.Abs(math.Round(rate*100)-rate*100) < 1e-9
 }
 
 func easyPayCustomMethodTypeConflictsWithBuiltin(methodType string) bool {

@@ -356,14 +356,15 @@ describe('PaymentView subscription confirmation amounts', () => {
     expect(usdWrapper.text()).toContain(formatPaymentAmount(9.99, 'USD'))
   })
 
-  it('adds fee rate after CNY rate conversion to match backend pay_amount', async () => {
+  it('uses the selected payment method fee rate after CNY rate conversion', async () => {
     const wrapper = await mountSubscriptionConfirm({
       checkout: {
         subscription_usd_to_cny_rate: 7.15,
-        recharge_fee_rate: 2.5,
+        recharge_fee_rate: 4,
       },
       method: {
         currency: 'CNY',
+        fee_rate: 2.5,
       },
       plan: {
         price: 9.99,

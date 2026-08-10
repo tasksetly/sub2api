@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -16,6 +18,10 @@ import (
 // instances and returns limits for each, plus the global widest range.
 // Stripe sub-types (card, link) are aggregated under "stripe".
 func (s *PaymentConfigService) GetAvailableMethodLimits(ctx context.Context) (*MethodLimitsResponse, error) {
+	fallbackFeeRate, err := s.getConfiguredRechargeFeeRate(ctx)
+	if err != nil {
+		return nil, err
+	}
 	instances, err := s.entClient.PaymentProviderInstance.Query().
 		Where(paymentproviderinstance.EnabledEQ(true)).All(ctx)
 	if err != nil {
@@ -32,6 +38,7 @@ func (s *PaymentConfigService) GetAvailableMethodLimits(ctx context.Context) (*M
 			continue
 		}
 		ml := pcAggregateMethodLimits(pt, insts)
+		ml.FeeRate = s.pcAggregateMethodFeeRate(pt, insts, fallbackFeeRate)
 		ml.DisplayName = s.pcAggregateMethodDisplayName(pt, insts)
 		ml.Currency = currency
 		resp.Methods[ml.PaymentType] = ml
@@ -77,6 +84,10 @@ func (s *PaymentConfigService) pcApplyEnabledVisibleMethodInstances(ctx context.
 
 // GetMethodLimits returns per-payment-type limits from enabled provider instances.
 func (s *PaymentConfigService) GetMethodLimits(ctx context.Context, types []string) ([]MethodLimits, error) {
+	fallbackFeeRate, err := s.getConfiguredRechargeFeeRate(ctx)
+	if err != nil {
+		return nil, err
+	}
 	instances, err := s.entClient.PaymentProviderInstance.Query().
 		Where(paymentproviderinstance.EnabledEQ(true)).All(ctx)
 	if err != nil {
@@ -95,11 +106,46 @@ func (s *PaymentConfigService) GetMethodLimits(ctx context.Context, types []stri
 			continue
 		}
 		ml := pcAggregateMethodLimits(pt, matching)
+		ml.FeeRate = s.pcAggregateMethodFeeRate(pt, matching, fallbackFeeRate)
 		ml.DisplayName = s.pcAggregateMethodDisplayName(pt, matching)
 		ml.Currency = currency
 		result = append(result, ml)
 	}
 	return result, nil
+}
+
+// ResolveMethodFeeRate returns the rate that is stable for all enabled instances
+// serving a user-facing payment method. A custom EasyPay override is used only
+// when every eligible instance agrees; otherwise the global rate is retained so
+// checkout previews cannot diverge from the final routed order.
+func (s *PaymentConfigService) ResolveMethodFeeRate(ctx context.Context, paymentType string, fallbackFeeRate float64) (float64, error) {
+	method := NormalizeVisibleMethod(paymentType)
+	if method == "" || s == nil || s.entClient == nil {
+		return fallbackFeeRate, nil
+	}
+
+	instances, err := s.entClient.PaymentProviderInstance.Query().
+		Where(paymentproviderinstance.EnabledEQ(true)).All(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("query provider instances: %w", err)
+	}
+	typeInstances := pcGroupByPaymentType(instances)
+	typeInstances = s.pcApplyEnabledVisibleMethodInstances(ctx, typeInstances, instances)
+	return s.pcAggregateMethodFeeRate(method, typeInstances[method], fallbackFeeRate), nil
+}
+
+func (s *PaymentConfigService) getConfiguredRechargeFeeRate(ctx context.Context) (float64, error) {
+	if s == nil || s.settingRepo == nil {
+		return 0, nil
+	}
+	raw, err := s.settingRepo.GetValue(ctx, SettingRechargeFeeRate)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("get recharge fee rate: %w", err)
+	}
+	return pcParseFloat(raw, 0), nil
 }
 
 func (s *PaymentConfigService) ValidateMethodCurrencyConsistency(ctx context.Context, paymentType string) (string, error) {
@@ -166,11 +212,6 @@ func (s *PaymentConfigService) pcInstancePaymentCurrency(inst *dbent.PaymentProv
 	return paymentProviderConfigCurrency(inst.ProviderKey, cfg)
 }
 
-type easyPayCustomMethodDisplayConfig struct {
-	Type        string `json:"type"`
-	DisplayName string `json:"displayName"`
-}
-
 func (s *PaymentConfigService) pcAggregateMethodDisplayName(pt string, instances []*dbent.PaymentProviderInstance) string {
 	pt = strings.TrimSpace(pt)
 	if pt == "" {
@@ -186,8 +227,24 @@ func (s *PaymentConfigService) pcAggregateMethodDisplayName(pt string, instances
 }
 
 func (s *PaymentConfigService) pcInstanceEasyPayCustomMethodDisplayName(inst *dbent.PaymentProviderInstance, pt string) string {
-	if inst == nil || inst.ProviderKey != payment.TypeEasyPay {
+	method, ok := s.pcInstanceEasyPayCustomMethod(inst, pt)
+	if !ok {
 		return ""
+	}
+	return strings.TrimSpace(method.DisplayName)
+}
+
+func (s *PaymentConfigService) pcInstanceEasyPayCustomMethodFeeRate(inst *dbent.PaymentProviderInstance, pt string) (float64, bool) {
+	method, ok := s.pcInstanceEasyPayCustomMethod(inst, pt)
+	if !ok || method.FeeRate == nil || !isValidEasyPayCustomMethodFeeRate(*method.FeeRate) {
+		return 0, false
+	}
+	return *method.FeeRate, true
+}
+
+func (s *PaymentConfigService) pcInstanceEasyPayCustomMethod(inst *dbent.PaymentProviderInstance, pt string) (easyPayCustomMethodConfig, bool) {
+	if inst == nil || inst.ProviderKey != payment.TypeEasyPay {
+		return easyPayCustomMethodConfig{}, false
 	}
 	cfg := map[string]string{}
 	if s != nil {
@@ -196,21 +253,36 @@ func (s *PaymentConfigService) pcInstanceEasyPayCustomMethodDisplayName(inst *db
 			cfg = decrypted
 		}
 	}
-	raw := strings.TrimSpace(cfg["customMethods"])
-	if raw == "" {
-		return ""
-	}
-
-	var methods []easyPayCustomMethodDisplayConfig
-	if err := json.Unmarshal([]byte(raw), &methods); err != nil {
-		return ""
+	methods, err := parseEasyPayCustomMethodConfigs(cfg)
+	if err != nil {
+		return easyPayCustomMethodConfig{}, false
 	}
 	for _, method := range methods {
 		if strings.TrimSpace(method.Type) == pt {
-			return strings.TrimSpace(method.DisplayName)
+			return method, true
 		}
 	}
-	return ""
+	return easyPayCustomMethodConfig{}, false
+}
+
+func (s *PaymentConfigService) pcAggregateMethodFeeRate(pt string, instances []*dbent.PaymentProviderInstance, fallbackFeeRate float64) float64 {
+	resolvedFeeRate := fallbackFeeRate
+	hasInstance := false
+	for _, inst := range instances {
+		feeRate := fallbackFeeRate
+		if customFeeRate, configured := s.pcInstanceEasyPayCustomMethodFeeRate(inst, pt); configured {
+			feeRate = customFeeRate
+		}
+		if !hasInstance {
+			resolvedFeeRate = feeRate
+			hasInstance = true
+			continue
+		}
+		if math.Abs(resolvedFeeRate-feeRate) > 1e-9 {
+			return fallbackFeeRate
+		}
+	}
+	return resolvedFeeRate
 }
 
 // pcGroupByPaymentType groups instances by user-facing payment type.

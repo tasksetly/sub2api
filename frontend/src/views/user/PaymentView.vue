@@ -607,19 +607,27 @@ function formatSelectedSubscriptionPaymentAmount(value: number): string {
   return formatSelectedPaymentAmount(subscriptionPaymentAmountForCurrency(value, selectedCurrency.value))
 }
 
+function feeRateForMethod(methodType: string): number {
+  const configuredRate = Number(visibleMethods.value[methodType]?.fee_rate)
+  if (Number.isFinite(configuredRate) && configuredRate >= 0) return configuredRate
+
+  const fallbackRate = Number(checkout.value.recharge_fee_rate)
+  return Number.isFinite(fallbackRate) && fallbackRate >= 0 ? fallbackRate : 0
+}
+
 const methodOptions = computed<PaymentMethodOption[]>(() =>
   enabledMethods.value.map((type) => {
     const ml = visibleMethods.value[type]
     return {
       type,
       display_name: ml?.display_name,
-      fee_rate: ml?.fee_rate ?? 0,
+      fee_rate: feeRateForMethod(type),
       available: ml?.available !== false && amountFitsMethod(validAmount.value, type),
     }
   })
 )
 
-const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
+const feeRate = computed(() => feeRateForMethod(selectedMethod.value))
 const feeAmount = computed(() =>
   feeRate.value > 0 && validAmount.value > 0
     ? Math.ceil(((validAmount.value * feeRate.value) / 100) * 100) / 100
@@ -667,10 +675,10 @@ const subTotalAmount = computed(() => {
   return roundPaymentAmount(subPaymentAmount.value + subFeeAmount.value, selectedCurrency.value)
 })
 
-function subscriptionTotalAmountForCurrency(value: number, currency: string): number {
+function subscriptionTotalAmountForCurrency(value: number, currency: string, methodFeeRate: number): number {
   const paymentAmount = subscriptionPaymentAmountForCurrency(value, currency)
-  if (feeRate.value <= 0 || paymentAmount <= 0) return paymentAmount
-  const fee = ceilPaymentAmount((paymentAmount * feeRate.value) / 100, currency)
+  if (methodFeeRate <= 0 || paymentAmount <= 0) return paymentAmount
+  const fee = ceilPaymentAmount((paymentAmount * methodFeeRate) / 100, currency)
   return roundPaymentAmount(paymentAmount + fee, currency)
 }
 
@@ -680,11 +688,12 @@ const subMethodOptions = computed<PaymentMethodOption[]>(() => {
   return enabledMethods.value.map((type) => {
     const ml = visibleMethods.value[type]
     const currency = normalizePaymentCurrency(ml?.currency)
+    const methodFeeRate = feeRateForMethod(type)
     return {
       type,
       display_name: ml?.display_name,
-      fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(subscriptionTotalAmountForCurrency(price, currency), type),
+      fee_rate: methodFeeRate,
+      available: ml?.available !== false && amountFitsMethod(subscriptionTotalAmountForCurrency(price, currency, methodFeeRate), type),
     }
   })
 })

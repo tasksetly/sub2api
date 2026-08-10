@@ -88,7 +88,7 @@
           <div
             v-for="(method, index) in easyPayCustomMethods"
             :key="index"
-            class="grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
+            class="grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_7rem_auto_auto]"
           >
             <div>
               <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.customMethodType') }}</label>
@@ -101,6 +101,22 @@
             <div>
               <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.customMethodDisplayName') }}</label>
               <input v-model="method.displayName" type="text" class="input mt-0.5" :placeholder="t('admin.settings.payment.customMethodDisplayNamePlaceholder')" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.payment.customMethodFeeRate') }}</label>
+              <div class="relative mt-0.5">
+                <input
+                  :value="method.feeRate ?? ''"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  class="input pr-7"
+                  :placeholder="t('admin.settings.payment.customMethodFeeRatePlaceholder')"
+                  @input="setEasyPayCustomMethodFeeRate(method, ($event.target as HTMLInputElement).value)"
+                />
+                <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-gray-400">%</span>
+              </div>
             </div>
             <ToggleSwitch
               :label="t('admin.settings.payment.customMethodRedirectToPayURL')"
@@ -577,13 +593,19 @@ function normalizedEasyPayCustomMethods(): EasyPayCustomMethod[] {
       type: normalizeEasyPayCustomMethodCode(method.type),
       upstreamType: normalizeEasyPayCustomMethodCode(method.upstreamType),
       displayName: method.displayName.trim(),
+      ...(method.feeRate !== undefined ? { feeRate: method.feeRate } : {}),
       redirectToPayURL: method.redirectToPayURL === true,
     }))
-    .filter(method => method.type || method.upstreamType || method.displayName)
+    .filter(method => method.type || method.upstreamType || method.displayName || method.feeRate !== undefined)
 }
 
 function normalizeEasyPayCustomMethodCode(value: string): string {
   return value.trim().toLowerCase()
+}
+
+function setEasyPayCustomMethodFeeRate(method: EasyPayCustomMethod, value: string) {
+  const trimmed = value.trim()
+  method.feeRate = trimmed === '' ? undefined : Number(trimmed)
 }
 
 function addEasyPayCustomMethod() {
@@ -757,7 +779,7 @@ function syncEasyPayCustomMethods(): string[] {
 function validateEasyPayCustomMethods(): string | null {
   const seen = new Set<string>()
   for (const method of normalizedEasyPayCustomMethods()) {
-    const hasAnyValue = Boolean(method.type || method.upstreamType || method.displayName)
+    const hasAnyValue = Boolean(method.type || method.upstreamType || method.displayName || method.feeRate !== undefined)
     if (!hasAnyValue) continue
     if (!method.type || !method.upstreamType) {
       return t('admin.settings.payment.validationEasyPayCustomMethodRequired')
@@ -770,6 +792,14 @@ function validateEasyPayCustomMethods(): string | null {
     }
     if ((PROVIDER_SUPPORTED_TYPES.easypay || []).includes(method.type)) {
       return t('admin.settings.payment.validationEasyPayCustomMethodReserved')
+    }
+    if (method.feeRate !== undefined && (
+      !Number.isFinite(method.feeRate) ||
+      method.feeRate < 0 ||
+      method.feeRate > 100 ||
+      Math.abs(Math.round(method.feeRate * 100) - method.feeRate * 100) >= 1e-9
+    )) {
+      return t('admin.settings.payment.validationEasyPayCustomMethodFeeRateInvalid')
     }
     if (method.type.startsWith('alipay') || method.type.startsWith('wxpay')) {
       return t('admin.settings.payment.validationEasyPayCustomMethodPrefixReserved')
