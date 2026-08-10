@@ -32,6 +32,7 @@ const (
 	paymentModePopup       = "popup"
 	paymentModeRedirect    = "redirect"
 	deviceMobile           = "mobile"
+	epusdtEPayBasePath     = "/payments/epay/v1/order/create-transaction"
 )
 
 // EasyPay implements payment.Provider for the EasyPay aggregation platform.
@@ -61,6 +62,11 @@ func NewEasyPay(instanceID string, config map[string]string) (*EasyPay, error) {
 		cfg[k] = v
 	}
 	cfg["apiBase"] = normalizeEasyPayAPIBase(cfg["apiBase"])
+	if isEpusdtEPayAPIBase(cfg["apiBase"]) {
+		if err := validateEpusdtPID(cfg["pid"]); err != nil {
+			return nil, err
+		}
+	}
 	return &EasyPay{
 		instanceID: instanceID,
 		config:     cfg,
@@ -101,6 +107,34 @@ func (e *EasyPay) apiBase() string {
 	return normalizeEasyPayAPIBase(e.config["apiBase"])
 }
 
+// isEpusdtEPay reports whether this instance points at Epusdt's EPay
+// compatibility endpoint. Epusdt exposes redirect checkout only; it does not
+// implement the conventional EasyPay mapi.php or api.php endpoints.
+func (e *EasyPay) isEpusdtEPay() bool {
+	if e == nil {
+		return false
+	}
+	return isEpusdtEPayAPIBase(e.apiBase())
+}
+
+func isEpusdtEPayAPIBase(apiBase string) bool {
+	parsed, err := url.Parse(normalizeEasyPayAPIBase(apiBase))
+	if err != nil {
+		return false
+	}
+	path := strings.TrimRight(strings.ToLower(parsed.Path), "/")
+	return strings.HasSuffix(path, epusdtEPayBasePath)
+}
+
+func validateEpusdtPID(pid string) error {
+	pid = strings.TrimSpace(pid)
+	value, err := strconv.Atoi(pid)
+	if err != nil || value < 0 || strconv.Itoa(value) != pid {
+		return fmt.Errorf("epusdt EPay requires a canonical numeric pid")
+	}
+	return nil
+}
+
 func (e *EasyPay) Name() string        { return "EasyPay" }
 func (e *EasyPay) ProviderKey() string { return payment.TypeEasyPay }
 func (e *EasyPay) SupportedTypes() []payment.PaymentType {
@@ -127,6 +161,21 @@ func (e *EasyPay) MerchantIdentityMetadata() map[string]string {
 func (e *EasyPay) CreatePayment(ctx context.Context, req payment.CreatePaymentRequest) (*payment.CreatePaymentResponse, error) {
 	// Payment mode determined by instance config, not payment type.
 	// "popup" → hosted page (submit.php); "qrcode"/default → API call (mapi.php).
+	if e.isEpusdtEPay() {
+		upstreamType := e.upstreamPaymentType(req.PaymentType)
+		if payment.GetBasePaymentType(upstreamType) == payment.TypeWxpay {
+			return nil, fmt.Errorf("epusdt EPay does not support wxpay; use alipay or a token.network selector")
+		}
+		response, err := e.createRedirectPayment(req)
+		if response != nil {
+			// Epusdt's EPay compatibility layer only provides a hosted redirect
+			// checkout. Force the current page to navigate there instead of opening
+			// the generic EasyPay popup flow.
+			response.PaymentMode = paymentModeRedirect
+			response.DirectRedirect = true
+		}
+		return response, err
+	}
 	mode := e.config["paymentMode"]
 	if mode == paymentModePopup {
 		return e.createRedirectPayment(req)
@@ -276,6 +325,9 @@ func (e *EasyPay) shouldRedirectToPayURL(paymentType string) bool {
 }
 
 func (e *EasyPay) QueryOrder(ctx context.Context, tradeNo string) (*payment.QueryOrderResponse, error) {
+	if e.isEpusdtEPay() {
+		return nil, fmt.Errorf("epusdt EPay does not support order queries; wait for the signed notify callback")
+	}
 	params := map[string]string{
 		"act": "order", "pid": e.config["pid"],
 		"key": e.config["pkey"], "out_trade_no": tradeNo,
@@ -380,6 +432,9 @@ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[st
 }
 
 func (e *EasyPay) Refund(ctx context.Context, req payment.RefundRequest) (*payment.RefundResponse, error) {
+	if e.isEpusdtEPay() {
+		return nil, fmt.Errorf("epusdt EPay does not support refunds")
+	}
 	attempts := e.refundAttempts(req)
 	if len(attempts) == 0 {
 		return nil, fmt.Errorf("easypay refund missing order identifier")

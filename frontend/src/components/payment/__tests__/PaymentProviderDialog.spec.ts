@@ -192,16 +192,16 @@ describe('PaymentProviderDialog payment guide', () => {
 
     const inputs = wrapper.findAll('input[type="text"]')
     const customTypeInputs = inputs.filter(input => (input.element as HTMLInputElement).placeholder === 'credit_card')
-    const ldcTypeInput = customTypeInputs[0]
+    const usdtTronTypeInput = customTypeInputs[0]
     const upstreamTypeInput = customTypeInputs[1]
     const displayNameInput = inputs.find(input => (input.element as HTMLInputElement).placeholder === '信用卡')
-    if (!ldcTypeInput || !upstreamTypeInput || !displayNameInput) {
+    if (!usdtTronTypeInput || !upstreamTypeInput || !displayNameInput) {
       throw new Error('custom method inputs not found')
     }
 
-    await ldcTypeInput.setValue('ldc')
-    await upstreamTypeInput.setValue('epay')
-    await displayNameInput.setValue('LDC')
+    await usdtTronTypeInput.setValue('usdt_tron')
+    await upstreamTypeInput.setValue('usdt.tron')
+    await displayNameInput.setValue('USDT-TRON')
     const redirectToggle = wrapper
       .findAll('button[role="switch"]')
       .find(toggle => toggle.text() === messages['admin.settings.payment.customMethodRedirectToPayURL'])
@@ -214,8 +214,8 @@ describe('PaymentProviderDialog payment guide', () => {
       config: Record<string, string>
       supported_types: string[]
     }
-    expect(payload.config.customMethods).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC","redirectToPayURL":true}]')
-    expect(payload.supported_types).toEqual(['alipay', 'wxpay', 'ldc'])
+    expect(payload.config.customMethods).toBe('[{"type":"usdt_tron","upstreamType":"usdt.tron","displayName":"USDT-TRON","redirectToPayURL":true}]')
+    expect(payload.supported_types).toEqual(['alipay', 'wxpay', 'usdt_tron'])
   })
 
   it('rejects custom EasyPay method types with built-in payment prefixes', async () => {

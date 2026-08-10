@@ -129,6 +129,11 @@ func TestValidateEasyPayCustomMethods(t *testing.T) {
 			supportedTypes: "alipay,wxpay,ldc",
 		},
 		{
+			name:           "valid Epusdt token network selector mapping",
+			config:         map[string]string{"customMethods": `[{"type":"usdt_tron","upstreamType":"usdt.tron","displayName":"USDT-TRON"}]`},
+			supportedTypes: "alipay,usdt_tron",
+		},
+		{
 			name:           "malformed custom methods json",
 			config:         map[string]string{"customMethods": `not-json`},
 			supportedTypes: "alipay,wxpay,ldc",

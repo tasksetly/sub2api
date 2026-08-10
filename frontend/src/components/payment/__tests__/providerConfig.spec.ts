@@ -59,6 +59,10 @@ describe('PROVIDER_CONFIG_FIELDS.stripe', () => {
 })
 
 describe('EasyPay custom methods config', () => {
+  it('documents the Epusdt-compatible API base route', () => {
+    expect(findField('easypay', 'apiBase')?.hintKey).toBe('admin.settings.payment.field_easyPayApiBaseHint')
+  })
+
   it('parses customMethods from the JSON string stored in provider config', () => {
     expect(parseEasyPayCustomMethods(
       '[{"type":"ldc","upstreamType":"epay","displayName":"LDC"},{"type":"usdt_trc20","upstreamType":"usdt","displayName":"USDT-TRC20"}]',
