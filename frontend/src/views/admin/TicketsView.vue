@@ -120,7 +120,7 @@ import TicketBadge from '@/components/tickets/TicketBadge.vue'
 import TicketComposer from '@/components/tickets/TicketComposer.vue'
 import TicketConversation from '@/components/tickets/TicketConversation.vue'
 import { adminAPI } from '@/api/admin'
-import { useAppStore } from '@/stores'
+import { useAppStore, useTicketNotificationStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { Ticket, TicketPriority, TicketStatus } from '@/types/ticket'
 
@@ -128,6 +128,7 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const ticketNotificationStore = useTicketNotificationStore()
 const ticketId = computed(() => Number(route.params.id || 0))
 const tickets = ref<Ticket[]>([])
 const ticket = ref<Ticket | null>(null)
@@ -188,6 +189,7 @@ async function sendReply(payload: { content: string; images: File[] }) {
     ticket.value = await adminAPI.tickets.reply(ticketId.value, payload)
     detailStatus.value = ticket.value.status
     composerKey.value++
+    void ticketNotificationStore.fetchPendingTicketCount(true)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('tickets.replyFailed')))
   } finally {
@@ -200,6 +202,7 @@ async function updateTicket() {
   try {
     ticket.value = await adminAPI.tickets.update(ticketId.value, { status: detailStatus.value, priority: detailPriority.value })
     appStore.showSuccess(t('common.saved'))
+    void ticketNotificationStore.fetchPendingTicketCount(true)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('tickets.updateFailed')))
   } finally {

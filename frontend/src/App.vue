@@ -63,9 +63,11 @@ watch(
 
 // Watch for authentication state and manage subscription data + announcements
 function onVisibilityChange() {
-  if (document.visibilityState === 'visible' && authStore.isAuthenticated) {
-    announcementStore.fetchAnnouncements()
-    void ticketNotificationStore.fetchWaitingUserCount()
+  if (document.visibilityState !== 'visible' || !authStore.isAuthenticated) return
+
+  announcementStore.fetchAnnouncements()
+  if (authStore.isAdmin) {
+    void ticketNotificationStore.fetchPendingTicketCount(true)
   }
 }
 
@@ -90,11 +92,6 @@ watch(
       })
       subscriptionStore.startPolling()
 
-      void ticketNotificationStore.fetchWaitingUserCount().catch((error: unknown) => {
-        console.error('Failed to preload ticket notifications:', error)
-      })
-      ticketNotificationStore.startPolling()
-
       // Announcements: new login vs page refresh restore
       if (oldValue === false) {
         // New login: delay 3s then force fetch
@@ -110,7 +107,6 @@ watch(
       // User logged out: clear data and stop polling
       subscriptionStore.clear()
       announcementStore.reset()
-      ticketNotificationStore.reset()
       adminComplianceStore.reset()
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
@@ -118,11 +114,27 @@ watch(
   { immediate: true }
 )
 
-// Route change trigger (throttled by store)
+// Ticket notifications are an admin-only background task.
+watch(
+  [() => authStore.isAuthenticated, () => authStore.isAdmin],
+  ([isAuthenticated, isAdmin]) => {
+    if (isAuthenticated && isAdmin) {
+      void ticketNotificationStore.fetchPendingTicketCount(true)
+      ticketNotificationStore.startPolling()
+      return
+    }
+    ticketNotificationStore.reset()
+  },
+  { immediate: true }
+)
+
+// Route change trigger (throttled by each store)
 router.afterEach(() => {
-  if (authStore.isAuthenticated) {
-    announcementStore.fetchAnnouncements()
-    void ticketNotificationStore.fetchWaitingUserCount()
+  if (!authStore.isAuthenticated) return
+
+  announcementStore.fetchAnnouncements()
+  if (authStore.isAdmin) {
+    void ticketNotificationStore.fetchPendingTicketCount()
   }
 })
 

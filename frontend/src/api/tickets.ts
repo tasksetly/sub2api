@@ -42,17 +42,11 @@ export async function closeTicket(id: number): Promise<Ticket> {
   return data
 }
 
-export async function getWaitingUserCount(): Promise<number> {
-  const result = await listTickets(1, 1, 'waiting_user')
-  return result.total
-}
-
 export const ticketsAPI = {
   list: listTickets,
   get: getTicket,
   create: createTicket,
   reply: replyTicket,
-  close: closeTicket,
-  getWaitingUserCount
+  close: closeTicket
 }
 export default ticketsAPI

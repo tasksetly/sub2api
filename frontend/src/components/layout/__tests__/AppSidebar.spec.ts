@@ -55,9 +55,10 @@ describe('AppSidebar header styles', () => {
 })
 
 describe('AppSidebar ticket attention indicator', () => {
-  it('shows the notification only on the user ticket route', () => {
+  it('shows the notification only on the admin ticket route', () => {
     expect(componentSource).toContain('data-testid="ticket-attention-dot"')
-    expect(componentSource).toContain("item.path === '/tickets' && ticketNotificationStore.hasWaitingUserTickets")
-    expect(componentSource).toContain("t('tickets.replyRequired')")
+    expect(componentSource).toContain("item.path === '/admin/tickets' && ticketNotificationStore.hasPendingTickets")
+    expect(componentSource).toContain("t('tickets.adminReplyRequired')")
+    expect(componentSource).not.toContain('showUserTicketAttention')
   })
 })

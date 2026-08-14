@@ -92,9 +92,18 @@
               "
               @click="handleMenuItemClick(item.path)"
             >
-              <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-              <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+              <span class="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
+                <span v-if="item.iconSvg" class="h-5 w-5 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+                <component v-else :is="item.icon" class="h-5 w-5" />
+                <span
+                  v-if="showAdminTicketAttention(item)"
+                  data-testid="ticket-attention-dot"
+                  class="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-dark-900"
+                  aria-hidden="true"
+                ></span>
+              </span>
               <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+              <span v-if="showAdminTicketAttention(item)" class="sr-only">{{ t('tickets.adminReplyRequired') }}</span>
             </router-link>
           </template>
         </div>
@@ -120,15 +129,8 @@
             <span class="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
               <span v-if="item.iconSvg" class="h-5 w-5 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
               <component v-else :is="item.icon" class="h-5 w-5" />
-              <span
-                v-if="showUserTicketAttention(item)"
-                data-testid="ticket-attention-dot"
-                class="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-dark-900"
-                aria-hidden="true"
-              ></span>
             </span>
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-            <span v-if="showUserTicketAttention(item)" class="sr-only">{{ t('tickets.replyRequired') }}</span>
           </router-link>
         </div>
       </template>
@@ -149,15 +151,8 @@
             <span class="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
               <span v-if="item.iconSvg" class="h-5 w-5 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
               <component v-else :is="item.icon" class="h-5 w-5" />
-              <span
-                v-if="showUserTicketAttention(item)"
-                data-testid="ticket-attention-dot"
-                class="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-dark-900"
-                aria-hidden="true"
-              ></span>
             </span>
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-            <span v-if="showUserTicketAttention(item)" class="sr-only">{{ t('tickets.replyRequired') }}</span>
           </router-link>
         </div>
       </template>
@@ -897,8 +892,8 @@ function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + '/')
 }
 
-function showUserTicketAttention(item: NavItem): boolean {
-  return item.path === '/tickets' && ticketNotificationStore.hasWaitingUserTickets
+function showAdminTicketAttention(item: NavItem): boolean {
+  return item.path === '/admin/tickets' && ticketNotificationStore.hasPendingTickets
 }
 
 function isGroupActive(item: NavItem): boolean {

@@ -20,6 +20,11 @@ export async function listTickets(
   return data
 }
 
+export async function getPendingCount(): Promise<number> {
+  const result = await listTickets(1, 1, { status: 'open' })
+  return result.total
+}
+
 export async function getTicket(id: number): Promise<Ticket> {
   const { data } = await apiClient.get<Ticket>(`/admin/tickets/${id}`)
   return data
@@ -54,6 +59,7 @@ export async function testStorage(config: TicketStorageConfig): Promise<{ ok: bo
 
 export const ticketsAPI = {
   list: listTickets,
+  getPendingCount,
   get: getTicket,
   reply: replyTicket,
   update: updateTicket,

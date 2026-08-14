@@ -139,7 +139,7 @@ import TicketBadge from '@/components/tickets/TicketBadge.vue'
 import TicketComposer from '@/components/tickets/TicketComposer.vue'
 import TicketConversation from '@/components/tickets/TicketConversation.vue'
 import { ticketsAPI } from '@/api'
-import { useAppStore, useTicketNotificationStore } from '@/stores'
+import { useAppStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { Ticket, TicketCategory, TicketStatus } from '@/types/ticket'
 
@@ -147,7 +147,6 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const ticketNotificationStore = useTicketNotificationStore()
 const ticketId = computed(() => Number(route.params.id || 0))
 const tickets = ref<Ticket[]>([])
 const ticket = ref<Ticket | null>(null)
@@ -216,7 +215,6 @@ async function sendReply(payload: { content: string; images: File[] }) {
   try {
     ticket.value = await ticketsAPI.reply(ticketId.value, payload)
     composerKey.value++
-    void ticketNotificationStore.fetchWaitingUserCount(true)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('tickets.replyFailed')))
   } finally {
@@ -228,7 +226,6 @@ async function closeCurrentTicket() {
   showCloseConfirm.value = false
   try {
     ticket.value = await ticketsAPI.close(ticketId.value)
-    void ticketNotificationStore.fetchWaitingUserCount(true)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('tickets.closeFailed')))
   }

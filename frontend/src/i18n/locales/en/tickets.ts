@@ -4,6 +4,7 @@ export default {
     description: 'View and manage support requests',
     detailTitle: 'Ticket Details',
     replyRequired: 'A ticket is waiting for your reply',
+    adminReplyRequired: 'A user ticket needs attention',
     adminTitle: 'Ticket Management',
     adminDescription: 'Handle user support requests',
     adminDetailTitle: 'Handle Ticket',

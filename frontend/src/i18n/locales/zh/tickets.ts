@@ -4,6 +4,7 @@ export default {
     description: '查看和管理支持请求',
     detailTitle: '工单详情',
     replyRequired: '有工单待您回复',
+    adminReplyRequired: '有用户工单待处理',
     adminTitle: '工单管理',
     adminDescription: '处理用户支持请求',
     adminDetailTitle: '处理工单',

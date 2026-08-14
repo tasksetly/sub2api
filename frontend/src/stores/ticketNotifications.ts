@@ -1,12 +1,12 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { ticketsAPI } from '@/api'
+import { ticketsAPI } from '@/api/admin'
 
 const CACHE_TTL_MS = 30_000
 const POLLING_INTERVAL_MS = 60_000
 
 export const useTicketNotificationStore = defineStore('ticketNotifications', () => {
-  const waitingUserCount = ref(0)
+  const pendingTicketCount = ref(0)
   const loading = ref(false)
   const loaded = ref(false)
   const lastFetchedAt = ref<number | null>(null)
@@ -15,30 +15,30 @@ export const useTicketNotificationStore = defineStore('ticketNotifications', () 
   let activePromise: Promise<number> | null = null
   let poller: ReturnType<typeof setInterval> | null = null
 
-  const hasWaitingUserTickets = computed(() => waitingUserCount.value > 0)
+  const hasPendingTickets = computed(() => pendingTicketCount.value > 0)
 
-  function fetchWaitingUserCount(force = false): Promise<number> {
+  function fetchPendingTicketCount(force = false): Promise<number> {
     const now = Date.now()
     if (!force && loaded.value && lastFetchedAt.value != null && now - lastFetchedAt.value < CACHE_TTL_MS) {
-      return Promise.resolve(waitingUserCount.value)
+      return Promise.resolve(pendingTicketCount.value)
     }
     if (activePromise) return activePromise
 
     const currentGeneration = ++requestGeneration
     loading.value = true
-    const request = ticketsAPI.getWaitingUserCount()
+    const request = ticketsAPI.getPendingCount()
       .then((count) => {
         const normalizedCount = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
         if (currentGeneration === requestGeneration) {
-          waitingUserCount.value = normalizedCount
+          pendingTicketCount.value = normalizedCount
           loaded.value = true
           lastFetchedAt.value = Date.now()
         }
         return normalizedCount
       })
       .catch((error) => {
-        console.error('Failed to fetch waiting ticket count:', error)
-        return waitingUserCount.value
+        console.error('Failed to fetch pending admin ticket count:', error)
+        return pendingTicketCount.value
       })
       .finally(() => {
         if (activePromise === request) {
@@ -54,7 +54,7 @@ export const useTicketNotificationStore = defineStore('ticketNotifications', () 
   function startPolling() {
     if (poller) return
     poller = setInterval(() => {
-      void fetchWaitingUserCount(true)
+      void fetchPendingTicketCount(true)
     }, POLLING_INTERVAL_MS)
   }
 
@@ -67,7 +67,7 @@ export const useTicketNotificationStore = defineStore('ticketNotifications', () 
   function reset() {
     requestGeneration++
     activePromise = null
-    waitingUserCount.value = 0
+    pendingTicketCount.value = 0
     loading.value = false
     loaded.value = false
     lastFetchedAt.value = null
@@ -75,10 +75,10 @@ export const useTicketNotificationStore = defineStore('ticketNotifications', () 
   }
 
   return {
-    waitingUserCount,
+    pendingTicketCount,
     loading,
-    hasWaitingUserTickets,
-    fetchWaitingUserCount,
+    hasPendingTickets,
+    fetchPendingTicketCount,
     startPolling,
     stopPolling,
     reset
