@@ -164,7 +164,7 @@
                 </router-link>
 
                 <a
-                  href="https://t.me/+PAe07GnS7Es1NGZl"
+                  href="https://t.me/+ro_skyd"
                   target="_blank"
                   rel="noopener noreferrer"
                   @click="closeDropdown"
