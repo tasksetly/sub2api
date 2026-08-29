@@ -163,6 +163,7 @@ export default {
     tickets: '我的工单',
     ticketManagement: '工单管理',
     apiKeys: 'API 密钥',
+    playground: '对话测试',
     batchImage: '批量生图',
     usage: '使用记录',
     supplierCosts: '供应商成本',

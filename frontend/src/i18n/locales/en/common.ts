@@ -163,6 +163,7 @@ export default {
     tickets: 'My Tickets',
     ticketManagement: 'Tickets',
     apiKeys: 'API Keys',
+    playground: 'Playground',
     batchImage: 'Batch Images',
     usage: 'Usage',
     supplierCosts: 'Supplier Costs',
