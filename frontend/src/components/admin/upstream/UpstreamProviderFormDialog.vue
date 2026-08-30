@@ -60,6 +60,21 @@
       </div>
 
       <div>
+        <label class="input-label">{{ t('admin.upstreamProviders.formRateCorrection') }}</label>
+        <input
+          v-model="form.rate_correction"
+          type="number"
+          class="input"
+          min="0"
+          step="0.000001"
+          placeholder="1"
+        />
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {{ t('admin.upstreamProviders.formRateCorrectionHelp') }}
+        </p>
+      </div>
+
+      <div>
         <label class="input-label">{{ t('admin.upstreamProviders.formNotes') }}</label>
         <textarea v-model="form.notes" rows="2" class="input"></textarea>
       </div>
@@ -129,11 +144,22 @@ function emptyForm() {
     base_url: '',
     username: '',
     password: '',
+    // 字符串而非 number：type="number" 的 v-model 给的是字符串，清空时是 ''，
+    // 留到提交时统一收敛成 1（不修正）
+    rate_correction: '1',
     totp_secret: '',
     notes: '',
     status: 'active' as 'active' | 'inactive',
     sync_enabled: true
   }
+}
+
+// 非法/清空一律按「不修正」处理，与后端 NormalizeRateCorrection 口径一致。
+// 不能传 0：后端 binding 是 gt=0，且 0 会让所有分组比价倍率变成 0 排到最前。
+function normalizedRateCorrection(): number {
+  const parsed = Number.parseFloat(form.value.rate_correction)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1
+  return parsed
 }
 
 const form = ref(emptyForm())
@@ -155,6 +181,7 @@ watch(
         base_url: editing.base_url,
         username: editing.username,
         password: '',
+        rate_correction: String(editing.rate_correction ?? 1),
         totp_secret: '',
         notes: editing.notes ?? '',
         status: editing.status,
@@ -173,6 +200,7 @@ function handleSubmit() {
     name: form.value.name.trim(),
     base_url: form.value.base_url.trim(),
     username: form.value.username.trim(),
+    rate_correction: normalizedRateCorrection(),
     notes: notes === '' ? null : notes,
     sync_enabled: form.value.sync_enabled
   }

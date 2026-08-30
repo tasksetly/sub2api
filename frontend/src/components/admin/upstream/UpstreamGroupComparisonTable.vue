@@ -16,7 +16,7 @@
             v-model="platform"
             :options="platformOptions"
             :placeholder="t('admin.upstreamProviders.comparePlatformAll')"
-            @change="load"
+            @change="handlePlatformChange"
           />
         </div>
         <button
@@ -45,7 +45,7 @@
         <thead class="bg-gray-50 dark:bg-gray-800/50">
           <tr>
             <th class="th-cell w-10">#</th>
-            <th class="th-cell">{{ t('admin.upstreamProviders.compareRate') }}</th>
+            <th class="th-cell">{{ t('admin.upstreamProviders.compareCorrectedRate') }}</th>
             <th class="th-cell">{{ t('admin.upstreamProviders.compareProvider') }}</th>
             <th class="th-cell">{{ t('admin.upstreamProviders.colGroupName') }}</th>
             <th class="th-cell">{{ t('admin.upstreamProviders.colPlatform') }}</th>
@@ -61,17 +61,20 @@
             :key="`${row.upstream_provider_id}-${row.remote_group_id}`"
             class="hover:bg-gray-50 dark:hover:bg-gray-800/50"
           >
-            <td class="px-3 py-2 text-xs text-gray-400">{{ index + 1 }}</td>
+            <td class="px-3 py-2 text-xs text-gray-400">{{ rowRank(index) }}</td>
 
-            <!-- 倍率：比价的主列，最便宜的排最前 -->
+            <!-- 修正后倍率：比价的主列，最便宜的排最前。
+                 排序口径与后端一致（声明倍率 × 充值比例修正）。 -->
             <td class="px-3 py-2">
               <span
                 :class="[
                   'font-semibold',
-                  index === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-900 dark:text-white'
+                  rowRank(index) === 1
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-gray-900 dark:text-white'
                 ]"
               >
-                ×{{ formatRate(row.comparable_rate) }}
+                ×{{ formatRate(row.corrected_rate) }}
               </span>
               <span
                 v-if="row.effective_rate_multiplier !== null"
@@ -79,6 +82,18 @@
               >
                 {{ t('admin.upstreamProviders.rateExclusive') }}
               </span>
+              <!-- 修正过的行把原始声明倍率一并显示，否则跟上游后台对不上账 -->
+              <div
+                v-if="row.provider_rate_correction !== 1"
+                class="text-xs text-gray-500 dark:text-gray-400"
+              >
+                {{
+                  t('admin.upstreamProviders.compareRateCorrectedFrom', {
+                    raw: formatRate(row.comparable_rate),
+                    correction: formatRate(row.provider_rate_correction)
+                  })
+                }}
+              </div>
               <div
                 v-if="row.peak_rate_enabled && row.peak_rate_multiplier"
                 class="text-xs text-amber-600 dark:text-amber-400"
@@ -143,6 +158,17 @@
         </tbody>
       </table>
     </div>
+
+    <!-- 比价表是分页的：不翻页只能看到最便宜的前 N 条 -->
+    <Pagination
+      v-if="total > 0"
+      class="mt-3"
+      :page="page"
+      :page-size="pageSize"
+      :total="total"
+      @update:page="handlePageChange"
+      @update:page-size="handlePageSizeChange"
+    />
   </section>
 </template>
 
@@ -154,6 +180,7 @@ import { adminAPI } from '@/api/admin'
 import type { UpstreamGroupComparison } from '@/types/upstreamProvider'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import Pagination from '@/components/common/Pagination.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -161,6 +188,9 @@ const appStore = useAppStore()
 const rows = ref<UpstreamGroupComparison[]>([])
 const loading = ref(false)
 const platform = ref('')
+const page = ref(1)
+const pageSize = ref(50)
+const total = ref(0)
 
 // 跨平台比倍率没意义（anthropic 的 0.1 和 gemini 的 0.1 不是一回事），
 // 所以默认全平台展示但提供筛选
@@ -176,17 +206,46 @@ const platformOptions = computed(() => [
 async function load() {
   loading.value = true
   try {
-    rows.value = await adminAPI.upstreamProviders.compareGroups(platform.value || undefined)
+    const result = await adminAPI.upstreamProviders.compareGroups(
+      platform.value || undefined,
+      page.value,
+      pageSize.value
+    )
+    rows.value = result.items ?? []
+    total.value = result.total ?? 0
   } catch (error) {
     appStore.showError(resolveError(error))
     rows.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
 }
 
+// 换平台要回到第一页，否则筛完可能停在一个已经不存在的页码上
+function handlePlatformChange() {
+  page.value = 1
+  void load()
+}
+
+function handlePageChange(next: number) {
+  page.value = next
+  void load()
+}
+
+function handlePageSizeChange(next: number) {
+  pageSize.value = next
+  page.value = 1
+  void load()
+}
+
 function formatRate(value: number): string {
   return Number(value.toFixed(4)).toString()
+}
+
+// 全局序号：翻页后仍能看出这行在整体比价里排第几
+function rowRank(index: number): number {
+  return (page.value - 1) * pageSize.value + index + 1
 }
 
 function resolveError(error: unknown): string {

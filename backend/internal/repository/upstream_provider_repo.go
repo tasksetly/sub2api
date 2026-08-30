@@ -43,7 +43,8 @@ func (r *upstreamProviderRepository) Create(ctx context.Context, provider *servi
 		SetUsername(provider.Username).
 		SetPasswordEncrypted(encryptedPassword).
 		SetStatus(provider.Status).
-		SetSyncEnabled(provider.SyncEnabled)
+		SetSyncEnabled(provider.SyncEnabled).
+		SetRateCorrection(service.NormalizeRateCorrection(provider.RateCorrection))
 	if provider.Notes != nil {
 		builder.SetNotes(*provider.Notes)
 	}
@@ -82,7 +83,8 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 		SetBaseURL(provider.BaseURL).
 		SetUsername(provider.Username).
 		SetStatus(provider.Status).
-		SetSyncEnabled(provider.SyncEnabled)
+		SetSyncEnabled(provider.SyncEnabled).
+		SetRateCorrection(service.NormalizeRateCorrection(provider.RateCorrection))
 
 	if provider.Notes != nil {
 		builder.SetNotes(*provider.Notes)
@@ -228,14 +230,19 @@ func (r *upstreamProviderRepository) attachStats(
 func (r *upstreamProviderRepository) attachGroupRateRange(
 	ctx context.Context, index map[int64]*service.UpstreamProviderWithStats, ids []int64,
 ) error {
+	// 倍率区间也要乘上充值比例修正，否则列表页的区间与比价表的排序口径不一致，
+	// 两处对着看会得出相反结论。CASE 防 0/负数，与 NormalizeRateCorrection 一致。
 	const rateQuery = `
-		SELECT upstream_provider_id,
-		       COUNT(*)                                                        AS group_count,
-		       MIN(COALESCE(effective_rate_multiplier, rate_multiplier))       AS min_rate,
-		       MAX(COALESCE(effective_rate_multiplier, rate_multiplier))       AS max_rate
-		FROM upstream_groups
-		WHERE upstream_provider_id = ANY($1)
-		GROUP BY upstream_provider_id`
+		SELECT g.upstream_provider_id,
+		       COUNT(*) AS group_count,
+		       MIN(COALESCE(g.effective_rate_multiplier, g.rate_multiplier)
+		           * CASE WHEN p.rate_correction > 0 THEN p.rate_correction ELSE 1 END) AS min_rate,
+		       MAX(COALESCE(g.effective_rate_multiplier, g.rate_multiplier)
+		           * CASE WHEN p.rate_correction > 0 THEN p.rate_correction ELSE 1 END) AS max_rate
+		FROM upstream_groups g
+		JOIN upstream_providers p ON p.id = g.upstream_provider_id
+		WHERE g.upstream_provider_id = ANY($1)
+		GROUP BY g.upstream_provider_id`
 	rows, err := r.sql.QueryContext(ctx, rateQuery, pq.Array(ids))
 	if err != nil {
 		return fmt.Errorf("query upstream group rates: %w", err)
@@ -625,6 +632,7 @@ func (r *upstreamProviderRepository) entityToService(entity *dbent.UpstreamProvi
 		BaseURL:             entity.BaseURL,
 		Notes:               entity.Notes,
 		Username:            entity.Username,
+		RateCorrection:      service.NormalizeRateCorrection(entity.RateCorrection),
 		Balance:             entity.Balance,
 		FrozenBalance:       entity.FrozenBalance,
 		UpstreamConcurrency: entity.UpstreamConcurrency,

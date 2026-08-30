@@ -75,6 +75,9 @@ export default {
       formPasswordHelpCreate: '用 AES-256-GCM 加密存储；token 过期后需用它重新登录',
       formPasswordHelpEdit: '留空表示不修改。改密码会使已缓存的 token 立即失效',
       formPasswordPlaceholderEdit: '留空则不修改',
+      formRateCorrection: '倍率修正系数',
+      formRateCorrectionHelp:
+        '抹平各家充值比例的差异：填 1/充值比例（充值 10 倍填 0.1）。比价倍率 = 上游声明倍率 × 该系数；1:1 充值填 1 即不修正',
       formTotpSecret: 'TOTP 密钥',
       formTotpSecretHelp: '仅当上游开启了 2FA 时需要填写，用于自动生成验证码',
       formNotes: '备注',
@@ -142,9 +145,10 @@ export default {
 
       // 跨上游比价表
       compareTitle: '全部上游分组比价',
-      compareHint: '所有上游的分组按倍率从低到高排列，倍率相同时按上游名称排序',
+      compareHint: '所有上游的分组按修正后倍率从低到高排列，倍率相同时按上游名称排序',
       compareEmpty: '暂无分组数据，请先添加上游并刷新同步',
-      compareRate: '倍率',
+      compareCorrectedRate: '修正后倍率',
+      compareRateCorrectedFrom: '声明 ×{raw} × 修正 {correction}',
       compareProvider: '上游',
       compareInUse: '已建号',
       comparePlatformAll: '全部平台',

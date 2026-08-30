@@ -23,26 +23,30 @@ func NewUpstreamProviderHandler(svc *service.UpstreamProviderService) *UpstreamP
 
 // CreateUpstreamProviderRequest 新增上游。
 type CreateUpstreamProviderRequest struct {
-	Name        string  `json:"name" binding:"required"`
-	BaseURL     string  `json:"base_url" binding:"required"`
-	Username    string  `json:"username" binding:"required"`
-	Password    string  `json:"password" binding:"required"`
-	TotpSecret  string  `json:"totp_secret"`
-	Notes       *string `json:"notes"`
-	SyncEnabled *bool   `json:"sync_enabled"`
+	Name     string `json:"name" binding:"required"`
+	BaseURL  string `json:"base_url" binding:"required"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	// RateCorrection 充值比例修正系数（充值 10 倍填 0.1）。省略按 1.0 处理。
+	RateCorrection *float64 `json:"rate_correction" binding:"omitempty,gt=0"`
+	TotpSecret     string   `json:"totp_secret"`
+	Notes          *string  `json:"notes"`
+	SyncEnabled    *bool    `json:"sync_enabled"`
 }
 
 // UpdateUpstreamProviderRequest 编辑上游。
 // Password/TotpSecret 留空表示不修改。
 type UpdateUpstreamProviderRequest struct {
-	Name        string  `json:"name" binding:"required"`
-	BaseURL     string  `json:"base_url" binding:"required"`
-	Username    string  `json:"username" binding:"required"`
-	Password    string  `json:"password"`
-	TotpSecret  string  `json:"totp_secret"`
-	Notes       *string `json:"notes"`
-	Status      string  `json:"status" binding:"omitempty,oneof=active inactive"`
-	SyncEnabled *bool   `json:"sync_enabled"`
+	Name     string `json:"name" binding:"required"`
+	BaseURL  string `json:"base_url" binding:"required"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password"`
+	// RateCorrection 省略表示不修改
+	RateCorrection *float64 `json:"rate_correction" binding:"omitempty,gt=0"`
+	TotpSecret     string   `json:"totp_secret"`
+	Notes          *string  `json:"notes"`
+	Status         string   `json:"status" binding:"omitempty,oneof=active inactive"`
+	SyncEnabled    *bool    `json:"sync_enabled"`
 }
 
 // ProvisionAccountsRequest 勾选上游分组后创建 Key 与本地账号。
@@ -111,14 +115,21 @@ func (h *UpstreamProviderHandler) Create(c *gin.Context) {
 		syncEnabled = *req.SyncEnabled
 	}
 
+	// 省略即 0，由 service.NormalizeRateCorrection 收敛成 1.0（不修正）
+	rateCorrection := float64(0)
+	if req.RateCorrection != nil {
+		rateCorrection = *req.RateCorrection
+	}
+
 	provider, err := h.svc.Create(c.Request.Context(), service.CreateUpstreamProviderInput{
-		Name:        req.Name,
-		BaseURL:     req.BaseURL,
-		Username:    req.Username,
-		Password:    req.Password,
-		TotpSecret:  req.TotpSecret,
-		Notes:       req.Notes,
-		SyncEnabled: syncEnabled,
+		Name:           req.Name,
+		BaseURL:        req.BaseURL,
+		Username:       req.Username,
+		Password:       req.Password,
+		RateCorrection: rateCorrection,
+		TotpSecret:     req.TotpSecret,
+		Notes:          req.Notes,
+		SyncEnabled:    syncEnabled,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -146,14 +157,15 @@ func (h *UpstreamProviderHandler) Update(c *gin.Context) {
 	}
 
 	provider, err := h.svc.Update(c.Request.Context(), id, service.UpdateUpstreamProviderInput{
-		Name:        req.Name,
-		BaseURL:     req.BaseURL,
-		Username:    req.Username,
-		Password:    req.Password,
-		TotpSecret:  req.TotpSecret,
-		Notes:       req.Notes,
-		Status:      req.Status,
-		SyncEnabled: syncEnabled,
+		Name:           req.Name,
+		BaseURL:        req.BaseURL,
+		Username:       req.Username,
+		Password:       req.Password,
+		RateCorrection: req.RateCorrection,
+		TotpSecret:     req.TotpSecret,
+		Notes:          req.Notes,
+		Status:         req.Status,
+		SyncEnabled:    syncEnabled,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

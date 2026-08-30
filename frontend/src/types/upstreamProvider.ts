@@ -15,6 +15,12 @@ export interface UpstreamProvider {
   has_password: boolean
   has_totp_secret: boolean
 
+  /**
+   * 充值比例修正系数，用于抹平各上游充值比例的差异。
+   * 比价倍率 = 上游声明倍率 × 它；1.0 表示 1:1 充值、不修正。
+   */
+  rate_correction: number
+
   /** 上游账户余额（同步来的只读快照） */
   balance: number | null
   frozen_balance: number | null
@@ -81,6 +87,13 @@ export interface UpstreamGroupComparison extends UpstreamGroup {
   provider_status: 'active' | 'inactive'
   provider_balance: number | null
   provider_sync_enabled: boolean
+  /** 该上游的充值比例修正系数 */
+  provider_rate_correction: number
+  /**
+   * 跨上游可比的真实成本倍率：声明倍率 × 修正系数。
+   * 后端排序用的就是这个值，展示也该用它而不是 comparable_rate。
+   */
+  corrected_rate: number
   /** >0 说明这个价位本地已经在用了 */
   local_account_count: number
 }
@@ -100,6 +113,8 @@ export interface CreateUpstreamProviderRequest {
   base_url: string
   username: string
   password: string
+  /** 充值比例修正系数（充值 10 倍填 0.1）；省略按 1.0 处理 */
+  rate_correction?: number
   totp_secret?: string
   notes?: string | null
   sync_enabled?: boolean
@@ -111,6 +126,8 @@ export interface UpdateUpstreamProviderRequest {
   base_url: string
   username: string
   password?: string
+  /** 省略表示不修改 */
+  rate_correction?: number
   totp_secret?: string
   notes?: string | null
   status?: 'active' | 'inactive'

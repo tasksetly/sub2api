@@ -59,26 +59,30 @@ func NewUpstreamProviderService(
 
 // CreateUpstreamProviderInput 是新增上游的入参。
 type CreateUpstreamProviderInput struct {
-	Name        string
-	BaseURL     string
-	Username    string
-	Password    string
-	TotpSecret  string
-	Notes       *string
-	SyncEnabled bool
+	Name     string
+	BaseURL  string
+	Username string
+	Password string
+	// RateCorrection 是充值比例修正系数；0/缺省按「不修正」处理（1.0）。
+	RateCorrection float64
+	TotpSecret     string
+	Notes          *string
+	SyncEnabled    bool
 }
 
 // UpdateUpstreamProviderInput 是编辑上游的入参。
 // Password/TotpSecret 为空表示不修改。
 type UpdateUpstreamProviderInput struct {
-	Name        string
-	BaseURL     string
-	Username    string
-	Password    string
-	TotpSecret  string
-	Notes       *string
-	Status      string
-	SyncEnabled bool
+	Name     string
+	BaseURL  string
+	Username string
+	Password string
+	// RateCorrection 是充值比例修正系数；nil 表示不修改。
+	RateCorrection *float64
+	TotpSecret     string
+	Notes          *string
+	Status         string
+	SyncEnabled    bool
 }
 
 func (s *UpstreamProviderService) Create(
@@ -105,14 +109,15 @@ func (s *UpstreamProviderService) Create(
 	}
 
 	provider := &UpstreamProvider{
-		Name:        name,
-		BaseURL:     normalizedURL,
-		Username:    strings.TrimSpace(input.Username),
-		Password:    input.Password,
-		TotpSecret:  strings.TrimSpace(input.TotpSecret),
-		Notes:       input.Notes,
-		Status:      StatusActive,
-		SyncEnabled: input.SyncEnabled,
+		Name:           name,
+		BaseURL:        normalizedURL,
+		Username:       strings.TrimSpace(input.Username),
+		Password:       input.Password,
+		RateCorrection: NormalizeRateCorrection(input.RateCorrection),
+		TotpSecret:     strings.TrimSpace(input.TotpSecret),
+		Notes:          input.Notes,
+		Status:         StatusActive,
+		SyncEnabled:    input.SyncEnabled,
 	}
 	if err := s.repo.Create(ctx, provider); err != nil {
 		return nil, fmt.Errorf("create upstream provider: %w", err)
@@ -151,6 +156,10 @@ func (s *UpstreamProviderService) Update(
 	provider.SyncEnabled = input.SyncEnabled
 	if input.Status != "" {
 		provider.Status = input.Status
+	}
+	// nil 表示不修改，保留库里已有的系数
+	if input.RateCorrection != nil {
+		provider.RateCorrection = NormalizeRateCorrection(*input.RateCorrection)
 	}
 	// 空值表示不修改，交由仓储层判断
 	provider.Password = input.Password

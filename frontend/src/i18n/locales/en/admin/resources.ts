@@ -76,6 +76,9 @@ export default {
       formPasswordHelpEdit:
         'Leave blank to keep unchanged. Changing it invalidates the cached token immediately',
       formPasswordPlaceholderEdit: 'Leave blank to keep',
+      formRateCorrection: 'Rate correction',
+      formRateCorrectionHelp:
+        'Levels out differing top-up ratios: enter 1/ratio (10× top-up → 0.1). Comparison rate = declared rate × this factor; use 1 for 1:1 top-up (no correction)',
       formTotpSecret: 'TOTP secret',
       formTotpSecretHelp: 'Only needed when the upstream enforces 2FA; used to generate codes',
       formNotes: 'Notes',
@@ -144,9 +147,11 @@ export default {
         'Synced concurrency and rates are shown for comparison only; local accounts are never changed automatically',
 
       compareTitle: 'All upstream groups by rate',
-      compareHint: 'Every group across all upstreams, cheapest first; ties broken by upstream name',
+      compareHint:
+        'Every group across all upstreams by corrected rate, cheapest first; ties broken by upstream name',
       compareEmpty: 'No group data yet — add an upstream and sync first',
-      compareRate: 'Rate',
+      compareCorrectedRate: 'Corrected rate',
+      compareRateCorrectedFrom: 'declared ×{raw} × correction {correction}',
       compareProvider: 'Upstream',
       compareInUse: 'Provisioned',
       comparePlatformAll: 'All platforms',

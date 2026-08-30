@@ -114,13 +114,25 @@ export async function listGroups(id: number): Promise<UpstreamGroup[]> {
 }
 
 /**
- * 跨上游拉平所有分组做横向比价，按倍率升序。
+ * 跨上游拉平所有分组做横向比价，按「修正后倍率」升序。
+ *
+ * 后端返回分页信封（items/total/...），不是裸数组——直接当数组用会渲染出空表。
  * @param platform 可选，按平台过滤（跨平台比倍率没意义）
  */
-export async function compareGroups(platform?: string): Promise<UpstreamGroupComparison[]> {
-  const { data } = await apiClient.get<UpstreamGroupComparison[]>(
+export async function compareGroups(
+  platform?: string,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<PaginatedResponse<UpstreamGroupComparison>> {
+  const { data } = await apiClient.get<PaginatedResponse<UpstreamGroupComparison>>(
     '/admin/upstream-providers/groups/compare',
-    { params: platform ? { platform } : undefined }
+    {
+      params: {
+        page,
+        page_size: pageSize,
+        ...(platform ? { platform } : {})
+      }
+    }
   )
   return data
 }

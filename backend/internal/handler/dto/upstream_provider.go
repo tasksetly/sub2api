@@ -21,6 +21,10 @@ type UpstreamProvider struct {
 	HasPassword   bool   `json:"has_password"`
 	HasTotpSecret bool   `json:"has_totp_secret"`
 
+	// RateCorrection 是充值比例修正系数，比价倍率 = 声明倍率 × 它。
+	// 1.0 表示 1:1 充值、不做修正。
+	RateCorrection float64 `json:"rate_correction"`
+
 	// 上游账户信息（同步来的只读快照）
 	Balance             *float64 `json:"balance"`
 	FrozenBalance       *float64 `json:"frozen_balance"`
@@ -82,6 +86,11 @@ type UpstreamGroupComparison struct {
 	ProviderStatus      string   `json:"provider_status"`
 	ProviderBalance     *float64 `json:"provider_balance"`
 	ProviderSyncEnabled bool     `json:"provider_sync_enabled"`
+	// ProviderRateCorrection 是该上游的充值比例修正系数
+	ProviderRateCorrection float64 `json:"provider_rate_correction"`
+	// CorrectedRate 是跨上游可比的真实成本倍率：声明倍率 × 修正系数。
+	// 后端排序用的就是这个值，前端展示也该用它而不是 ComparableRate。
+	CorrectedRate float64 `json:"corrected_rate"`
 	// LocalAccountCount >0 说明这个价位本地已经在用了
 	LocalAccountCount int64 `json:"local_account_count"`
 }
@@ -108,6 +117,7 @@ func UpstreamProviderFromService(p *service.UpstreamProvider) *UpstreamProvider 
 		Username:            p.Username,
 		HasPassword:         p.Password != "",
 		HasTotpSecret:       p.TotpSecret != "",
+		RateCorrection:      service.NormalizeRateCorrection(p.RateCorrection),
 		Balance:             p.Balance,
 		FrozenBalance:       p.FrozenBalance,
 		UpstreamConcurrency: p.UpstreamConcurrency,
@@ -176,12 +186,14 @@ func UpstreamGroupComparisonFromService(
 		return nil
 	}
 	return &UpstreamGroupComparison{
-		UpstreamGroup:       *base,
-		ProviderName:        g.ProviderName,
-		ProviderStatus:      g.ProviderStatus,
-		ProviderBalance:     g.ProviderBalance,
-		ProviderSyncEnabled: g.ProviderSyncEnabled,
-		LocalAccountCount:   g.LocalAccountCount,
+		UpstreamGroup:          *base,
+		ProviderName:           g.ProviderName,
+		ProviderStatus:         g.ProviderStatus,
+		ProviderBalance:        g.ProviderBalance,
+		ProviderSyncEnabled:    g.ProviderSyncEnabled,
+		ProviderRateCorrection: service.NormalizeRateCorrection(g.ProviderRateCorrection),
+		CorrectedRate:          g.CorrectedRate(),
+		LocalAccountCount:      g.LocalAccountCount,
 	}
 }
 
