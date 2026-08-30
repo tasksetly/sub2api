@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 )
 
@@ -294,4 +295,42 @@ func TestUpstreamGroupComparableRate(t *testing.T) {
 
 	withoutOverride := UpstreamGroup{RateMultiplier: 0.15}
 	require.InDelta(t, 0.15, withoutOverride.ComparableRate(), 0.0001)
+}
+
+// 手填 token 的到期时间：能解出 exp 就用它，否则给兜底有效期。
+func TestUpstreamTokenExpiry(t *testing.T) {
+	// 只解不验签，所以签名内容无所谓，用随便一个 key 签出来即可
+	signed := func(t *testing.T, claims jwt.MapClaims) string {
+		t.Helper()
+		token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).
+			SignedString([]byte("irrelevant-key"))
+		require.NoError(t, err)
+		return token
+	}
+
+	t.Run("uses exp from jwt", func(t *testing.T) {
+		exp := time.Now().Add(48 * time.Hour).Truncate(time.Second)
+		got := upstreamTokenExpiry(signed(t, jwt.MapClaims{"exp": exp.Unix()}))
+		require.WithinDuration(t, exp, got, time.Second)
+	})
+
+	// 已过期的 token 照原样落库，让 ensureToken 报 TOKEN_EXPIRED，
+	// 而不是套上兜底有效期假装还能用
+	t.Run("keeps past exp", func(t *testing.T) {
+		exp := time.Now().Add(-time.Hour).Truncate(time.Second)
+		got := upstreamTokenExpiry(signed(t, jwt.MapClaims{"exp": exp.Unix()}))
+		require.WithinDuration(t, exp, got, time.Second)
+		require.True(t, got.Before(time.Now()))
+	})
+
+	t.Run("falls back without exp", func(t *testing.T) {
+		got := upstreamTokenExpiry(signed(t, jwt.MapClaims{"sub": "42"}))
+		require.WithinDuration(t, time.Now().Add(upstreamProviderManualTokenTTL), got, time.Minute)
+	})
+
+	// 不透明 token 也接受：上游不一定发 JWT，给兜底有效期而不是直接拒
+	t.Run("falls back for opaque token", func(t *testing.T) {
+		got := upstreamTokenExpiry("not-a-jwt-at-all")
+		require.WithinDuration(t, time.Now().Add(upstreamProviderManualTokenTTL), got, time.Minute)
+	})
 }

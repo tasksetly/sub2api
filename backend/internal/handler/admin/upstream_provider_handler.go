@@ -23,10 +23,14 @@ func NewUpstreamProviderHandler(svc *service.UpstreamProviderService) *UpstreamP
 
 // CreateUpstreamProviderRequest 新增上游。
 type CreateUpstreamProviderRequest struct {
-	Name     string `json:"name" binding:"required"`
-	BaseURL  string `json:"base_url" binding:"required"`
+	Name    string `json:"name" binding:"required"`
+	BaseURL string `json:"base_url" binding:"required"`
+	// Username 仍必填：即使只用 token，列表页也要有个标识看是哪个上游账号。
 	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	// Password 与 Token 二选一，由 service 校验：上游做了 CF 校验时密码登不上去。
+	Password string `json:"password"`
+	// Token 是管理员从浏览器里拿到的上游 JWT，直接写入会话缓存。
+	Token string `json:"token"`
 	// RateCorrection 充值比例修正系数（充值 10 倍填 0.1）。省略按 1.0 处理。
 	RateCorrection *float64 `json:"rate_correction" binding:"omitempty,gt=0"`
 	TotpSecret     string   `json:"totp_secret"`
@@ -35,12 +39,14 @@ type CreateUpstreamProviderRequest struct {
 }
 
 // UpdateUpstreamProviderRequest 编辑上游。
-// Password/TotpSecret 留空表示不修改。
+// Password/TotpSecret/Token 留空表示不修改。
 type UpdateUpstreamProviderRequest struct {
 	Name     string `json:"name" binding:"required"`
 	BaseURL  string `json:"base_url" binding:"required"`
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password"`
+	// Token 非空时顶掉缓存的会话；与 Password 同时填时以 Token 为准。
+	Token string `json:"token"`
 	// RateCorrection 省略表示不修改
 	RateCorrection *float64 `json:"rate_correction" binding:"omitempty,gt=0"`
 	TotpSecret     string   `json:"totp_secret"`
@@ -126,6 +132,7 @@ func (h *UpstreamProviderHandler) Create(c *gin.Context) {
 		BaseURL:        req.BaseURL,
 		Username:       req.Username,
 		Password:       req.Password,
+		Token:          req.Token,
 		RateCorrection: rateCorrection,
 		TotpSecret:     req.TotpSecret,
 		Notes:          req.Notes,
@@ -161,6 +168,7 @@ func (h *UpstreamProviderHandler) Update(c *gin.Context) {
 		BaseURL:        req.BaseURL,
 		Username:       req.Username,
 		Password:       req.Password,
+		Token:          req.Token,
 		RateCorrection: req.RateCorrection,
 		TotpSecret:     req.TotpSecret,
 		Notes:          req.Notes,

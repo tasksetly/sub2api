@@ -14,6 +14,13 @@ export interface UpstreamProvider {
   username: string
   has_password: boolean
   has_totp_secret: boolean
+  /** 是否存了上游 JWT（手填的或自动登录缓存的） */
+  has_token: boolean
+  /**
+   * 已存 token 的到期时间。只有 token、没有密码的上游过期后无法自动续期，
+   * 得管理员再贴一个，所以这个时间要露给前端。
+   */
+  token_expires_at: string | null
 
   /**
    * 充值比例修正系数，用于抹平各上游充值比例的差异。
@@ -108,11 +115,14 @@ export interface UpstreamProfile {
   status: string
 }
 
+/** password 与 token 二选一：上游做了 CF 校验、登不上去时直接贴 token */
 export interface CreateUpstreamProviderRequest {
   name: string
   base_url: string
   username: string
-  password: string
+  password?: string
+  /** 手填的上游 JWT，直接写入会话缓存；有效期从它的 exp 解析 */
+  token?: string
   /** 充值比例修正系数（充值 10 倍填 0.1）；省略按 1.0 处理 */
   rate_correction?: number
   totp_secret?: string
@@ -120,12 +130,14 @@ export interface CreateUpstreamProviderRequest {
   sync_enabled?: boolean
 }
 
-/** password/totp_secret 留空表示不修改 */
+/** password/totp_secret/token 留空表示不修改 */
 export interface UpdateUpstreamProviderRequest {
   name: string
   base_url: string
   username: string
   password?: string
+  /** 非空时顶掉缓存的会话；与 password 同时填时以它为准 */
+  token?: string
   /** 省略表示不修改 */
   rate_correction?: number
   totp_secret?: string

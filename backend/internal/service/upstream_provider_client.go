@@ -11,6 +11,7 @@ import (
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // 上游 sub2api 实例的管理客户端。
@@ -26,6 +27,10 @@ const (
 	upstreamProviderTokenSkew = 5 * time.Minute
 	// 上游未回传 expires_in 时的保守默认有效期
 	upstreamProviderDefaultTokenTTL = 30 * time.Minute
+	// 手填 token 解不出 exp 时的兜底有效期。比自动登录那份长得多：
+	// 手填是因为自动登录走不通（CF 校验），到期后没有任何自愈手段，
+	// 给太短只会让管理员反复贴。
+	upstreamProviderManualTokenTTL = 7 * 24 * time.Hour
 )
 
 var (
@@ -342,4 +347,28 @@ func tokenExpiry(expiresIn int64) time.Time {
 		return time.Now().Add(upstreamProviderDefaultTokenTTL)
 	}
 	return time.Now().Add(time.Duration(expiresIn) * time.Second)
+}
+
+// upstreamTokenExpiry 推断管理员手填 token 的到期时间。
+//
+// 只解不验签：签名密钥在上游手里，本地无从校验，我们要的只是 exp 好让
+// 调度知道什么时候该提醒续期。解不出 exp（不是 JWT，或是不透明 token）
+// 就给一个保守的兜底有效期——写 0/永久都更糟：永久会让过期 token 一直被
+// 当成有效而每次同步都 401，0 则让刚贴进来的 token 立刻失效。兜底期内真
+// 失效了，同步失败原因会落到 last_sync_error 上，管理员看得到。
+func upstreamTokenExpiry(token string) time.Time {
+	fallback := time.Now().Add(upstreamProviderManualTokenTTL)
+
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	claims := jwt.MapClaims{}
+	if _, _, err := parser.ParseUnverified(strings.TrimSpace(token), claims); err != nil {
+		return fallback
+	}
+	exp, err := claims.GetExpirationTime()
+	if err != nil || exp == nil {
+		return fallback
+	}
+	// 已经过期的 token 照原样落库：ensureToken 会因此报 TOKEN_EXPIRED，
+	// 比默默当成有效、等到同步 401 才暴露要直接。
+	return exp.Time
 }

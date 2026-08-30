@@ -20,6 +20,10 @@ type UpstreamProvider struct {
 	Username      string `json:"username"`
 	HasPassword   bool   `json:"has_password"`
 	HasTotpSecret bool   `json:"has_totp_secret"`
+	// HasToken 表示存了手填/缓存的上游 JWT。配合 TokenExpiresAt，管理员能看出
+	// 「只有 token 的上游」还剩多久要续期——这类上游过期后没有自动续期手段。
+	HasToken       bool       `json:"has_token"`
+	TokenExpiresAt *time.Time `json:"token_expires_at"`
 
 	// RateCorrection 是充值比例修正系数，比价倍率 = 声明倍率 × 它。
 	// 1.0 表示 1:1 充值、不做修正。
@@ -117,6 +121,8 @@ func UpstreamProviderFromService(p *service.UpstreamProvider) *UpstreamProvider 
 		Username:            p.Username,
 		HasPassword:         p.Password != "",
 		HasTotpSecret:       p.TotpSecret != "",
+		HasToken:            p.Token != "",
+		TokenExpiresAt:      p.TokenExpiresAt,
 		RateCorrection:      service.NormalizeRateCorrection(p.RateCorrection),
 		Balance:             p.Balance,
 		FrozenBalance:       p.FrozenBalance,

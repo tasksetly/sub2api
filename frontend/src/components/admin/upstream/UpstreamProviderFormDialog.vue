@@ -36,7 +36,6 @@
           class="input"
           autocomplete="new-password"
           :placeholder="editing ? t('admin.upstreamProviders.formPasswordPlaceholderEdit') : ''"
-          :required="!editing"
         />
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
           {{
@@ -46,6 +45,38 @@
           }}
         </p>
       </div>
+
+      <div>
+        <label class="input-label">{{ t('admin.upstreamProviders.formToken') }}</label>
+        <textarea
+          v-model="form.token"
+          rows="3"
+          class="input font-mono text-xs"
+          autocomplete="off"
+          spellcheck="false"
+          :placeholder="
+            editing && editing.has_token
+              ? t('admin.upstreamProviders.formPasswordPlaceholderEdit')
+              : t('admin.upstreamProviders.formTokenPlaceholder')
+          "
+        ></textarea>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {{
+            editing
+              ? t('admin.upstreamProviders.formTokenHelpEdit')
+              : t('admin.upstreamProviders.formTokenHelp')
+          }}
+        </p>
+        <!-- 只有 token 没有密码的上游过期后无法自愈，把到期时间摆在管理员眼前 -->
+        <p v-if="tokenExpiryHint" class="mt-1 text-xs" :class="tokenExpiryClass">
+          {{ tokenExpiryHint }}
+        </p>
+      </div>
+
+      <!-- 新增时密码和 token 二选一，浏览器的 required 管不了这种跨字段约束 -->
+      <p v-if="credentialsError" class="text-xs text-red-600 dark:text-red-400">
+        {{ t('admin.upstreamProviders.formTokenRequired') }}
+      </p>
 
       <div>
         <label class="input-label">{{ t('admin.upstreamProviders.formTotpSecret') }}</label>
@@ -144,6 +175,7 @@ function emptyForm() {
     base_url: '',
     username: '',
     password: '',
+    token: '',
     // 字符串而非 number：type="number" 的 v-model 给的是字符串，清空时是 ''，
     // 留到提交时统一收敛成 1（不修正）
     rate_correction: '1',
@@ -163,24 +195,55 @@ function normalizedRateCorrection(): number {
 }
 
 const form = ref(emptyForm())
+const credentialsError = ref(false)
 
 const statusOptions = computed(() => [
   { value: 'active', label: t('common.active') },
   { value: 'inactive', label: t('common.inactive') }
 ])
 
-// 打开弹窗时回填。密码和 TOTP 密钥永远留空——后端不回显明文，
+// 已存 token 的到期提示。只有 token、没有密码的上游过期后没有自动续期手段，
+// 得管理员再贴一个，所以这里额外点明。
+const tokenExpiryHint = computed(() => {
+  const provider = props.editing
+  if (!provider?.has_token || !provider.token_expires_at) return ''
+
+  const expiresAt = new Date(provider.token_expires_at)
+  if (Number.isNaN(expiresAt.getTime())) return ''
+
+  if (expiresAt.getTime() <= Date.now()) {
+    return t('admin.upstreamProviders.tokenExpired')
+  }
+  const base = `${t('admin.upstreamProviders.tokenExpiresAt')}: ${expiresAt.toLocaleString()}`
+  return provider.has_password
+    ? base
+    : `${base} · ${t('admin.upstreamProviders.tokenNoAutoRenew')}`
+})
+
+const tokenExpiryClass = computed(() => {
+  const provider = props.editing
+  const expiresAt = provider?.token_expires_at ? new Date(provider.token_expires_at) : null
+  const expired = expiresAt !== null && !Number.isNaN(expiresAt.getTime())
+    && expiresAt.getTime() <= Date.now()
+  return expired
+    ? 'text-red-600 dark:text-red-400'
+    : 'text-amber-600 dark:text-amber-400'
+})
+
+// 打开弹窗时回填。密码、TOTP 密钥和 token 永远留空——后端不回显明文，
 // 留空也正好表示「不修改」。
 watch(
   () => [props.show, props.editing] as const,
   ([show, editing]) => {
     if (!show) return
+    credentialsError.value = false
     if (editing) {
       form.value = {
         name: editing.name,
         base_url: editing.base_url,
         username: editing.username,
         password: '',
+        token: '',
         rate_correction: String(editing.rate_correction ?? 1),
         totp_secret: '',
         notes: editing.notes ?? '',
@@ -195,6 +258,16 @@ watch(
 )
 
 function handleSubmit() {
+  const token = form.value.token.trim()
+
+  // 新增时二选一：能自动登录的填密码，被 CF 挡住的贴 token。
+  // 编辑时都可留空（表示不修改），已有凭据不该被这条挡住。
+  if (!props.editing && form.value.password === '' && token === '') {
+    credentialsError.value = true
+    return
+  }
+  credentialsError.value = false
+
   const notes = form.value.notes.trim()
   const base = {
     name: form.value.name.trim(),
@@ -213,15 +286,15 @@ function handleSubmit() {
     // 空字符串表示不修改，不要传上去覆盖成空
     if (form.value.password !== '') payload.password = form.value.password
     if (form.value.totp_secret !== '') payload.totp_secret = form.value.totp_secret
+    if (token !== '') payload.token = token
     emit('submit', payload)
     return
   }
 
-  const payload: CreateUpstreamProviderRequest = {
-    ...base,
-    password: form.value.password
-  }
+  const payload: CreateUpstreamProviderRequest = { ...base }
+  if (form.value.password !== '') payload.password = form.value.password
   if (form.value.totp_secret !== '') payload.totp_secret = form.value.totp_secret
+  if (token !== '') payload.token = token
   emit('submit', payload)
 }
 </script>

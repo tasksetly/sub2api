@@ -55,6 +55,17 @@ func (r *upstreamProviderRepository) Create(ctx context.Context, provider *servi
 		}
 		builder.SetTotpSecretEncrypted(encryptedSecret)
 	}
+	// 管理员手填的 token：上游做了 CF 校验时这是唯一能用的凭据
+	if provider.Token != "" {
+		encryptedToken, encErr := r.encryptor.Encrypt(provider.Token)
+		if encErr != nil {
+			return fmt.Errorf("encrypt upstream token: %w", encErr)
+		}
+		builder.SetTokenEncrypted(encryptedToken)
+		if provider.TokenExpiresAt != nil {
+			builder.SetTokenExpiresAt(*provider.TokenExpiresAt)
+		}
+	}
 
 	created, err := builder.Save(ctx)
 	if err != nil {
@@ -108,6 +119,20 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 			return fmt.Errorf("encrypt upstream totp secret: %w", err)
 		}
 		builder.SetTotpSecretEncrypted(encrypted)
+	}
+	// token 为空表示「不改会话」。必须放在密码之后：两者同时填时以手填 token
+	// 为准，否则上面那句 ClearToken 会把刚贴进来的 token 抹掉。
+	if provider.Token != "" {
+		encrypted, err := r.encryptor.Encrypt(provider.Token)
+		if err != nil {
+			return fmt.Errorf("encrypt upstream token: %w", err)
+		}
+		builder.SetTokenEncrypted(encrypted)
+		if provider.TokenExpiresAt != nil {
+			builder.SetTokenExpiresAt(*provider.TokenExpiresAt)
+		} else {
+			builder.ClearTokenExpiresAt()
+		}
 	}
 
 	updated, err := builder.Save(ctx)

@@ -44,7 +44,21 @@
                 <span v-if="provider.has_totp_secret" class="badge badge-primary">
                   {{ t('admin.upstreamProviders.hasTotp') }}
                 </span>
-                <span v-if="!provider.has_password" class="badge badge-warning">
+                <!-- 只有 token 的上游（被 CF 挡住、登不上去）是正常配置，
+                     不该报「未配置密码」；但到期后无法自动续期，要标出来。 -->
+                <span
+                  v-if="!provider.has_password && provider.has_token"
+                  class="badge"
+                  :class="isTokenExpired(provider) ? 'badge-warning' : 'badge-primary'"
+                  :title="tokenBadgeTitle(provider)"
+                >
+                  {{
+                    isTokenExpired(provider)
+                      ? t('admin.upstreamProviders.tokenExpired')
+                      : t('admin.upstreamProviders.tokenAuth')
+                  }}
+                </span>
+                <span v-else-if="!provider.has_password" class="badge badge-warning">
                   {{ t('admin.upstreamProviders.noPassword') }}
                 </span>
               </div>
@@ -259,6 +273,21 @@ const sortedGroups = computed(() =>
 
 function formatMoney(value: number): string {
   return value.toFixed(2)
+}
+
+// 只有 token 的上游过期后没有自动续期手段，列表页就得能看出来。
+function isTokenExpired(provider: UpstreamProviderWithStats): boolean {
+  if (!provider.token_expires_at) return false
+  const expiresAt = new Date(provider.token_expires_at)
+  if (Number.isNaN(expiresAt.getTime())) return false
+  return expiresAt.getTime() <= Date.now()
+}
+
+function tokenBadgeTitle(provider: UpstreamProviderWithStats): string {
+  if (!provider.token_expires_at) return t('admin.upstreamProviders.tokenNoAutoRenew')
+  const expiresAt = new Date(provider.token_expires_at)
+  if (Number.isNaN(expiresAt.getTime())) return t('admin.upstreamProviders.tokenNoAutoRenew')
+  return `${t('admin.upstreamProviders.tokenExpiresAt')}: ${expiresAt.toLocaleString()}`
 }
 
 function formatRate(value: number): string {
