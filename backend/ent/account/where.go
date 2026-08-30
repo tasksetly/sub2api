@@ -105,6 +105,16 @@ func ProxyFallbackOriginID(v int64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldProxyFallbackOriginID, v))
 }
 
+// UpstreamProviderID applies equality check predicate on the "upstream_provider_id" field. It's identical to UpstreamProviderIDEQ.
+func UpstreamProviderID(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldUpstreamProviderID, v))
+}
+
+// UpstreamRemoteGroupID applies equality check predicate on the "upstream_remote_group_id" field. It's identical to UpstreamRemoteGroupIDEQ.
+func UpstreamRemoteGroupID(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldUpstreamRemoteGroupID, v))
+}
+
 // Concurrency applies equality check predicate on the "concurrency" field. It's identical to ConcurrencyEQ.
 func Concurrency(v int) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldConcurrency, v))
@@ -743,6 +753,86 @@ func ProxyFallbackOriginIDIsNil() predicate.Account {
 // ProxyFallbackOriginIDNotNil applies the NotNil predicate on the "proxy_fallback_origin_id" field.
 func ProxyFallbackOriginIDNotNil() predicate.Account {
 	return predicate.Account(sql.FieldNotNull(FieldProxyFallbackOriginID))
+}
+
+// UpstreamProviderIDEQ applies the EQ predicate on the "upstream_provider_id" field.
+func UpstreamProviderIDEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldUpstreamProviderID, v))
+}
+
+// UpstreamProviderIDNEQ applies the NEQ predicate on the "upstream_provider_id" field.
+func UpstreamProviderIDNEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldUpstreamProviderID, v))
+}
+
+// UpstreamProviderIDIn applies the In predicate on the "upstream_provider_id" field.
+func UpstreamProviderIDIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldUpstreamProviderID, vs...))
+}
+
+// UpstreamProviderIDNotIn applies the NotIn predicate on the "upstream_provider_id" field.
+func UpstreamProviderIDNotIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldUpstreamProviderID, vs...))
+}
+
+// UpstreamProviderIDIsNil applies the IsNil predicate on the "upstream_provider_id" field.
+func UpstreamProviderIDIsNil() predicate.Account {
+	return predicate.Account(sql.FieldIsNull(FieldUpstreamProviderID))
+}
+
+// UpstreamProviderIDNotNil applies the NotNil predicate on the "upstream_provider_id" field.
+func UpstreamProviderIDNotNil() predicate.Account {
+	return predicate.Account(sql.FieldNotNull(FieldUpstreamProviderID))
+}
+
+// UpstreamRemoteGroupIDEQ applies the EQ predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldUpstreamRemoteGroupID, v))
+}
+
+// UpstreamRemoteGroupIDNEQ applies the NEQ predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDNEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldUpstreamRemoteGroupID, v))
+}
+
+// UpstreamRemoteGroupIDIn applies the In predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldUpstreamRemoteGroupID, vs...))
+}
+
+// UpstreamRemoteGroupIDNotIn applies the NotIn predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDNotIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldUpstreamRemoteGroupID, vs...))
+}
+
+// UpstreamRemoteGroupIDGT applies the GT predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDGT(v int64) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldUpstreamRemoteGroupID, v))
+}
+
+// UpstreamRemoteGroupIDGTE applies the GTE predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDGTE(v int64) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldUpstreamRemoteGroupID, v))
+}
+
+// UpstreamRemoteGroupIDLT applies the LT predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDLT(v int64) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldUpstreamRemoteGroupID, v))
+}
+
+// UpstreamRemoteGroupIDLTE applies the LTE predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDLTE(v int64) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldUpstreamRemoteGroupID, v))
+}
+
+// UpstreamRemoteGroupIDIsNil applies the IsNil predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDIsNil() predicate.Account {
+	return predicate.Account(sql.FieldIsNull(FieldUpstreamRemoteGroupID))
+}
+
+// UpstreamRemoteGroupIDNotNil applies the NotNil predicate on the "upstream_remote_group_id" field.
+func UpstreamRemoteGroupIDNotNil() predicate.Account {
+	return predicate.Account(sql.FieldNotNull(FieldUpstreamRemoteGroupID))
 }
 
 // ConcurrencyEQ applies the EQ predicate on the "concurrency" field.
@@ -1782,6 +1872,29 @@ func HasUsageLogs() predicate.Account {
 func HasUsageLogsWith(preds ...predicate.UsageLog) predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {
 		step := newUsageLogsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasUpstreamProvider applies the HasEdge predicate on the "upstream_provider" edge.
+func HasUpstreamProvider() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, UpstreamProviderTable, UpstreamProviderColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasUpstreamProviderWith applies the HasEdge predicate on the "upstream_provider" edge with a given conditions (other predicates).
+func HasUpstreamProviderWith(preds ...predicate.UpstreamProvider) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newUpstreamProviderStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -806,6 +806,12 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/tickets', label: t('nav.ticketManagement'), icon: TicketIcon },
     { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
     {
+      path: '/admin/upstream-providers',
+      label: t('nav.upstreamProviders'),
+      icon: ServerIcon,
+      hideInSimpleMode: true
+    },
+    {
       path: '/admin/security-audit',
       label: t('nav.securityAudit'),
       icon: ShieldIcon,

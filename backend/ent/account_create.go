@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/ent/upstreamprovider"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 )
 
@@ -149,6 +150,34 @@ func (_c *AccountCreate) SetProxyFallbackOriginID(v int64) *AccountCreate {
 func (_c *AccountCreate) SetNillableProxyFallbackOriginID(v *int64) *AccountCreate {
 	if v != nil {
 		_c.SetProxyFallbackOriginID(*v)
+	}
+	return _c
+}
+
+// SetUpstreamProviderID sets the "upstream_provider_id" field.
+func (_c *AccountCreate) SetUpstreamProviderID(v int64) *AccountCreate {
+	_c.mutation.SetUpstreamProviderID(v)
+	return _c
+}
+
+// SetNillableUpstreamProviderID sets the "upstream_provider_id" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableUpstreamProviderID(v *int64) *AccountCreate {
+	if v != nil {
+		_c.SetUpstreamProviderID(*v)
+	}
+	return _c
+}
+
+// SetUpstreamRemoteGroupID sets the "upstream_remote_group_id" field.
+func (_c *AccountCreate) SetUpstreamRemoteGroupID(v int64) *AccountCreate {
+	_c.mutation.SetUpstreamRemoteGroupID(v)
+	return _c
+}
+
+// SetNillableUpstreamRemoteGroupID sets the "upstream_remote_group_id" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableUpstreamRemoteGroupID(v *int64) *AccountCreate {
+	if v != nil {
+		_c.SetUpstreamRemoteGroupID(*v)
 	}
 	return _c
 }
@@ -502,6 +531,11 @@ func (_c *AccountCreate) AddUsageLogs(v ...*UsageLog) *AccountCreate {
 	return _c.AddUsageLogIDs(ids...)
 }
 
+// SetUpstreamProvider sets the "upstream_provider" edge to the UpstreamProvider entity.
+func (_c *AccountCreate) SetUpstreamProvider(v *UpstreamProvider) *AccountCreate {
+	return _c.SetUpstreamProviderID(v.ID)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_c *AccountCreate) Mutation() *AccountMutation {
 	return _c.mutation
@@ -755,6 +789,10 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 		_spec.SetField(account.FieldProxyFallbackOriginID, field.TypeInt64, value)
 		_node.ProxyFallbackOriginID = &value
 	}
+	if value, ok := _c.mutation.UpstreamRemoteGroupID(); ok {
+		_spec.SetField(account.FieldUpstreamRemoteGroupID, field.TypeInt64, value)
+		_node.UpstreamRemoteGroupID = &value
+	}
 	if value, ok := _c.mutation.Concurrency(); ok {
 		_spec.SetField(account.FieldConcurrency, field.TypeInt, value)
 		_node.Concurrency = value
@@ -915,6 +953,23 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.UpstreamProviderIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamProviderTable,
+			Columns: []string{account.UpstreamProviderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(upstreamprovider.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.UpstreamProviderID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
@@ -1128,6 +1183,48 @@ func (u *AccountUpsert) AddProxyFallbackOriginID(v int64) *AccountUpsert {
 // ClearProxyFallbackOriginID clears the value of the "proxy_fallback_origin_id" field.
 func (u *AccountUpsert) ClearProxyFallbackOriginID() *AccountUpsert {
 	u.SetNull(account.FieldProxyFallbackOriginID)
+	return u
+}
+
+// SetUpstreamProviderID sets the "upstream_provider_id" field.
+func (u *AccountUpsert) SetUpstreamProviderID(v int64) *AccountUpsert {
+	u.Set(account.FieldUpstreamProviderID, v)
+	return u
+}
+
+// UpdateUpstreamProviderID sets the "upstream_provider_id" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateUpstreamProviderID() *AccountUpsert {
+	u.SetExcluded(account.FieldUpstreamProviderID)
+	return u
+}
+
+// ClearUpstreamProviderID clears the value of the "upstream_provider_id" field.
+func (u *AccountUpsert) ClearUpstreamProviderID() *AccountUpsert {
+	u.SetNull(account.FieldUpstreamProviderID)
+	return u
+}
+
+// SetUpstreamRemoteGroupID sets the "upstream_remote_group_id" field.
+func (u *AccountUpsert) SetUpstreamRemoteGroupID(v int64) *AccountUpsert {
+	u.Set(account.FieldUpstreamRemoteGroupID, v)
+	return u
+}
+
+// UpdateUpstreamRemoteGroupID sets the "upstream_remote_group_id" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateUpstreamRemoteGroupID() *AccountUpsert {
+	u.SetExcluded(account.FieldUpstreamRemoteGroupID)
+	return u
+}
+
+// AddUpstreamRemoteGroupID adds v to the "upstream_remote_group_id" field.
+func (u *AccountUpsert) AddUpstreamRemoteGroupID(v int64) *AccountUpsert {
+	u.Add(account.FieldUpstreamRemoteGroupID, v)
+	return u
+}
+
+// ClearUpstreamRemoteGroupID clears the value of the "upstream_remote_group_id" field.
+func (u *AccountUpsert) ClearUpstreamRemoteGroupID() *AccountUpsert {
+	u.SetNull(account.FieldUpstreamRemoteGroupID)
 	return u
 }
 
@@ -1704,6 +1801,55 @@ func (u *AccountUpsertOne) UpdateProxyFallbackOriginID() *AccountUpsertOne {
 func (u *AccountUpsertOne) ClearProxyFallbackOriginID() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearProxyFallbackOriginID()
+	})
+}
+
+// SetUpstreamProviderID sets the "upstream_provider_id" field.
+func (u *AccountUpsertOne) SetUpstreamProviderID(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetUpstreamProviderID(v)
+	})
+}
+
+// UpdateUpstreamProviderID sets the "upstream_provider_id" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateUpstreamProviderID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateUpstreamProviderID()
+	})
+}
+
+// ClearUpstreamProviderID clears the value of the "upstream_provider_id" field.
+func (u *AccountUpsertOne) ClearUpstreamProviderID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearUpstreamProviderID()
+	})
+}
+
+// SetUpstreamRemoteGroupID sets the "upstream_remote_group_id" field.
+func (u *AccountUpsertOne) SetUpstreamRemoteGroupID(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetUpstreamRemoteGroupID(v)
+	})
+}
+
+// AddUpstreamRemoteGroupID adds v to the "upstream_remote_group_id" field.
+func (u *AccountUpsertOne) AddUpstreamRemoteGroupID(v int64) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddUpstreamRemoteGroupID(v)
+	})
+}
+
+// UpdateUpstreamRemoteGroupID sets the "upstream_remote_group_id" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateUpstreamRemoteGroupID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateUpstreamRemoteGroupID()
+	})
+}
+
+// ClearUpstreamRemoteGroupID clears the value of the "upstream_remote_group_id" field.
+func (u *AccountUpsertOne) ClearUpstreamRemoteGroupID() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearUpstreamRemoteGroupID()
 	})
 }
 
@@ -2503,6 +2649,55 @@ func (u *AccountUpsertBulk) UpdateProxyFallbackOriginID() *AccountUpsertBulk {
 func (u *AccountUpsertBulk) ClearProxyFallbackOriginID() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearProxyFallbackOriginID()
+	})
+}
+
+// SetUpstreamProviderID sets the "upstream_provider_id" field.
+func (u *AccountUpsertBulk) SetUpstreamProviderID(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetUpstreamProviderID(v)
+	})
+}
+
+// UpdateUpstreamProviderID sets the "upstream_provider_id" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateUpstreamProviderID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateUpstreamProviderID()
+	})
+}
+
+// ClearUpstreamProviderID clears the value of the "upstream_provider_id" field.
+func (u *AccountUpsertBulk) ClearUpstreamProviderID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearUpstreamProviderID()
+	})
+}
+
+// SetUpstreamRemoteGroupID sets the "upstream_remote_group_id" field.
+func (u *AccountUpsertBulk) SetUpstreamRemoteGroupID(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetUpstreamRemoteGroupID(v)
+	})
+}
+
+// AddUpstreamRemoteGroupID adds v to the "upstream_remote_group_id" field.
+func (u *AccountUpsertBulk) AddUpstreamRemoteGroupID(v int64) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.AddUpstreamRemoteGroupID(v)
+	})
+}
+
+// UpdateUpstreamRemoteGroupID sets the "upstream_remote_group_id" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateUpstreamRemoteGroupID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateUpstreamRemoteGroupID()
+	})
+}
+
+// ClearUpstreamRemoteGroupID clears the value of the "upstream_remote_group_id" field.
+func (u *AccountUpsertBulk) ClearUpstreamRemoteGroupID() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearUpstreamRemoteGroupID()
 	})
 }
 

@@ -107,6 +107,7 @@ var (
 		{Name: "credentials", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "extra", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "proxy_fallback_origin_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "upstream_remote_group_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "concurrency", Type: field.TypeInt, Default: 3},
 		{Name: "load_factor", Type: field.TypeInt, Nullable: true},
 		{Name: "priority", Type: field.TypeInt, Default: 50},
@@ -128,6 +129,7 @@ var (
 		{Name: "quota_dimension", Type: field.TypeEnum, Enums: []string{"global", "spark"}, Default: "global"},
 		{Name: "proxy_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "parent_account_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "upstream_provider_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// AccountsTable holds the schema information for the "accounts" table.
 	AccountsTable = &schema.Table{
@@ -137,15 +139,21 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "accounts_proxies_proxy",
-				Columns:    []*schema.Column{AccountsColumns[31]},
+				Columns:    []*schema.Column{AccountsColumns[32]},
 				RefColumns: []*schema.Column{ProxiesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "accounts_accounts_children",
-				Columns:    []*schema.Column{AccountsColumns[32]},
+				Columns:    []*schema.Column{AccountsColumns[33]},
 				RefColumns: []*schema.Column{AccountsColumns[0]},
 				OnDelete:   schema.Restrict,
+			},
+			{
+				Symbol:     "accounts_upstream_providers_accounts",
+				Columns:    []*schema.Column{AccountsColumns[34]},
+				RefColumns: []*schema.Column{UpstreamProvidersColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
@@ -167,52 +175,52 @@ var (
 			{
 				Name:    "account_status",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[16]},
+				Columns: []*schema.Column{AccountsColumns[17]},
 			},
 			{
 				Name:    "account_proxy_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[31]},
+				Columns: []*schema.Column{AccountsColumns[32]},
 			},
 			{
 				Name:    "account_priority",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[14]},
+				Columns: []*schema.Column{AccountsColumns[15]},
 			},
 			{
 				Name:    "account_last_used_at",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[18]},
+				Columns: []*schema.Column{AccountsColumns[19]},
 			},
 			{
 				Name:    "account_schedulable",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[21]},
+				Columns: []*schema.Column{AccountsColumns[22]},
 			},
 			{
 				Name:    "account_rate_limited_at",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[22]},
+				Columns: []*schema.Column{AccountsColumns[23]},
 			},
 			{
 				Name:    "account_rate_limit_reset_at",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[23]},
+				Columns: []*schema.Column{AccountsColumns[24]},
 			},
 			{
 				Name:    "account_overload_until",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[24]},
+				Columns: []*schema.Column{AccountsColumns[25]},
 			},
 			{
 				Name:    "account_platform_priority",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[7], AccountsColumns[14]},
+				Columns: []*schema.Column{AccountsColumns[7], AccountsColumns[15]},
 			},
 			{
 				Name:    "account_priority_status",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[14], AccountsColumns[16]},
+				Columns: []*schema.Column{AccountsColumns[15], AccountsColumns[17]},
 			},
 			{
 				Name:    "account_deleted_at",
@@ -222,7 +230,17 @@ var (
 			{
 				Name:    "account_parent_account_id",
 				Unique:  false,
-				Columns: []*schema.Column{AccountsColumns[32]},
+				Columns: []*schema.Column{AccountsColumns[33]},
+			},
+			{
+				Name:    "account_upstream_provider_id",
+				Unique:  false,
+				Columns: []*schema.Column{AccountsColumns[34]},
+			},
+			{
+				Name:    "account_upstream_provider_id_upstream_remote_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{AccountsColumns[34], AccountsColumns[12]},
 			},
 		},
 	}
@@ -1587,6 +1605,186 @@ var (
 		Columns:    TLSFingerprintProfilesColumns,
 		PrimaryKey: []*schema.Column{TLSFingerprintProfilesColumns[0]},
 	}
+	// TicketsColumns holds the columns for the "tickets" table.
+	TicketsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "subject", Type: field.TypeString, Size: 200},
+		{Name: "category", Type: field.TypeString, Size: 32, Default: "other"},
+		{Name: "status", Type: field.TypeString, Size: 24, Default: "open"},
+		{Name: "priority", Type: field.TypeString, Size: 16, Default: "normal"},
+		{Name: "last_message_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "closed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// TicketsTable holds the schema information for the "tickets" table.
+	TicketsTable = &schema.Table{
+		Name:       "tickets",
+		Columns:    TicketsColumns,
+		PrimaryKey: []*schema.Column{TicketsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "tickets_users_tickets",
+				Columns:    []*schema.Column{TicketsColumns[9]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "ticket_user_id_last_message_at",
+				Unique:  false,
+				Columns: []*schema.Column{TicketsColumns[9], TicketsColumns[5]},
+			},
+			{
+				Name:    "ticket_status_last_message_at",
+				Unique:  false,
+				Columns: []*schema.Column{TicketsColumns[3], TicketsColumns[5]},
+			},
+			{
+				Name:    "ticket_priority_last_message_at",
+				Unique:  false,
+				Columns: []*schema.Column{TicketsColumns[4], TicketsColumns[5]},
+			},
+		},
+	}
+	// TicketMessagesColumns holds the columns for the "ticket_messages" table.
+	TicketMessagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "author_role", Type: field.TypeString, Size: 16},
+		{Name: "content", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "attachments", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "ticket_id", Type: field.TypeInt64},
+		{Name: "author_id", Type: field.TypeInt64},
+	}
+	// TicketMessagesTable holds the schema information for the "ticket_messages" table.
+	TicketMessagesTable = &schema.Table{
+		Name:       "ticket_messages",
+		Columns:    TicketMessagesColumns,
+		PrimaryKey: []*schema.Column{TicketMessagesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "ticket_messages_tickets_messages",
+				Columns:    []*schema.Column{TicketMessagesColumns[5]},
+				RefColumns: []*schema.Column{TicketsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "ticket_messages_users_ticket_messages",
+				Columns:    []*schema.Column{TicketMessagesColumns[6]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "ticketmessage_ticket_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{TicketMessagesColumns[5], TicketMessagesColumns[4]},
+			},
+			{
+				Name:    "ticketmessage_author_id",
+				Unique:  false,
+				Columns: []*schema.Column{TicketMessagesColumns[6]},
+			},
+		},
+	}
+	// UpstreamGroupsColumns holds the columns for the "upstream_groups" table.
+	UpstreamGroupsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "remote_group_id", Type: field.TypeInt64},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "platform", Type: field.TypeString, Size: 50, Default: ""},
+		{Name: "subscription_type", Type: field.TypeString, Size: 20, Default: ""},
+		{Name: "rate_multiplier", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "effective_rate_multiplier", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "peak_rate_enabled", Type: field.TypeBool, Default: false},
+		{Name: "peak_rate_multiplier", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "peak_start", Type: field.TypeString, Size: 5, Default: ""},
+		{Name: "peak_end", Type: field.TypeString, Size: 5, Default: ""},
+		{Name: "daily_limit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "weekly_limit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "monthly_limit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "synced_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "upstream_provider_id", Type: field.TypeInt64},
+	}
+	// UpstreamGroupsTable holds the schema information for the "upstream_groups" table.
+	UpstreamGroupsTable = &schema.Table{
+		Name:       "upstream_groups",
+		Columns:    UpstreamGroupsColumns,
+		PrimaryKey: []*schema.Column{UpstreamGroupsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "upstream_groups_upstream_providers_groups",
+				Columns:    []*schema.Column{UpstreamGroupsColumns[17]},
+				RefColumns: []*schema.Column{UpstreamProvidersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "upstreamgroup_upstream_provider_id",
+				Unique:  false,
+				Columns: []*schema.Column{UpstreamGroupsColumns[17]},
+			},
+			{
+				Name:    "upstreamgroup_upstream_provider_id_remote_group_id",
+				Unique:  true,
+				Columns: []*schema.Column{UpstreamGroupsColumns[17], UpstreamGroupsColumns[3]},
+			},
+		},
+	}
+	// UpstreamProvidersColumns holds the columns for the "upstream_providers" table.
+	UpstreamProvidersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "base_url", Type: field.TypeString, Size: 255},
+		{Name: "notes", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "username", Type: field.TypeString, Size: 255},
+		{Name: "password_encrypted", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "totp_secret_encrypted", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "token_encrypted", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "token_expires_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "balance", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "frozen_balance", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "upstream_concurrency", Type: field.TypeInt, Nullable: true},
+		{Name: "upstream_user_id", Type: field.TypeString, Nullable: true, Size: 64},
+		{Name: "rate_correction", Type: field.TypeFloat64, Default: 1, SchemaType: map[string]string{"postgres": "decimal(10,6)"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "last_sync_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "last_sync_error", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "sync_enabled", Type: field.TypeBool, Default: true},
+	}
+	// UpstreamProvidersTable holds the schema information for the "upstream_providers" table.
+	UpstreamProvidersTable = &schema.Table{
+		Name:       "upstream_providers",
+		Columns:    UpstreamProvidersColumns,
+		PrimaryKey: []*schema.Column{UpstreamProvidersColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "upstreamprovider_status",
+				Unique:  false,
+				Columns: []*schema.Column{UpstreamProvidersColumns[17]},
+			},
+			{
+				Name:    "upstreamprovider_deleted_at",
+				Unique:  false,
+				Columns: []*schema.Column{UpstreamProvidersColumns[3]},
+			},
+			{
+				Name:    "upstreamprovider_sync_enabled",
+				Unique:  false,
+				Columns: []*schema.Column{UpstreamProvidersColumns[20]},
+			},
+		},
+	}
 	// UsageCleanupTasksColumns holds the columns for the "usage_cleanup_tasks" table.
 	UsageCleanupTasksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2110,6 +2308,10 @@ var (
 		SettingsTable,
 		SubscriptionPlansTable,
 		TLSFingerprintProfilesTable,
+		TicketsTable,
+		TicketMessagesTable,
+		UpstreamGroupsTable,
+		UpstreamProvidersTable,
 		UsageCleanupTasksTable,
 		UsageLogsTable,
 		UsersTable,
@@ -2129,6 +2331,7 @@ func init() {
 	}
 	AccountsTable.ForeignKeys[0].RefTable = ProxiesTable
 	AccountsTable.ForeignKeys[1].RefTable = AccountsTable
+	AccountsTable.ForeignKeys[2].RefTable = UpstreamProvidersTable
 	AccountsTable.Annotation = &entsql.Annotation{
 		Table: "accounts",
 	}
@@ -2237,6 +2440,22 @@ func init() {
 	}
 	TLSFingerprintProfilesTable.Annotation = &entsql.Annotation{
 		Table: "tls_fingerprint_profiles",
+	}
+	TicketsTable.ForeignKeys[0].RefTable = UsersTable
+	TicketsTable.Annotation = &entsql.Annotation{
+		Table: "tickets",
+	}
+	TicketMessagesTable.ForeignKeys[0].RefTable = TicketsTable
+	TicketMessagesTable.ForeignKeys[1].RefTable = UsersTable
+	TicketMessagesTable.Annotation = &entsql.Annotation{
+		Table: "ticket_messages",
+	}
+	UpstreamGroupsTable.ForeignKeys[0].RefTable = UpstreamProvidersTable
+	UpstreamGroupsTable.Annotation = &entsql.Annotation{
+		Table: "upstream_groups",
+	}
+	UpstreamProvidersTable.Annotation = &entsql.Annotation{
+		Table: "upstream_providers",
 	}
 	UsageCleanupTasksTable.Annotation = &entsql.Annotation{
 		Table: "usage_cleanup_tasks",

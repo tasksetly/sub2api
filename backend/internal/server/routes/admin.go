@@ -64,6 +64,9 @@ func RegisterAdminRoutes(
 		// 代理管理
 		registerProxyRoutes(admin, h, stepUpAuth)
 
+		// 上游 sub2api 供应商管理
+		registerUpstreamProviderRoutes(admin, h)
+
 		// 卡密管理
 		registerRedeemCodeRoutes(admin, h)
 
@@ -514,6 +517,31 @@ func registerProxyRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth
 		proxies.GET("/:id/accounts", h.Admin.Proxy.GetProxyAccounts)
 		proxies.POST("/batch-delete", h.Admin.Proxy.BatchDelete)
 		proxies.POST("/batch", h.Admin.Proxy.BatchCreate)
+	}
+}
+
+// registerUpstreamProviderRoutes 注册上游 sub2api 供应商管理路由。
+//
+// 这些接口只回传 has_password 布尔位，不回显任何明文凭据，所以不需要
+// 像代理导出那样加 step-up 2FA。
+func registerUpstreamProviderRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	if h.Admin.UpstreamProvider == nil {
+		return
+	}
+	providers := admin.Group("/upstream-providers")
+	{
+		providers.GET("", h.Admin.UpstreamProvider.List)
+		// 这两条必须注册在 /:id 之前，否则会被当成 id 匹配
+		providers.POST("/sync-all", h.Admin.UpstreamProvider.SyncAll)
+		providers.GET("/groups/compare", h.Admin.UpstreamProvider.CompareGroups)
+		providers.GET("/:id", h.Admin.UpstreamProvider.GetByID)
+		providers.POST("", h.Admin.UpstreamProvider.Create)
+		providers.PUT("/:id", h.Admin.UpstreamProvider.Update)
+		providers.DELETE("/:id", h.Admin.UpstreamProvider.Delete)
+		providers.POST("/:id/test", h.Admin.UpstreamProvider.TestConnection)
+		providers.POST("/:id/sync", h.Admin.UpstreamProvider.Sync)
+		providers.GET("/:id/groups", h.Admin.UpstreamProvider.ListGroups)
+		providers.POST("/:id/provision", h.Admin.UpstreamProvider.ProvisionAccounts)
 	}
 }
 

@@ -99,6 +99,22 @@ func (Account) Fields() []ent.Field {
 			Optional().Nillable().
 			Comment("Original proxy id replaced by expiry-fallback; for manual revert. NULL = not in fallback."),
 
+		// upstream_provider_id: 该账户由哪个上游 sub2api 供应商创建（可选）
+		// 用于把本地 usage_log 的实际花费归集到具体上游做比价。
+		// 比 supplier 字符串匹配可靠：改名不会断开关联。
+		field.Int64("upstream_provider_id").
+			Optional().
+			Nillable().
+			Comment("Upstream provider that issued this account's API key; NULL = manually added."),
+
+		// upstream_remote_group_id: 该账户的 Key 绑定在上游的哪个分组（可选）
+		// 存的是上游侧的分组 id（不是本地 groups.id），因此比价表能按分组粒度
+		// 统计「这个价位建了几个号」，也能把用量成本归集到具体分组。
+		field.Int64("upstream_remote_group_id").
+			Optional().
+			Nillable().
+			Comment("Remote group id on the upstream side that this account's key is bound to."),
+
 		// concurrency: 账户最大并发请求数
 		// 用于限制同一时间对该账户发起的请求数量
 		field.Int("concurrency").
@@ -231,6 +247,11 @@ func (Account) Edges() []ent.Edge {
 			Unique(),
 		// usage_logs: 该账户的使用日志
 		edge.To("usage_logs", UsageLog.Type),
+		// upstream_provider: 签发该账户 API Key 的上游供应商（可选）
+		edge.From("upstream_provider", UpstreamProvider.Type).
+			Ref("accounts").
+			Field("upstream_provider_id").
+			Unique(),
 	}
 }
 
@@ -254,5 +275,8 @@ func (Account) Indexes() []ent.Index {
 		index.Fields("priority", "status"),
 		index.Fields("deleted_at"), // 软删除查询优化
 		index.Fields("parent_account_id"),
+		index.Fields("upstream_provider_id"), // 按上游供应商归集用量成本
+		// 复合索引：比价表按 (上游, 上游分组) 统计已建号数量
+		index.Fields("upstream_provider_id", "upstream_remote_group_id"),
 	}
 }

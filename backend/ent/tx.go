@@ -76,6 +76,14 @@ type Tx struct {
 	SubscriptionPlan *SubscriptionPlanClient
 	// TLSFingerprintProfile is the client for interacting with the TLSFingerprintProfile builders.
 	TLSFingerprintProfile *TLSFingerprintProfileClient
+	// Ticket is the client for interacting with the Ticket builders.
+	Ticket *TicketClient
+	// TicketMessage is the client for interacting with the TicketMessage builders.
+	TicketMessage *TicketMessageClient
+	// UpstreamGroup is the client for interacting with the UpstreamGroup builders.
+	UpstreamGroup *UpstreamGroupClient
+	// UpstreamProvider is the client for interacting with the UpstreamProvider builders.
+	UpstreamProvider *UpstreamProviderClient
 	// UsageCleanupTask is the client for interacting with the UsageCleanupTask builders.
 	UsageCleanupTask *UsageCleanupTaskClient
 	// UsageLog is the client for interacting with the UsageLog builders.
@@ -254,6 +262,10 @@ func (tx *Tx) init() {
 	tx.Setting = NewSettingClient(tx.config)
 	tx.SubscriptionPlan = NewSubscriptionPlanClient(tx.config)
 	tx.TLSFingerprintProfile = NewTLSFingerprintProfileClient(tx.config)
+	tx.Ticket = NewTicketClient(tx.config)
+	tx.TicketMessage = NewTicketMessageClient(tx.config)
+	tx.UpstreamGroup = NewUpstreamGroupClient(tx.config)
+	tx.UpstreamProvider = NewUpstreamProviderClient(tx.config)
 	tx.UsageCleanupTask = NewUsageCleanupTaskClient(tx.config)
 	tx.UsageLog = NewUsageLogClient(tx.config)
 	tx.User = NewUserClient(tx.config)

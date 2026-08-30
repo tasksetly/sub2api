@@ -61,6 +61,13 @@ type Account struct {
 	ParentAccountID *int64 // non-nil → 影子账号（不持凭据，透传母账号凭据）
 	QuotaDimension  string // 用量维度："" / "global" / "spark"
 
+	// UpstreamProviderID 指向签发本账号 API Key 的上游 sub2api 供应商；
+	// nil 表示手工添加。用于把本地用量成本归集到具体上游做比价。
+	UpstreamProviderID *int64
+	// UpstreamRemoteGroupID 是该 Key 在上游绑定的分组 id（上游侧 id，非本地 groups.id）；
+	// 让比价表能按分组粒度统计已建号数量。
+	UpstreamRemoteGroupID *int64
+
 	Proxy         *Proxy
 	AccountGroups []AccountGroup
 	GroupIDs      []int64

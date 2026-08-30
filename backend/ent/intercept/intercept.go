@@ -39,7 +39,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/ent/ticket"
+	"github.com/Wei-Shaw/sub2api/ent/ticketmessage"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
+	"github.com/Wei-Shaw/sub2api/ent/upstreamgroup"
+	"github.com/Wei-Shaw/sub2api/ent/upstreamprovider"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -943,6 +947,114 @@ func (f TraverseTLSFingerprintProfile) Traverse(ctx context.Context, q ent.Query
 	return fmt.Errorf("unexpected query type %T. expect *ent.TLSFingerprintProfileQuery", q)
 }
 
+// The TicketFunc type is an adapter to allow the use of ordinary function as a Querier.
+type TicketFunc func(context.Context, *ent.TicketQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f TicketFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.TicketQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.TicketQuery", q)
+}
+
+// The TraverseTicket type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseTicket func(context.Context, *ent.TicketQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseTicket) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseTicket) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.TicketQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.TicketQuery", q)
+}
+
+// The TicketMessageFunc type is an adapter to allow the use of ordinary function as a Querier.
+type TicketMessageFunc func(context.Context, *ent.TicketMessageQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f TicketMessageFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.TicketMessageQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.TicketMessageQuery", q)
+}
+
+// The TraverseTicketMessage type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseTicketMessage func(context.Context, *ent.TicketMessageQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseTicketMessage) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseTicketMessage) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.TicketMessageQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.TicketMessageQuery", q)
+}
+
+// The UpstreamGroupFunc type is an adapter to allow the use of ordinary function as a Querier.
+type UpstreamGroupFunc func(context.Context, *ent.UpstreamGroupQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f UpstreamGroupFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.UpstreamGroupQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.UpstreamGroupQuery", q)
+}
+
+// The TraverseUpstreamGroup type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseUpstreamGroup func(context.Context, *ent.UpstreamGroupQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseUpstreamGroup) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseUpstreamGroup) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.UpstreamGroupQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.UpstreamGroupQuery", q)
+}
+
+// The UpstreamProviderFunc type is an adapter to allow the use of ordinary function as a Querier.
+type UpstreamProviderFunc func(context.Context, *ent.UpstreamProviderQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f UpstreamProviderFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.UpstreamProviderQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.UpstreamProviderQuery", q)
+}
+
+// The TraverseUpstreamProvider type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseUpstreamProvider func(context.Context, *ent.UpstreamProviderQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseUpstreamProvider) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseUpstreamProvider) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.UpstreamProviderQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.UpstreamProviderQuery", q)
+}
+
 // The UsageCleanupTaskFunc type is an adapter to allow the use of ordinary function as a Querier.
 type UsageCleanupTaskFunc func(context.Context, *ent.UsageCleanupTaskQuery) (ent.Value, error)
 
@@ -1224,6 +1336,14 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.SubscriptionPlanQuery, predicate.SubscriptionPlan, subscriptionplan.OrderOption]{typ: ent.TypeSubscriptionPlan, tq: q}, nil
 	case *ent.TLSFingerprintProfileQuery:
 		return &query[*ent.TLSFingerprintProfileQuery, predicate.TLSFingerprintProfile, tlsfingerprintprofile.OrderOption]{typ: ent.TypeTLSFingerprintProfile, tq: q}, nil
+	case *ent.TicketQuery:
+		return &query[*ent.TicketQuery, predicate.Ticket, ticket.OrderOption]{typ: ent.TypeTicket, tq: q}, nil
+	case *ent.TicketMessageQuery:
+		return &query[*ent.TicketMessageQuery, predicate.TicketMessage, ticketmessage.OrderOption]{typ: ent.TypeTicketMessage, tq: q}, nil
+	case *ent.UpstreamGroupQuery:
+		return &query[*ent.UpstreamGroupQuery, predicate.UpstreamGroup, upstreamgroup.OrderOption]{typ: ent.TypeUpstreamGroup, tq: q}, nil
+	case *ent.UpstreamProviderQuery:
+		return &query[*ent.UpstreamProviderQuery, predicate.UpstreamProvider, upstreamprovider.OrderOption]{typ: ent.TypeUpstreamProvider, tq: q}, nil
 	case *ent.UsageCleanupTaskQuery:
 		return &query[*ent.UsageCleanupTaskQuery, predicate.UsageCleanupTask, usagecleanuptask.OrderOption]{typ: ent.TypeUsageCleanupTask, tq: q}, nil
 	case *ent.UsageLogQuery:

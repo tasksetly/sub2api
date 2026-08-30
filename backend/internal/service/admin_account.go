@@ -406,18 +406,20 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	delete(accountExtra, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(accountExtra, OllamaCloudUsageSnapshotExtraKey)
 	account := &Account{
-		Name:        input.Name,
-		Supplier:    strings.TrimSpace(input.Supplier),
-		Notes:       normalizeAccountNotes(input.Notes),
-		Platform:    input.Platform,
-		Type:        input.Type,
-		Credentials: input.Credentials,
-		Extra:       accountExtra,
-		ProxyID:     input.ProxyID,
-		Concurrency: normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
-		Priority:    input.Priority,
-		Status:      StatusActive,
-		Schedulable: true,
+		Name:               input.Name,
+		Supplier:           strings.TrimSpace(input.Supplier),
+		Notes:              normalizeAccountNotes(input.Notes),
+		Platform:           input.Platform,
+		Type:               input.Type,
+		Credentials:        input.Credentials,
+		Extra:              accountExtra,
+		ProxyID:            input.ProxyID,
+		Concurrency:        normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
+		Priority:           input.Priority,
+		Status:             StatusActive,
+		Schedulable:           true,
+		UpstreamProviderID:    input.UpstreamProviderID,
+		UpstreamRemoteGroupID: input.UpstreamRemoteGroupID,
 	}
 	if input.ProbeEnabled != nil && *input.ProbeEnabled {
 		if !isUpstreamBillingProbeAccount(account) {

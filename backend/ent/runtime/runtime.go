@@ -36,7 +36,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/ent/ticket"
+	"github.com/Wei-Shaw/sub2api/ent/ticketmessage"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
+	"github.com/Wei-Shaw/sub2api/ent/upstreamgroup"
+	"github.com/Wei-Shaw/sub2api/ent/upstreamprovider"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -184,25 +188,10 @@ func init() {
 	}()
 	// accountDescSupplier is the schema descriptor for supplier field.
 	accountDescSupplier := accountFields[1].Descriptor()
+	// account.DefaultSupplier holds the default value on creation for the supplier field.
 	account.DefaultSupplier = accountDescSupplier.Default.(string)
-	account.SupplierValidator = func() func(string) error {
-		validators := accountDescSupplier.Validators
-		if len(validators) == 0 {
-			return func(string) error { return nil }
-		}
-		fns := make([]func(string) error, len(validators))
-		for i, validator := range validators {
-			fns[i] = validator.(func(string) error)
-		}
-		return func(supplier string) error {
-			for _, fn := range fns {
-				if err := fn(supplier); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
+	// account.SupplierValidator is a validator for the "supplier" field. It is called by the builders before save.
+	account.SupplierValidator = accountDescSupplier.Validators[0].(func(string) error)
 	// accountDescPlatform is the schema descriptor for platform field.
 	accountDescPlatform := accountFields[3].Descriptor()
 	// account.PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
@@ -248,33 +237,33 @@ func init() {
 	// account.DefaultExtra holds the default value on creation for the extra field.
 	account.DefaultExtra = accountDescExtra.Default.(func() map[string]interface{})
 	// accountDescConcurrency is the schema descriptor for concurrency field.
-	accountDescConcurrency := accountFields[9].Descriptor()
+	accountDescConcurrency := accountFields[11].Descriptor()
 	// account.DefaultConcurrency holds the default value on creation for the concurrency field.
 	account.DefaultConcurrency = accountDescConcurrency.Default.(int)
 	// accountDescPriority is the schema descriptor for priority field.
-	accountDescPriority := accountFields[11].Descriptor()
+	accountDescPriority := accountFields[13].Descriptor()
 	// account.DefaultPriority holds the default value on creation for the priority field.
 	account.DefaultPriority = accountDescPriority.Default.(int)
 	// accountDescRateMultiplier is the schema descriptor for rate_multiplier field.
-	accountDescRateMultiplier := accountFields[12].Descriptor()
+	accountDescRateMultiplier := accountFields[14].Descriptor()
 	// account.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
 	account.DefaultRateMultiplier = accountDescRateMultiplier.Default.(float64)
 	// accountDescStatus is the schema descriptor for status field.
-	accountDescStatus := accountFields[13].Descriptor()
+	accountDescStatus := accountFields[15].Descriptor()
 	// account.DefaultStatus holds the default value on creation for the status field.
 	account.DefaultStatus = accountDescStatus.Default.(string)
 	// account.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	account.StatusValidator = accountDescStatus.Validators[0].(func(string) error)
 	// accountDescAutoPauseOnExpired is the schema descriptor for auto_pause_on_expired field.
-	accountDescAutoPauseOnExpired := accountFields[17].Descriptor()
+	accountDescAutoPauseOnExpired := accountFields[19].Descriptor()
 	// account.DefaultAutoPauseOnExpired holds the default value on creation for the auto_pause_on_expired field.
 	account.DefaultAutoPauseOnExpired = accountDescAutoPauseOnExpired.Default.(bool)
 	// accountDescSchedulable is the schema descriptor for schedulable field.
-	accountDescSchedulable := accountFields[18].Descriptor()
+	accountDescSchedulable := accountFields[20].Descriptor()
 	// account.DefaultSchedulable holds the default value on creation for the schedulable field.
 	account.DefaultSchedulable = accountDescSchedulable.Default.(bool)
 	// accountDescSessionWindowStatus is the schema descriptor for session_window_status field.
-	accountDescSessionWindowStatus := accountFields[26].Descriptor()
+	accountDescSessionWindowStatus := accountFields[28].Descriptor()
 	// account.SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	account.SessionWindowStatusValidator = accountDescSessionWindowStatus.Validators[0].(func(string) error)
 	accountgroupFields := schema.AccountGroup{}.Fields()
@@ -1936,6 +1925,232 @@ func init() {
 	tlsfingerprintprofileDescEnableGrease := tlsfingerprintprofileFields[2].Descriptor()
 	// tlsfingerprintprofile.DefaultEnableGrease holds the default value on creation for the enable_grease field.
 	tlsfingerprintprofile.DefaultEnableGrease = tlsfingerprintprofileDescEnableGrease.Default.(bool)
+	ticketFields := schema.Ticket{}.Fields()
+	_ = ticketFields
+	// ticketDescSubject is the schema descriptor for subject field.
+	ticketDescSubject := ticketFields[1].Descriptor()
+	// ticket.SubjectValidator is a validator for the "subject" field. It is called by the builders before save.
+	ticket.SubjectValidator = func() func(string) error {
+		validators := ticketDescSubject.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(subject string) error {
+			for _, fn := range fns {
+				if err := fn(subject); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// ticketDescCategory is the schema descriptor for category field.
+	ticketDescCategory := ticketFields[2].Descriptor()
+	// ticket.DefaultCategory holds the default value on creation for the category field.
+	ticket.DefaultCategory = ticketDescCategory.Default.(string)
+	// ticket.CategoryValidator is a validator for the "category" field. It is called by the builders before save.
+	ticket.CategoryValidator = ticketDescCategory.Validators[0].(func(string) error)
+	// ticketDescStatus is the schema descriptor for status field.
+	ticketDescStatus := ticketFields[3].Descriptor()
+	// ticket.DefaultStatus holds the default value on creation for the status field.
+	ticket.DefaultStatus = ticketDescStatus.Default.(string)
+	// ticket.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	ticket.StatusValidator = ticketDescStatus.Validators[0].(func(string) error)
+	// ticketDescPriority is the schema descriptor for priority field.
+	ticketDescPriority := ticketFields[4].Descriptor()
+	// ticket.DefaultPriority holds the default value on creation for the priority field.
+	ticket.DefaultPriority = ticketDescPriority.Default.(string)
+	// ticket.PriorityValidator is a validator for the "priority" field. It is called by the builders before save.
+	ticket.PriorityValidator = ticketDescPriority.Validators[0].(func(string) error)
+	// ticketDescLastMessageAt is the schema descriptor for last_message_at field.
+	ticketDescLastMessageAt := ticketFields[5].Descriptor()
+	// ticket.DefaultLastMessageAt holds the default value on creation for the last_message_at field.
+	ticket.DefaultLastMessageAt = ticketDescLastMessageAt.Default.(func() time.Time)
+	// ticketDescCreatedAt is the schema descriptor for created_at field.
+	ticketDescCreatedAt := ticketFields[7].Descriptor()
+	// ticket.DefaultCreatedAt holds the default value on creation for the created_at field.
+	ticket.DefaultCreatedAt = ticketDescCreatedAt.Default.(func() time.Time)
+	// ticketDescUpdatedAt is the schema descriptor for updated_at field.
+	ticketDescUpdatedAt := ticketFields[8].Descriptor()
+	// ticket.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	ticket.DefaultUpdatedAt = ticketDescUpdatedAt.Default.(func() time.Time)
+	// ticket.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	ticket.UpdateDefaultUpdatedAt = ticketDescUpdatedAt.UpdateDefault.(func() time.Time)
+	ticketmessageFields := schema.TicketMessage{}.Fields()
+	_ = ticketmessageFields
+	// ticketmessageDescAuthorRole is the schema descriptor for author_role field.
+	ticketmessageDescAuthorRole := ticketmessageFields[2].Descriptor()
+	// ticketmessage.AuthorRoleValidator is a validator for the "author_role" field. It is called by the builders before save.
+	ticketmessage.AuthorRoleValidator = ticketmessageDescAuthorRole.Validators[0].(func(string) error)
+	// ticketmessageDescContent is the schema descriptor for content field.
+	ticketmessageDescContent := ticketmessageFields[3].Descriptor()
+	// ticketmessage.DefaultContent holds the default value on creation for the content field.
+	ticketmessage.DefaultContent = ticketmessageDescContent.Default.(string)
+	// ticketmessageDescAttachments is the schema descriptor for attachments field.
+	ticketmessageDescAttachments := ticketmessageFields[4].Descriptor()
+	// ticketmessage.DefaultAttachments holds the default value on creation for the attachments field.
+	ticketmessage.DefaultAttachments = ticketmessageDescAttachments.Default.([]domain.TicketAttachment)
+	// ticketmessageDescCreatedAt is the schema descriptor for created_at field.
+	ticketmessageDescCreatedAt := ticketmessageFields[5].Descriptor()
+	// ticketmessage.DefaultCreatedAt holds the default value on creation for the created_at field.
+	ticketmessage.DefaultCreatedAt = ticketmessageDescCreatedAt.Default.(func() time.Time)
+	upstreamgroupMixin := schema.UpstreamGroup{}.Mixin()
+	upstreamgroupMixinFields0 := upstreamgroupMixin[0].Fields()
+	_ = upstreamgroupMixinFields0
+	upstreamgroupFields := schema.UpstreamGroup{}.Fields()
+	_ = upstreamgroupFields
+	// upstreamgroupDescCreatedAt is the schema descriptor for created_at field.
+	upstreamgroupDescCreatedAt := upstreamgroupMixinFields0[0].Descriptor()
+	// upstreamgroup.DefaultCreatedAt holds the default value on creation for the created_at field.
+	upstreamgroup.DefaultCreatedAt = upstreamgroupDescCreatedAt.Default.(func() time.Time)
+	// upstreamgroupDescUpdatedAt is the schema descriptor for updated_at field.
+	upstreamgroupDescUpdatedAt := upstreamgroupMixinFields0[1].Descriptor()
+	// upstreamgroup.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	upstreamgroup.DefaultUpdatedAt = upstreamgroupDescUpdatedAt.Default.(func() time.Time)
+	// upstreamgroup.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	upstreamgroup.UpdateDefaultUpdatedAt = upstreamgroupDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// upstreamgroupDescName is the schema descriptor for name field.
+	upstreamgroupDescName := upstreamgroupFields[2].Descriptor()
+	// upstreamgroup.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	upstreamgroup.NameValidator = func() func(string) error {
+		validators := upstreamgroupDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// upstreamgroupDescPlatform is the schema descriptor for platform field.
+	upstreamgroupDescPlatform := upstreamgroupFields[3].Descriptor()
+	// upstreamgroup.DefaultPlatform holds the default value on creation for the platform field.
+	upstreamgroup.DefaultPlatform = upstreamgroupDescPlatform.Default.(string)
+	// upstreamgroup.PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
+	upstreamgroup.PlatformValidator = upstreamgroupDescPlatform.Validators[0].(func(string) error)
+	// upstreamgroupDescSubscriptionType is the schema descriptor for subscription_type field.
+	upstreamgroupDescSubscriptionType := upstreamgroupFields[4].Descriptor()
+	// upstreamgroup.DefaultSubscriptionType holds the default value on creation for the subscription_type field.
+	upstreamgroup.DefaultSubscriptionType = upstreamgroupDescSubscriptionType.Default.(string)
+	// upstreamgroup.SubscriptionTypeValidator is a validator for the "subscription_type" field. It is called by the builders before save.
+	upstreamgroup.SubscriptionTypeValidator = upstreamgroupDescSubscriptionType.Validators[0].(func(string) error)
+	// upstreamgroupDescRateMultiplier is the schema descriptor for rate_multiplier field.
+	upstreamgroupDescRateMultiplier := upstreamgroupFields[5].Descriptor()
+	// upstreamgroup.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
+	upstreamgroup.DefaultRateMultiplier = upstreamgroupDescRateMultiplier.Default.(float64)
+	// upstreamgroupDescPeakRateEnabled is the schema descriptor for peak_rate_enabled field.
+	upstreamgroupDescPeakRateEnabled := upstreamgroupFields[7].Descriptor()
+	// upstreamgroup.DefaultPeakRateEnabled holds the default value on creation for the peak_rate_enabled field.
+	upstreamgroup.DefaultPeakRateEnabled = upstreamgroupDescPeakRateEnabled.Default.(bool)
+	// upstreamgroupDescPeakStart is the schema descriptor for peak_start field.
+	upstreamgroupDescPeakStart := upstreamgroupFields[9].Descriptor()
+	// upstreamgroup.DefaultPeakStart holds the default value on creation for the peak_start field.
+	upstreamgroup.DefaultPeakStart = upstreamgroupDescPeakStart.Default.(string)
+	// upstreamgroup.PeakStartValidator is a validator for the "peak_start" field. It is called by the builders before save.
+	upstreamgroup.PeakStartValidator = upstreamgroupDescPeakStart.Validators[0].(func(string) error)
+	// upstreamgroupDescPeakEnd is the schema descriptor for peak_end field.
+	upstreamgroupDescPeakEnd := upstreamgroupFields[10].Descriptor()
+	// upstreamgroup.DefaultPeakEnd holds the default value on creation for the peak_end field.
+	upstreamgroup.DefaultPeakEnd = upstreamgroupDescPeakEnd.Default.(string)
+	// upstreamgroup.PeakEndValidator is a validator for the "peak_end" field. It is called by the builders before save.
+	upstreamgroup.PeakEndValidator = upstreamgroupDescPeakEnd.Validators[0].(func(string) error)
+	upstreamproviderMixin := schema.UpstreamProvider{}.Mixin()
+	upstreamproviderMixinHooks1 := upstreamproviderMixin[1].Hooks()
+	upstreamprovider.Hooks[0] = upstreamproviderMixinHooks1[0]
+	upstreamproviderMixinInters1 := upstreamproviderMixin[1].Interceptors()
+	upstreamprovider.Interceptors[0] = upstreamproviderMixinInters1[0]
+	upstreamproviderMixinFields0 := upstreamproviderMixin[0].Fields()
+	_ = upstreamproviderMixinFields0
+	upstreamproviderFields := schema.UpstreamProvider{}.Fields()
+	_ = upstreamproviderFields
+	// upstreamproviderDescCreatedAt is the schema descriptor for created_at field.
+	upstreamproviderDescCreatedAt := upstreamproviderMixinFields0[0].Descriptor()
+	// upstreamprovider.DefaultCreatedAt holds the default value on creation for the created_at field.
+	upstreamprovider.DefaultCreatedAt = upstreamproviderDescCreatedAt.Default.(func() time.Time)
+	// upstreamproviderDescUpdatedAt is the schema descriptor for updated_at field.
+	upstreamproviderDescUpdatedAt := upstreamproviderMixinFields0[1].Descriptor()
+	// upstreamprovider.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	upstreamprovider.DefaultUpdatedAt = upstreamproviderDescUpdatedAt.Default.(func() time.Time)
+	// upstreamprovider.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	upstreamprovider.UpdateDefaultUpdatedAt = upstreamproviderDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// upstreamproviderDescName is the schema descriptor for name field.
+	upstreamproviderDescName := upstreamproviderFields[0].Descriptor()
+	// upstreamprovider.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	upstreamprovider.NameValidator = func() func(string) error {
+		validators := upstreamproviderDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// upstreamproviderDescBaseURL is the schema descriptor for base_url field.
+	upstreamproviderDescBaseURL := upstreamproviderFields[1].Descriptor()
+	// upstreamprovider.BaseURLValidator is a validator for the "base_url" field. It is called by the builders before save.
+	upstreamprovider.BaseURLValidator = func() func(string) error {
+		validators := upstreamproviderDescBaseURL.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(base_url string) error {
+			for _, fn := range fns {
+				if err := fn(base_url); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// upstreamproviderDescUsername is the schema descriptor for username field.
+	upstreamproviderDescUsername := upstreamproviderFields[3].Descriptor()
+	// upstreamprovider.UsernameValidator is a validator for the "username" field. It is called by the builders before save.
+	upstreamprovider.UsernameValidator = func() func(string) error {
+		validators := upstreamproviderDescUsername.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(username string) error {
+			for _, fn := range fns {
+				if err := fn(username); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// upstreamproviderDescUpstreamUserID is the schema descriptor for upstream_user_id field.
+	upstreamproviderDescUpstreamUserID := upstreamproviderFields[11].Descriptor()
+	// upstreamprovider.UpstreamUserIDValidator is a validator for the "upstream_user_id" field. It is called by the builders before save.
+	upstreamprovider.UpstreamUserIDValidator = upstreamproviderDescUpstreamUserID.Validators[0].(func(string) error)
+	// upstreamproviderDescRateCorrection is the schema descriptor for rate_correction field.
+	upstreamproviderDescRateCorrection := upstreamproviderFields[12].Descriptor()
+	// upstreamprovider.DefaultRateCorrection holds the default value on creation for the rate_correction field.
+	upstreamprovider.DefaultRateCorrection = upstreamproviderDescRateCorrection.Default.(float64)
+	// upstreamproviderDescStatus is the schema descriptor for status field.
+	upstreamproviderDescStatus := upstreamproviderFields[13].Descriptor()
+	// upstreamprovider.DefaultStatus holds the default value on creation for the status field.
+	upstreamprovider.DefaultStatus = upstreamproviderDescStatus.Default.(string)
+	// upstreamprovider.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	upstreamprovider.StatusValidator = upstreamproviderDescStatus.Validators[0].(func(string) error)
+	// upstreamproviderDescSyncEnabled is the schema descriptor for sync_enabled field.
+	upstreamproviderDescSyncEnabled := upstreamproviderFields[16].Descriptor()
+	// upstreamprovider.DefaultSyncEnabled holds the default value on creation for the sync_enabled field.
+	upstreamprovider.DefaultSyncEnabled = upstreamproviderDescSyncEnabled.Default.(bool)
 	usagecleanuptaskMixin := schema.UsageCleanupTask{}.Mixin()
 	usagecleanuptaskMixinFields0 := usagecleanuptaskMixin[0].Fields()
 	_ = usagecleanuptaskMixinFields0

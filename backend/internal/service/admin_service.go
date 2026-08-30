@@ -375,6 +375,13 @@ type CreateAccountInput struct {
 	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
 	// This should only be set when the caller has explicitly confirmed the risk.
 	SkipMixedChannelCheck bool
+	// UpstreamProviderID links the account to the upstream sub2api provider that
+	// issued its API key, so local usage cost can be attributed per provider.
+	// Nil for manually added accounts.
+	UpstreamProviderID *int64
+	// UpstreamRemoteGroupID records which upstream group the key is bound to,
+	// enabling per-group provisioned counts in the rate comparison view.
+	UpstreamRemoteGroupID *int64
 }
 
 // ShadowOptions is the input for CreateShadow.

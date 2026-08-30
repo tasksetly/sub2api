@@ -40,6 +40,10 @@ const (
 	FieldProxyID = "proxy_id"
 	// FieldProxyFallbackOriginID holds the string denoting the proxy_fallback_origin_id field in the database.
 	FieldProxyFallbackOriginID = "proxy_fallback_origin_id"
+	// FieldUpstreamProviderID holds the string denoting the upstream_provider_id field in the database.
+	FieldUpstreamProviderID = "upstream_provider_id"
+	// FieldUpstreamRemoteGroupID holds the string denoting the upstream_remote_group_id field in the database.
+	FieldUpstreamRemoteGroupID = "upstream_remote_group_id"
 	// FieldConcurrency holds the string denoting the concurrency field in the database.
 	FieldConcurrency = "concurrency"
 	// FieldLoadFactor holds the string denoting the load_factor field in the database.
@@ -90,6 +94,8 @@ const (
 	EdgeChildren = "children"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeUpstreamProvider holds the string denoting the upstream_provider edge name in mutations.
+	EdgeUpstreamProvider = "upstream_provider"
 	// EdgeAccountGroups holds the string denoting the account_groups edge name in mutations.
 	EdgeAccountGroups = "account_groups"
 	// Table holds the table name of the account in the database.
@@ -121,6 +127,13 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "account_id"
+	// UpstreamProviderTable is the table that holds the upstream_provider relation/edge.
+	UpstreamProviderTable = "accounts"
+	// UpstreamProviderInverseTable is the table name for the UpstreamProvider entity.
+	// It exists in this package in order to avoid circular dependency with the "upstreamprovider" package.
+	UpstreamProviderInverseTable = "upstream_providers"
+	// UpstreamProviderColumn is the table column denoting the upstream_provider relation/edge.
+	UpstreamProviderColumn = "upstream_provider_id"
 	// AccountGroupsTable is the table that holds the account_groups relation/edge.
 	AccountGroupsTable = "account_groups"
 	// AccountGroupsInverseTable is the table name for the AccountGroup entity.
@@ -145,6 +158,8 @@ var Columns = []string{
 	FieldExtra,
 	FieldProxyID,
 	FieldProxyFallbackOriginID,
+	FieldUpstreamProviderID,
+	FieldUpstreamRemoteGroupID,
 	FieldConcurrency,
 	FieldLoadFactor,
 	FieldPriority,
@@ -313,6 +328,16 @@ func ByProxyFallbackOriginID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProxyFallbackOriginID, opts...).ToFunc()
 }
 
+// ByUpstreamProviderID orders the results by the upstream_provider_id field.
+func ByUpstreamProviderID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpstreamProviderID, opts...).ToFunc()
+}
+
+// ByUpstreamRemoteGroupID orders the results by the upstream_remote_group_id field.
+func ByUpstreamRemoteGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUpstreamRemoteGroupID, opts...).ToFunc()
+}
+
 // ByConcurrency orders the results by the concurrency field.
 func ByConcurrency(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldConcurrency, opts...).ToFunc()
@@ -469,6 +494,13 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByUpstreamProviderField orders the results by upstream_provider field.
+func ByUpstreamProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newUpstreamProviderStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByAccountGroupsCount orders the results by account_groups count.
 func ByAccountGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -515,6 +547,13 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UsageLogsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
+	)
+}
+func newUpstreamProviderStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(UpstreamProviderInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, UpstreamProviderTable, UpstreamProviderColumn),
 	)
 }
 func newAccountGroupsStep() *sqlgraph.Step {

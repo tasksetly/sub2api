@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/ent/upstreamprovider"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 )
 
@@ -189,6 +190,53 @@ func (_u *AccountUpdate) AddProxyFallbackOriginID(v int64) *AccountUpdate {
 // ClearProxyFallbackOriginID clears the value of the "proxy_fallback_origin_id" field.
 func (_u *AccountUpdate) ClearProxyFallbackOriginID() *AccountUpdate {
 	_u.mutation.ClearProxyFallbackOriginID()
+	return _u
+}
+
+// SetUpstreamProviderID sets the "upstream_provider_id" field.
+func (_u *AccountUpdate) SetUpstreamProviderID(v int64) *AccountUpdate {
+	_u.mutation.SetUpstreamProviderID(v)
+	return _u
+}
+
+// SetNillableUpstreamProviderID sets the "upstream_provider_id" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableUpstreamProviderID(v *int64) *AccountUpdate {
+	if v != nil {
+		_u.SetUpstreamProviderID(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamProviderID clears the value of the "upstream_provider_id" field.
+func (_u *AccountUpdate) ClearUpstreamProviderID() *AccountUpdate {
+	_u.mutation.ClearUpstreamProviderID()
+	return _u
+}
+
+// SetUpstreamRemoteGroupID sets the "upstream_remote_group_id" field.
+func (_u *AccountUpdate) SetUpstreamRemoteGroupID(v int64) *AccountUpdate {
+	_u.mutation.ResetUpstreamRemoteGroupID()
+	_u.mutation.SetUpstreamRemoteGroupID(v)
+	return _u
+}
+
+// SetNillableUpstreamRemoteGroupID sets the "upstream_remote_group_id" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableUpstreamRemoteGroupID(v *int64) *AccountUpdate {
+	if v != nil {
+		_u.SetUpstreamRemoteGroupID(*v)
+	}
+	return _u
+}
+
+// AddUpstreamRemoteGroupID adds value to the "upstream_remote_group_id" field.
+func (_u *AccountUpdate) AddUpstreamRemoteGroupID(v int64) *AccountUpdate {
+	_u.mutation.AddUpstreamRemoteGroupID(v)
+	return _u
+}
+
+// ClearUpstreamRemoteGroupID clears the value of the "upstream_remote_group_id" field.
+func (_u *AccountUpdate) ClearUpstreamRemoteGroupID() *AccountUpdate {
+	_u.mutation.ClearUpstreamRemoteGroupID()
 	return _u
 }
 
@@ -647,6 +695,11 @@ func (_u *AccountUpdate) AddUsageLogs(v ...*UsageLog) *AccountUpdate {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// SetUpstreamProvider sets the "upstream_provider" edge to the UpstreamProvider entity.
+func (_u *AccountUpdate) SetUpstreamProvider(v *UpstreamProvider) *AccountUpdate {
+	return _u.SetUpstreamProviderID(v.ID)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdate) Mutation() *AccountMutation {
 	return _u.mutation
@@ -725,6 +778,12 @@ func (_u *AccountUpdate) RemoveUsageLogs(v ...*UsageLog) *AccountUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveUsageLogIDs(ids...)
+}
+
+// ClearUpstreamProvider clears the "upstream_provider" edge to the UpstreamProvider entity.
+func (_u *AccountUpdate) ClearUpstreamProvider() *AccountUpdate {
+	_u.mutation.ClearUpstreamProvider()
+	return _u
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -862,6 +921,15 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ProxyFallbackOriginIDCleared() {
 		_spec.ClearField(account.FieldProxyFallbackOriginID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.UpstreamRemoteGroupID(); ok {
+		_spec.SetField(account.FieldUpstreamRemoteGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedUpstreamRemoteGroupID(); ok {
+		_spec.AddField(account.FieldUpstreamRemoteGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.UpstreamRemoteGroupIDCleared() {
+		_spec.ClearField(account.FieldUpstreamRemoteGroupID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.Concurrency(); ok {
 		_spec.SetField(account.FieldConcurrency, field.TypeInt, value)
@@ -1173,6 +1241,35 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.UpstreamProviderCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamProviderTable,
+			Columns: []string{account.UpstreamProviderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(upstreamprovider.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UpstreamProviderIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamProviderTable,
+			Columns: []string{account.UpstreamProviderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(upstreamprovider.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{account.Label}
@@ -1351,6 +1448,53 @@ func (_u *AccountUpdateOne) AddProxyFallbackOriginID(v int64) *AccountUpdateOne 
 // ClearProxyFallbackOriginID clears the value of the "proxy_fallback_origin_id" field.
 func (_u *AccountUpdateOne) ClearProxyFallbackOriginID() *AccountUpdateOne {
 	_u.mutation.ClearProxyFallbackOriginID()
+	return _u
+}
+
+// SetUpstreamProviderID sets the "upstream_provider_id" field.
+func (_u *AccountUpdateOne) SetUpstreamProviderID(v int64) *AccountUpdateOne {
+	_u.mutation.SetUpstreamProviderID(v)
+	return _u
+}
+
+// SetNillableUpstreamProviderID sets the "upstream_provider_id" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableUpstreamProviderID(v *int64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetUpstreamProviderID(*v)
+	}
+	return _u
+}
+
+// ClearUpstreamProviderID clears the value of the "upstream_provider_id" field.
+func (_u *AccountUpdateOne) ClearUpstreamProviderID() *AccountUpdateOne {
+	_u.mutation.ClearUpstreamProviderID()
+	return _u
+}
+
+// SetUpstreamRemoteGroupID sets the "upstream_remote_group_id" field.
+func (_u *AccountUpdateOne) SetUpstreamRemoteGroupID(v int64) *AccountUpdateOne {
+	_u.mutation.ResetUpstreamRemoteGroupID()
+	_u.mutation.SetUpstreamRemoteGroupID(v)
+	return _u
+}
+
+// SetNillableUpstreamRemoteGroupID sets the "upstream_remote_group_id" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableUpstreamRemoteGroupID(v *int64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetUpstreamRemoteGroupID(*v)
+	}
+	return _u
+}
+
+// AddUpstreamRemoteGroupID adds value to the "upstream_remote_group_id" field.
+func (_u *AccountUpdateOne) AddUpstreamRemoteGroupID(v int64) *AccountUpdateOne {
+	_u.mutation.AddUpstreamRemoteGroupID(v)
+	return _u
+}
+
+// ClearUpstreamRemoteGroupID clears the value of the "upstream_remote_group_id" field.
+func (_u *AccountUpdateOne) ClearUpstreamRemoteGroupID() *AccountUpdateOne {
+	_u.mutation.ClearUpstreamRemoteGroupID()
 	return _u
 }
 
@@ -1809,6 +1953,11 @@ func (_u *AccountUpdateOne) AddUsageLogs(v ...*UsageLog) *AccountUpdateOne {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// SetUpstreamProvider sets the "upstream_provider" edge to the UpstreamProvider entity.
+func (_u *AccountUpdateOne) SetUpstreamProvider(v *UpstreamProvider) *AccountUpdateOne {
+	return _u.SetUpstreamProviderID(v.ID)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdateOne) Mutation() *AccountMutation {
 	return _u.mutation
@@ -1887,6 +2036,12 @@ func (_u *AccountUpdateOne) RemoveUsageLogs(v ...*UsageLog) *AccountUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveUsageLogIDs(ids...)
+}
+
+// ClearUpstreamProvider clears the "upstream_provider" edge to the UpstreamProvider entity.
+func (_u *AccountUpdateOne) ClearUpstreamProvider() *AccountUpdateOne {
+	_u.mutation.ClearUpstreamProvider()
+	return _u
 }
 
 // Where appends a list predicates to the AccountUpdate builder.
@@ -2054,6 +2209,15 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if _u.mutation.ProxyFallbackOriginIDCleared() {
 		_spec.ClearField(account.FieldProxyFallbackOriginID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.UpstreamRemoteGroupID(); ok {
+		_spec.SetField(account.FieldUpstreamRemoteGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedUpstreamRemoteGroupID(); ok {
+		_spec.AddField(account.FieldUpstreamRemoteGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.UpstreamRemoteGroupIDCleared() {
+		_spec.ClearField(account.FieldUpstreamRemoteGroupID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.Concurrency(); ok {
 		_spec.SetField(account.FieldConcurrency, field.TypeInt, value)
@@ -2358,6 +2522,35 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.UpstreamProviderCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamProviderTable,
+			Columns: []string{account.UpstreamProviderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(upstreamprovider.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UpstreamProviderIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   account.UpstreamProviderTable,
+			Columns: []string{account.UpstreamProviderColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(upstreamprovider.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

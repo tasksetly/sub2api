@@ -757,6 +757,7 @@ var ProviderSet = wire.NewSet(
 	NewCompositeRouteResolver,
 	NewAccountService,
 	NewProxyService,
+	NewUpstreamProviderService, // 上游 sub2api 供应商管理
 	NewRedeemService,
 	NewPromoService,
 	NewUsageService,
@@ -800,6 +801,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAccountUsageService,
 	ProvideAccountTestService,
 	ProvideUpstreamBillingProbeService,
+	ProvideUpstreamProviderSyncRunner, // 上游供应商定时同步
 	ProvideOllamaCloudUsageService,
 	ProvideSettingService,
 	NewDataManagementService,

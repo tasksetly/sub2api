@@ -132,6 +132,12 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	if account.ProxyID != nil {
 		builder.SetProxyID(*account.ProxyID)
 	}
+	if account.UpstreamProviderID != nil {
+		builder.SetUpstreamProviderID(*account.UpstreamProviderID)
+	}
+	if account.UpstreamRemoteGroupID != nil {
+		builder.SetUpstreamRemoteGroupID(*account.UpstreamRemoteGroupID)
+	}
 	if account.LastUsedAt != nil {
 		builder.SetLastUsedAt(*account.LastUsedAt)
 	}
@@ -3390,6 +3396,8 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SessionWindowStatus:     derefString(m.SessionWindowStatus),
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
+		UpstreamProviderID:      m.UpstreamProviderID,
+		UpstreamRemoteGroupID:   m.UpstreamRemoteGroupID,
 	}
 }
 

@@ -40,6 +40,121 @@ export default {
       autoRecoverHelp: 'Automatically recover account from error/rate-limited state on successful test'
     },
 
+    // Upstream sub2api providers
+    upstreamProviders: {
+      title: 'Upstream Providers',
+      description: 'Manage upstream sub2api instances: compare rates, check balance, provision keys',
+      createProvider: 'Add Upstream',
+      editProvider: 'Edit Upstream',
+      deleteProvider: 'Delete Upstream',
+      searchProviders: 'Search name or URL',
+      allStatus: 'All statuses',
+      deleteConfirmMessage:
+        "Delete upstream '{name}'? Local accounts already created will not be removed.",
+
+      colName: 'Name',
+      colBaseURL: 'URL',
+      colBalance: 'Balance',
+      frozenLabel: 'Frozen',
+      colConcurrency: 'Concurrency',
+      colRateRange: 'Rate range',
+      colLocalCost: 'Local spend',
+      colAccounts: 'Accounts',
+      colGroups: 'Groups',
+      colLastSync: 'Last sync',
+      colStatus: 'Status',
+      colActions: 'Actions',
+
+      formName: 'Name',
+      formNameHelp: 'Also stored as the supplier on provisioned accounts for cost reporting',
+      formBaseURL: 'Site URL',
+      formBaseURLHelp: 'Root URL of the upstream sub2api, e.g. https://example.com',
+      formUsername: 'Login email',
+      formPassword: 'Login password',
+      formPasswordHelpCreate:
+        'Stored with AES-256-GCM; needed to log in again once the token expires',
+      formPasswordHelpEdit:
+        'Leave blank to keep unchanged. Changing it invalidates the cached token immediately',
+      formPasswordPlaceholderEdit: 'Leave blank to keep',
+      formTotpSecret: 'TOTP secret',
+      formTotpSecretHelp: 'Only needed when the upstream enforces 2FA; used to generate codes',
+      formNotes: 'Notes',
+      formSyncEnabled: 'Enable scheduled sync',
+      formSyncEnabledHelp: 'Refresh balance and group rates every 30 minutes',
+      formStatus: 'Status',
+
+      testConnection: 'Test connection',
+      testing: 'Testing…',
+      testSuccess: 'Connected: balance ${balance}, concurrency {concurrency}',
+      syncNow: 'Refresh',
+      syncing: 'Refreshing…',
+      syncSuccess: 'Synced successfully',
+      syncAll: 'Refresh all',
+      syncAllRunning: 'Refreshing all…',
+      syncAllResult: 'Done: {succeeded} succeeded, {failed} failed',
+      createSuccess: 'Upstream added',
+      updateSuccess: 'Upstream updated',
+      deleteSuccess: 'Upstream deleted',
+
+      viewGroups: 'View groups',
+      groupsTitle: 'Groups of {name}',
+      groupsEmpty: 'No group data yet — hit Refresh to sync first',
+      colGroupName: 'Group',
+      colPlatform: 'Platform',
+      colRate: 'Rate',
+      colEffectiveRate: 'Effective rate',
+      colDailyLimit: 'Daily limit',
+      colMonthlyLimit: 'Monthly limit',
+      rateBase: 'base',
+      rateExclusive: 'exclusive',
+      peakHint: 'Peak {start}-{end} ×{multiplier}',
+
+      provision: 'Provision accounts',
+      provisionTitle: 'Provision accounts on {name}',
+      provisionHint:
+        'For each selected group an upstream API key is created and a local account is added.',
+      provisionSelectGroups: 'Select groups',
+      provisionLocalGroups: 'Bind to local groups',
+      provisionLocalGroupsHelp:
+        'If empty the new account is left unbound so you can verify its rate before it serves traffic',
+      provisionConcurrency: 'Concurrency',
+      provisionConcurrencyHelp:
+        "The upstream limit is shared across all its keys — leave blank to use the platform default and avoid overselling",
+      provisionPriority: 'Priority',
+      provisionKeyPrefix: 'Key name prefix',
+      provisionKeyPrefixHelp:
+        'Makes the key easier to spot in the upstream console; defaults to the upstream name',
+      provisionSubmit: 'Create',
+      provisionRunning: 'Creating…',
+      provisionResultTitle: 'Result',
+      provisionResultOk: 'Created',
+      provisionResultFailed: 'Failed',
+      provisionSummary: '{succeeded} created, {failed} failed',
+      provisionNoGroupSelected: 'Select at least one group',
+
+      neverSynced: 'Never synced',
+      syncFailed: 'Sync failed',
+      lastSyncErrorLabel: 'Reason',
+      hasTotp: '2FA configured',
+      noPassword: 'No password stored',
+      captchaHint: 'This upstream requires a captcha; automatic login is not possible',
+      totpHint: 'This upstream enforces 2FA — add its TOTP secret',
+      noProviders: 'No upstreams yet. Click "Add Upstream" to start',
+      readOnlyHint:
+        'Synced concurrency and rates are shown for comparison only; local accounts are never changed automatically',
+
+      compareTitle: 'All upstream groups by rate',
+      compareHint: 'Every group across all upstreams, cheapest first; ties broken by upstream name',
+      compareEmpty: 'No group data yet — add an upstream and sync first',
+      compareRate: 'Rate',
+      compareProvider: 'Upstream',
+      compareInUse: 'Provisioned',
+      comparePlatformAll: 'All platforms',
+      compareStale: 'Sync disabled',
+      comparePlatformHint:
+        'Comparing rates across platforms is not meaningful — filter by platform first'
+    },
+
     // Proxies
     proxies: {
       title: 'Proxy Management',
