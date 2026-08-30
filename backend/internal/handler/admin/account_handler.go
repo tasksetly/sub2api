@@ -64,11 +64,18 @@ type AccountHandler struct {
 	grokImportProber        grokImportProber
 	upstreamBillingProbe    *service.UpstreamBillingProbeService
 	ollamaCloudUsage        *service.OllamaCloudUsageService
+	upstreamProviders       *service.UpstreamProviderService
 }
 
 // SetUpstreamBillingProbeService attaches the optional remote billing probe service.
 func (h *AccountHandler) SetUpstreamBillingProbeService(probe *service.UpstreamBillingProbeService) {
 	h.upstreamBillingProbe = probe
+}
+
+// SetUpstreamProviderService attaches the upstream provider service, used to label
+// which upstream provisioned each account. Optional: nil just leaves the label empty.
+func (h *AccountHandler) SetUpstreamProviderService(providers *service.UpstreamProviderService) {
+	h.upstreamProviders = providers
 }
 
 func (h *AccountHandler) SetOllamaCloudUsageService(usage *service.OllamaCloudUsageService) {
@@ -181,6 +188,7 @@ type BulkUpdateAccountFilters struct {
 	Group       string `json:"group"`
 	Search      string `json:"search"`
 	PrivacyMode string `json:"privacy_mode"`
+	Upstream    string `json:"upstream"`
 }
 
 // CheckMixedChannelRequest represents check mixed channel risk request
@@ -217,6 +225,28 @@ type AccountSchedulerGroupScore struct {
 }
 
 const accountListGroupUngroupedQueryValue = "ungrouped"
+
+// accountListUpstreamAnyQueryValue 表示「只看上游建出来的号」，不限定具体上游。
+const accountListUpstreamAnyQueryValue = "any"
+
+// parseAccountUpstreamFilter 解析 ?upstream= 的值。
+//
+// 返回 0 表示不筛选，service.AccountListUpstreamAny 表示所有上游建的号，
+// 正数表示某个具体上游。列表和「全选筛选结果」批量改都走这里，口径必须一致。
+func parseAccountUpstreamFilter(raw string) (int64, error) {
+	trimmed := strings.TrimSpace(raw)
+	switch trimmed {
+	case "":
+		return 0, nil
+	case accountListUpstreamAnyQueryValue:
+		return service.AccountListUpstreamAny, nil
+	}
+	parsed, err := strconv.ParseInt(trimmed, 10, 64)
+	if err != nil || parsed <= 0 {
+		return 0, infraerrors.BadRequest("INVALID_UPSTREAM_FILTER", "invalid upstream filter")
+	}
+	return parsed, nil
+}
 
 func (h *AccountHandler) accountResponseFromService(account *service.Account) *dto.Account {
 	out := dto.AccountFromService(account)
@@ -536,7 +566,13 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 
-	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	upstreamProviderID, err := parseAccountUpstreamFilter(c.Query("upstream"))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder, upstreamProviderID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -685,6 +721,9 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 
 	h.enrichShadowParents(c.Request.Context(), result)
+	// 回填要在 ETag 之前：名称是响应内容的一部分，上游改名后 ETag 必须跟着变，
+	// 否则前端会拿 304 一直看到旧名字。
+	h.enrichUpstreamProviders(c.Request.Context(), result)
 
 	etag := buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, lite)
 	if etag != "" {
@@ -2199,6 +2238,7 @@ func toServiceBulkUpdateAccountFilters(filters *BulkUpdateAccountFilters) *servi
 		Group:       filters.Group,
 		Search:      filters.Search,
 		PrivacyMode: filters.PrivacyMode,
+		Upstream:    filters.Upstream,
 	}
 }
 
@@ -2989,7 +3029,7 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 	accounts := make([]*service.Account, 0)
 
 	if len(req.AccountIDs) == 0 {
-		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", 0, "", "name", "asc")
+		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", 0, "", "name", "asc", 0)
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return

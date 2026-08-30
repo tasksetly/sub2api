@@ -58,6 +58,12 @@ func (f *fakeUpstreamProviderRepo) ExistsByName(context.Context, string, int64) 
 	return false, nil
 }
 
+func (f *fakeUpstreamProviderRepo) ListNamesByIDs(
+	context.Context, []int64,
+) (map[int64]string, error) {
+	return map[int64]string{}, nil
+}
+
 func (f *fakeUpstreamProviderRepo) UpdateSession(context.Context, int64, string, time.Time) error {
 	return nil
 }

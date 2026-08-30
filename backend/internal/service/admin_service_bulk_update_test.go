@@ -48,6 +48,7 @@ type accountRepoStubForBulkUpdate struct {
 		search      string
 		groupID     int64
 		privacyMode string
+		upstream    int64
 	}
 }
 
@@ -122,7 +123,7 @@ func (s *accountRepoStubForBulkUpdate) ListAllWithFilters(context.Context, strin
 	return nil, nil
 }
 
-func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error) {
+func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, upstreamProviderID int64) ([]Account, *pagination.PaginationResult, error) {
 	s.listCalled = true
 	s.lastListParams = params
 	s.lastListFilters.platform = platform
@@ -131,6 +132,7 @@ func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params
 	s.lastListFilters.search = search
 	s.lastListFilters.groupID = groupID
 	s.lastListFilters.privacyMode = privacyMode
+	s.lastListFilters.upstream = upstreamProviderID
 	if s.listErr != nil {
 		return nil, nil, s.listErr
 	}

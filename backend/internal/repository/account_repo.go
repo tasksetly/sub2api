@@ -884,10 +884,14 @@ func (r *accountRepository) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *accountRepository) List(ctx context.Context, params pagination.PaginationParams) ([]service.Account, *pagination.PaginationResult, error) {
-	return r.ListWithFilters(ctx, params, "", "", "", "", 0, "")
+	return r.ListWithFilters(ctx, params, "", "", "", "", 0, "", 0)
 }
 
-func (r *accountRepository) accountListFilteredQuery(platform, accountType, status, search string, groupID int64, privacyMode string) *dbent.AccountQuery {
+// accountListFilteredQuery 组装账号列表的过滤条件。
+//
+// upstreamProviderID：0 不筛选，service.AccountListUpstreamAny 表示「所有上游建的号」，
+// 正数表示某个具体上游。
+func (r *accountRepository) accountListFilteredQuery(platform, accountType, status, search string, groupID int64, privacyMode string, upstreamProviderID int64) *dbent.AccountQuery {
 	q := r.client.Account.Query()
 
 	if platform != "" {
@@ -968,6 +972,11 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 	} else if groupID > 0 {
 		q = q.Where(dbaccount.HasAccountGroupsWith(dbaccountgroup.GroupIDEQ(groupID)))
 	}
+	if upstreamProviderID == service.AccountListUpstreamAny {
+		q = q.Where(dbaccount.UpstreamProviderIDNotNil())
+	} else if upstreamProviderID > 0 {
+		q = q.Where(dbaccount.UpstreamProviderIDEQ(upstreamProviderID))
+	}
 	if privacyMode != "" {
 		q = q.Where(dbpredicate.Account(func(s *entsql.Selector) {
 			path := sqljson.Path("privacy_mode")
@@ -986,8 +995,8 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 	return q
 }
 
-func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
-	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, upstreamProviderID int64) ([]service.Account, *pagination.PaginationResult, error) {
+	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode, upstreamProviderID)
 	// Clone before Count so interceptor-appended predicates (SoftDeleteMixin's
 	// deleted_at IS NULL) don't accumulate on the shared builder and pollute the
 	// subsequent list query. Same pattern used in group_repo/promo_code_repo/user_repo
@@ -1017,7 +1026,9 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 }
 
 func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
-	accounts, err := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode).All(ctx)
+	// 调度分候选池不按上游筛：池子代表「参与竞争的全部账号」，
+	// 按上游裁剪会改变打分口径，让同一个账号在不同筛选下显示不同分数。
+	accounts, err := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode, 0).All(ctx)
 	if err != nil {
 		return nil, err
 	}

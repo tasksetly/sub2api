@@ -164,7 +164,8 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 		Items: make([]CodexSessionImportItem, 0, len(entries)),
 	}
 
-	existingAccounts, err := h.listAccountsFiltered(ctx, service.PlatformOpenAI, service.AccountTypeOAuth, "", "", 0, "", "created_at", "desc")
+	// 不按上游筛：这是导入去重用的全量索引，漏掉任何已存在账号都会重复导入
+	existingAccounts, err := h.listAccountsFiltered(ctx, service.PlatformOpenAI, service.AccountTypeOAuth, "", "", 0, "", "created_at", "desc", 0)
 	if err != nil {
 		return result, err
 	}

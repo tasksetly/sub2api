@@ -20,9 +20,9 @@ import (
 )
 
 // Account management implementations
-func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error) {
+func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string, upstreamProviderID int64) ([]Account, int64, error) {
 	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
-	accounts, result, err := s.accountRepo.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode)
+	accounts, result, err := s.accountRepo.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, upstreamProviderID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1327,6 +1327,21 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 		groupID = parsedGroupID
 	}
 
+	// 上游筛选与列表页同口径：""不筛选，"any"表示所有上游建的号，其余为具体上游 id。
+	// 不解析的话「全选筛选结果」会批量改到用户列表上没看到的账号。
+	upstreamProviderID := int64(0)
+	switch trimmedUpstream := strings.TrimSpace(filters.Upstream); trimmedUpstream {
+	case "":
+	case "any":
+		upstreamProviderID = AccountListUpstreamAny
+	default:
+		parsedUpstreamID, err := strconv.ParseInt(trimmedUpstream, 10, 64)
+		if err != nil || parsedUpstreamID <= 0 {
+			return nil, fmt.Errorf("invalid upstream filter: %q", trimmedUpstream)
+		}
+		upstreamProviderID = parsedUpstreamID
+	}
+
 	const pageSize = 500
 	page := 1
 	accountIDs := make([]int64, 0, pageSize)
@@ -1344,6 +1359,7 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 			filters.PrivacyMode,
 			"",
 			"",
+			upstreamProviderID,
 		)
 		if err != nil {
 			return nil, err

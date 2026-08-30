@@ -19,6 +19,10 @@ var (
 const AccountListGroupUngrouped int64 = -1
 const AccountPrivacyModeUnsetFilter = "__unset__"
 
+// AccountListUpstreamAny 是账号列表按上游筛选的哨兵值：只要是上游建号出来的都算，
+// 不限定具体哪个上游。沿用 AccountListGroupUngrouped 的 -1 约定，0 仍表示不筛选。
+const AccountListUpstreamAny int64 = -1
+
 // OAuthRefreshPageOptions describes one bounded, cursor-stable scan of OAuth
 // accounts. Candidate platforms are supplied by TokenRefreshService's refresher
 // registry so repository eligibility cannot drift from registered providers.
@@ -68,7 +72,8 @@ type AccountRepository interface {
 	Delete(ctx context.Context, id int64) error
 
 	List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error)
-	ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error)
+	// upstreamProviderID：0 不筛选，AccountListUpstreamAny 表示所有上游建的号，正数为具体上游
+	ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, upstreamProviderID int64) ([]Account, *pagination.PaginationResult, error)
 	// ListAllWithFilters 返回符合过滤条件的全部账号（不分页），用于账号列表页
 	// 计算 OpenAI 调度分数的过滤范围池。
 	ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error)

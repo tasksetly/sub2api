@@ -91,6 +91,9 @@ export default {
       allStatus: '全部状态',
       allGroups: '全部分组',
       ungroupedGroup: '未分配分组',
+      allUpstreams: '全部来源',
+      anyUpstream: '上游建号',
+      upstreamSource: '上游来源',
       oauthType: 'OAuth',
       // Schedulable toggle
       schedulable: '参与调度',

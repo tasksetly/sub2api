@@ -235,6 +235,16 @@ func (s *UpstreamProviderService) ListGroups(ctx context.Context, providerID int
 	return s.repo.ListGroups(ctx, providerID)
 }
 
+// ProviderNamesByIDs 批量取 id → 名称，供账号列表标出账号来自哪个上游。
+func (s *UpstreamProviderService) ProviderNamesByIDs(
+	ctx context.Context, ids []int64,
+) (map[int64]string, error) {
+	if s == nil || s.repo == nil || len(ids) == 0 {
+		return map[int64]string{}, nil
+	}
+	return s.repo.ListNamesByIDs(ctx, ids)
+}
+
 // CompareGroups 跨上游拉平所有分组做横向比价，按倍率升序。
 // platform 为空表示不过滤。
 func (s *UpstreamProviderService) CompareGroups(

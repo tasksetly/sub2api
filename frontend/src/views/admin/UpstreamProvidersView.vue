@@ -95,7 +95,10 @@
 
     <!-- 跨上游拉平的分组比价表：横向比倍率的主视图 -->
     <div class="px-4 pb-8 sm:px-6">
-      <UpstreamGroupComparisonTable ref="comparisonTable" />
+      <UpstreamGroupComparisonTable
+        ref="comparisonTable"
+        @provision="openProvisionFromComparison"
+      />
     </div>
 
     <UpstreamProviderFormDialog
@@ -109,11 +112,12 @@
     <UpstreamProvisionDialog
       :show="showProvisionModal"
       :provider="provisionProvider"
-      :groups="expandedGroups"
-      :groups-loading="groupsLoading"
+      :groups="provisionGroups"
+      :groups-loading="provisionGroupsLoading"
       :local-groups="localGroups"
       :submitting="provisioning"
       :results="provisionResults"
+      :preset-remote-group-ids="presetRemoteGroupIDs"
       @close="closeProvisionModal"
       @submit="handleProvision"
     />
@@ -137,8 +141,10 @@ import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminGroup } from '@/types'
 import type {
+  UpstreamProvider,
   UpstreamProviderWithStats,
   UpstreamGroup,
+  UpstreamGroupComparison,
   ProvisionedAccount,
   CreateUpstreamProviderRequest,
   UpdateUpstreamProviderRequest,
@@ -182,10 +188,17 @@ const editingProvider = ref<UpstreamProviderWithStats | null>(null)
 const submitting = ref(false)
 
 const showProvisionModal = ref(false)
-const provisionProvider = ref<UpstreamProviderWithStats | null>(null)
+const provisionProvider = ref<UpstreamProviderWithStats | UpstreamProvider | null>(null)
 const provisioning = ref(false)
 const provisionResults = ref<ProvisionedAccount[]>([])
 const localGroups = ref<AdminGroup[]>([])
+
+// 建号弹窗用独立的分组状态，不复用展开行的 expandedGroups：
+// 从比价表快捷建号时目标上游未必是当前展开的那个，共用会互相顶掉。
+const provisionGroups = ref<UpstreamGroup[]>([])
+const provisionGroupsLoading = ref(false)
+// 快捷建号预勾的上游分组；从上游列表进来时为空
+const presetRemoteGroupIDs = ref<number[]>([])
 
 const showDeleteConfirm = ref(false)
 const deletingProvider = ref<UpstreamProviderWithStats | null>(null)
@@ -363,10 +376,49 @@ async function handleFormSubmit(
 }
 
 async function openProvisionModal(provider: UpstreamProviderWithStats) {
+  presetRemoteGroupIDs.value = []
+  await openProvisionFor(provider)
+}
+
+// 比价表的快捷建号：直接拿这一行的上游 + 分组开建，不用回列表再勾一遍。
+//
+// 比价表是跨上游拉平的，行里的上游可能不在当前页的 providers 里，
+// 所以先在已加载列表里找，找不到再按 id 拉一次。
+async function openProvisionFromComparison(row: UpstreamGroupComparison) {
+  const loaded = providers.value.find((item) => item.id === row.upstream_provider_id)
+  presetRemoteGroupIDs.value = [row.remote_group_id]
+
+  if (loaded) {
+    await openProvisionFor(loaded)
+    return
+  }
+  try {
+    const provider = await adminAPI.upstreamProviders.getByID(row.upstream_provider_id)
+    await openProvisionFor(provider)
+  } catch (error) {
+    presetRemoteGroupIDs.value = []
+    appStore.showError(resolveError(error))
+  }
+}
+
+async function openProvisionFor(provider: UpstreamProviderWithStats | UpstreamProvider) {
   provisionProvider.value = provider
   provisionResults.value = []
+  provisionGroups.value = []
   showProvisionModal.value = true
-  await Promise.all([loadGroups(provider.id), loadLocalGroups()])
+  await Promise.all([loadProvisionGroups(provider.id), loadLocalGroups()])
+}
+
+async function loadProvisionGroups(providerID: number) {
+  provisionGroupsLoading.value = true
+  try {
+    provisionGroups.value = await adminAPI.upstreamProviders.listGroups(providerID)
+  } catch (error) {
+    appStore.showError(resolveError(error))
+    provisionGroups.value = []
+  } finally {
+    provisionGroupsLoading.value = false
+  }
 }
 
 async function loadLocalGroups() {
@@ -383,6 +435,8 @@ function closeProvisionModal() {
   showProvisionModal.value = false
   provisionProvider.value = null
   provisionResults.value = []
+  provisionGroups.value = []
+  presetRemoteGroupIDs.value = []
 }
 
 async function handleProvision(payload: ProvisionAccountsRequest) {
@@ -402,6 +456,11 @@ async function handleProvision(payload: ProvisionAccountsRequest) {
       appStore.showError(t('admin.upstreamProviders.provisionSummary', { succeeded, failed }))
     }
     await loadProviders()
+    // 建号会改变比价表的「已建号」列，不刷的话还是旧计数。
+    // 只在真的建成过才刷，全失败时没有任何计数变化。
+    if (succeeded > 0) {
+      await comparisonTable.value?.reload()
+    }
   } catch (error) {
     appStore.showError(resolveError(error))
   } finally {

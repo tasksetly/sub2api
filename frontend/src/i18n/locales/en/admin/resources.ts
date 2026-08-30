@@ -166,6 +166,8 @@ export default {
       compareRateCorrectedFrom: 'declared ×{raw} × correction {correction}',
       compareProvider: 'Upstream',
       compareInUse: 'Provisioned',
+      compareProvision: 'Quick provision',
+      compareProvisionHint: 'Create an API key on this upstream group and land it as a local account',
       comparePlatformAll: 'All platforms',
       compareStale: 'Sync disabled',
       comparePlatformHint:

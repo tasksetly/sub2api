@@ -8,6 +8,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/upstreamgroup"
 	"github.com/Wei-Shaw/sub2api/ent/upstreamprovider"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -313,6 +314,37 @@ func (r *upstreamProviderRepository) ListSyncable(ctx context.Context) ([]servic
 		providers = append(providers, *r.entityToService(entity))
 	}
 	return providers, nil
+}
+
+// ListNamesByIDs 批量取 id → 名称，供账号列表回填「来自哪个上游」。
+//
+// 只 Select id/name 两列，不走 entityToService：那条路径会解密密码/TOTP/token，
+// 而账号列表每次请求都要调这里，白付解密开销没有意义。
+//
+// SkipSoftDelete：上游被删后 accounts.upstream_provider_id 是 ON DELETE SET NULL，
+// 但软删除不会触发它，外键还指着那一行。不跳过过滤的话这些账号的来源列会空掉。
+func (r *upstreamProviderRepository) ListNamesByIDs(
+	ctx context.Context, ids []int64,
+) (map[int64]string, error) {
+	if len(ids) == 0 {
+		return map[int64]string{}, nil
+	}
+	var rows []struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	err := r.client.UpstreamProvider.Query().
+		Where(upstreamprovider.IDIn(ids...)).
+		Select(upstreamprovider.FieldID, upstreamprovider.FieldName).
+		Scan(mixins.SkipSoftDelete(ctx), &rows)
+	if err != nil {
+		return nil, fmt.Errorf("list upstream provider names: %w", err)
+	}
+	names := make(map[int64]string, len(rows))
+	for _, row := range rows {
+		names[row.ID] = row.Name
+	}
+	return names, nil
 }
 
 func (r *upstreamProviderRepository) ExistsByName(ctx context.Context, name string, excludeID int64) (bool, error) {

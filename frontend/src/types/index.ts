@@ -1232,6 +1232,13 @@ export interface Account {
   parent_privacy_mode?: string
   parent_subscription_expires_at?: string
   parent_chatgpt_account_id?: string
+
+  // 上游供应商溯源：非空表示该账号是从上游管理页「建号」自动创建的
+  upstream_provider_id?: number | null
+  /** 该 Key 在上游绑定的分组 id（上游侧 id，非本地 groups.id） */
+  upstream_remote_group_id?: number | null
+  /** 上游名称，由后端回填，省得前端再拉一次上游列表 */
+  upstream_provider_name?: string
 }
 
 export interface AccountSchedulerGroupScore {

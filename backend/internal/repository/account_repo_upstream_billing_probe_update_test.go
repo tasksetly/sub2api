@@ -474,9 +474,11 @@ func TestBulkUpdateRollsBackWhenOutboxFails(t *testing.T) {
 
 func updatedAccountRows(id int64, extra string) *sqlmock.Rows {
 	now := time.Now()
+	// 值的顺序必须逐列对齐 dbaccount.Columns。upstream_provider_id /
+	// upstream_remote_group_id 排在 proxy_fallback_origin_id 之后、concurrency 之前。
 	return sqlmock.NewRows(dbaccount.Columns).AddRow(
 		id, now, now, nil, "test", "", nil, service.PlatformOpenAI, service.AccountTypeAPIKey,
-		[]byte(`{"api_key":"sk-test"}`), []byte(extra), nil, nil, 1, nil, 1, 1.0,
+		[]byte(`{"api_key":"sk-test"}`), []byte(extra), nil, nil, nil, nil, 1, nil, 1, 1.0,
 		service.StatusActive, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
 		nil, nil, nil, service.QuotaDimensionGlobal,
 	)

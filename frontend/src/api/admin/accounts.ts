@@ -45,6 +45,8 @@ export async function list(
     group?: string
     search?: string
     privacy_mode?: string
+    /** ''=不筛选，'any'=所有上游建的号，数字=具体上游 id */
+    upstream?: string
     lite?: string
     include_scheduler_score?: string
     sort_by?: string
@@ -81,6 +83,8 @@ export async function listWithEtag(
     group?: string
     search?: string
     privacy_mode?: string
+    /** ''=不筛选，'any'=所有上游建的号，数字=具体上游 id */
+    upstream?: string
     lite?: string
     include_scheduler_score?: string
     sort_by?: string
@@ -707,6 +711,8 @@ export async function exportData(options?: {
     group?: string
     privacy_mode?: string
     search?: string
+    /** 导出要跟列表看到的一致，所以同样带上上游筛选 */
+    upstream?: string
     sort_by?: string
     sort_order?: 'asc' | 'desc'
   }
@@ -716,13 +722,14 @@ export async function exportData(options?: {
   if (options?.ids && options.ids.length > 0) {
     params.ids = options.ids.join(',')
   } else if (options?.filters) {
-    const { platform, type, status, group, privacy_mode, search, sort_by, sort_order } = options.filters
+    const { platform, type, status, group, privacy_mode, search, upstream, sort_by, sort_order } = options.filters
     if (platform) params.platform = platform
     if (type) params.type = type
     if (status) params.status = status
     if (group) params.group = group
     if (privacy_mode) params.privacy_mode = privacy_mode
     if (search) params.search = search
+    if (upstream) params.upstream = upstream
     if (sort_by) params.sort_by = sort_by
     if (sort_order) params.sort_order = sort_order
   }

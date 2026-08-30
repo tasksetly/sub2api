@@ -301,6 +301,14 @@ type Account struct {
 	ParentAccountID *int64 `json:"parent_account_id,omitempty"`
 	QuotaDimension  string `json:"quota_dimension,omitempty"`
 
+	// 上游供应商溯源：非空表示这个账号是由上游管理页「建号」自动创建的，
+	// 而不是手工添加。前端靠它在账号列表上标出来源并按上游筛选。
+	UpstreamProviderID *int64 `json:"upstream_provider_id,omitempty"`
+	// UpstreamRemoteGroupID 是该 Key 在上游绑定的分组 id（上游侧 id，非本地 groups.id）
+	UpstreamRemoteGroupID *int64 `json:"upstream_remote_group_id,omitempty"`
+	// UpstreamProviderName 由 handler 回填，省得前端为了显示名称再拉一次上游列表
+	UpstreamProviderName string `json:"upstream_provider_name,omitempty"`
+
 	// 影子账号回填的母账号信息（仅影子非空，源自母账号 Credentials/Extra）
 	ParentEmail                 string `json:"parent_email,omitempty"`
 	ParentPlanType              string `json:"parent_plan_type,omitempty"`

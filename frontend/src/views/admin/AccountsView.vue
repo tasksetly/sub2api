@@ -7,6 +7,7 @@
             v-model:searchQuery="params.search"
             :filters="params"
             :groups="groups"
+            :upstream-providers="upstreamProviders"
             @update:filters="(newFilters) => Object.assign(params, newFilters)"
             @change="debouncedReload"
             @update:searchQuery="debouncedReload"
@@ -253,11 +254,23 @@
               </span>
             </div>
           </template>
-          <template #cell-supplier="{ value }">
-            <span v-if="value" class="inline-flex max-w-[180px] items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200" :title="value">
-              {{ value }}
-            </span>
-            <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{ t('admin.accounts.supplierUnset') }}</span>
+          <template #cell-supplier="{ value, row }">
+            <div class="flex min-w-0 flex-col gap-1">
+              <span v-if="value" class="inline-flex max-w-[180px] items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200" :title="value">
+                {{ value }}
+              </span>
+              <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{ t('admin.accounts.supplierUnset') }}</span>
+              <!-- 上游建号出来的账号标一下来源：supplier 只是个自由文本，
+                   这个徽标来自 upstream_provider_id 外键，改名也不会失联。 -->
+              <span
+                v-if="row.upstream_provider_id"
+                class="inline-flex max-w-[180px] items-center gap-1 truncate text-xs text-blue-600 dark:text-blue-400"
+                :title="t('admin.accounts.upstreamSource') + ': ' + (row.upstream_provider_name || row.upstream_provider_id)"
+              >
+                <Icon name="link" size="xs" />
+                {{ row.upstream_provider_name || `#${row.upstream_provider_id}` }}
+              </span>
+            </div>
           </template>
           <template #cell-notes="{ value }">
             <span v-if="value" :title="value" class="block max-w-xs truncate text-sm text-gray-600 dark:text-gray-300">{{ value }}</span>
@@ -561,6 +574,7 @@ import { sanitizeUrl } from '@/utils/url'
 import { getFloatingPanelPosition } from '@/utils/floatingPanel'
 import { formatMultiplier } from '@/utils/formatters'
 import type { Account, AccountPlatform, AccountSchedulerGroupScore, AccountType, AccountUsageInfo, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
+import type { UpstreamProviderWithStats } from '@/types/upstreamProvider'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -568,6 +582,8 @@ const authStore = useAuthStore()
 
 const proxies = ref<AccountProxy[]>([])
 const groups = ref<AdminGroup[]>([])
+// 上游供应商列表，只用于「上游」筛选下拉的选项
+const upstreamProviders = ref<UpstreamProviderWithStats[]>([])
 const accountTableRef = ref<HTMLElement | null>(null)
 const dataTableRef = ref<InstanceType<typeof DataTable> | null>(null)
 type AccountBulkEditTarget =
@@ -586,6 +602,7 @@ type AccountBulkEditTarget =
         group?: string
         search?: string
         privacy_mode?: string
+        upstream?: string
         sort_by?: string
         sort_order?: AccountSortOrder
       }
@@ -1114,6 +1131,8 @@ const {
     privacy_mode: '',
     group: '',
     search: '',
+    // ''=不筛选，'any'=所有上游建的号，数字=具体上游 id
+    upstream: '',
     include_scheduler_score: shouldIncludeSchedulerScore() ? '1' : '0',
     sort_by: sortState.sort_by,
     sort_order: sortState.sort_order
@@ -1398,6 +1417,7 @@ const refreshAccountsIncrementally = async () => {
         privacy_mode?: string
         group?: string
         search?: string
+        upstream?: string
         sort_by?: string
         sort_order?: AccountSortOrder
 
@@ -2005,6 +2025,9 @@ const buildBulkEditFilterSnapshot = () => {
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
+    // 上游筛选必须进快照：批量改按这份筛选在后端重新拉一遍目标账号，
+    // 漏掉它就会改到用户列表上没看到的账号。
+    upstream: typeof rawParams.upstream === 'string' ? rawParams.upstream : '',
     sort_by: typeof rawParams.sort_by === 'string' ? rawParams.sort_by : '',
     sort_order: sortOrder
   }
@@ -2075,6 +2098,21 @@ const handleBulkUpdated = () => {
 const handleDataImported = () => { showImportData.value = false; reload() }
 const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
 const ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE = '__unset__'
+// 与后端 accountListUpstreamAnyQueryValue 保持一致
+const ACCOUNT_UPSTREAM_ANY_QUERY_VALUE = 'any'
+// 上游筛选下拉的选项来源。上游数量本来就少（几十个量级），一页拉完即可，
+// 分页翻页会让下拉缺项，比多取几十行更糟。
+const loadUpstreamProviders = async () => {
+  try {
+    const response = await adminAPI.upstreamProviders.list(1, 200)
+    upstreamProviders.value = response.items ?? []
+  } catch (error) {
+    // 拉不到只影响筛选下拉，账号列表本身照常用，所以不弹错误提示
+    console.error('Failed to load upstream providers:', error)
+    upstreamProviders.value = []
+  }
+}
+
 const buildAccountQueryFilters = () => ({
   platform: params.platform || '',
   type: params.type || '',
@@ -2082,6 +2120,7 @@ const buildAccountQueryFilters = () => ({
   group: params.group || '',
   privacy_mode: params.privacy_mode || '',
   search: params.search || '',
+  upstream: params.upstream || '',
   sort_by: sortState.sort_by,
   sort_order: sortState.sort_order
 })
@@ -2121,6 +2160,16 @@ const accountMatchesCurrentFilters = (account: Account) => {
     if (filters.privacy_mode === ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE) {
       if (privacyMode.trim() !== '') return false
     } else if (privacyMode !== filters.privacy_mode) {
+      return false
+    }
+  }
+  // 与后端 accountListFilteredQuery 同口径：'any' 只看上游建的号，
+  // 数字则限定具体上游。两边判断必须一致，否则乐观更新后的行会闪一下再消失。
+  const upstream = String(filters.upstream || '').trim()
+  if (upstream) {
+    const providerId = account.upstream_provider_id
+    if (providerId === null || providerId === undefined) return false
+    if (upstream !== ACCOUNT_UPSTREAM_ANY_QUERY_VALUE && providerId !== Number(upstream)) {
       return false
     }
   }
@@ -2488,6 +2537,8 @@ onMounted(async () => {
   } catch (error) {
     console.error('Failed to load proxies/groups:', error)
   }
+  // 单独 await：上游列表拉不到只该让上游筛选下拉变空，不该连带 proxies/groups 一起丢
+  await loadUpstreamProviders()
   window.addEventListener('scroll', handleScroll, true)
   window.addEventListener('resize', handleViewportResize)
   document.addEventListener('click', handleClickOutside)

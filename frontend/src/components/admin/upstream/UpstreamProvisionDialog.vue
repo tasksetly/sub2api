@@ -163,6 +163,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AdminGroup } from '@/types'
 import type {
+  UpstreamProvider,
   UpstreamProviderWithStats,
   UpstreamGroup,
   ProvisionedAccount,
@@ -172,12 +173,15 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 
 interface Props {
   show: boolean
-  provider: UpstreamProviderWithStats | null
+  // 从比价表快捷建号时只解析得到基础字段，统计字段用不上，所以放宽到联合类型
+  provider: UpstreamProviderWithStats | UpstreamProvider | null
   groups: UpstreamGroup[]
   groupsLoading: boolean
   localGroups: AdminGroup[]
   submitting: boolean
   results: ProvisionedAccount[]
+  // presetRemoteGroupIDs 由比价表的快捷建号传入，打开时预勾这些分组
+  presetRemoteGroupIDs?: number[]
 }
 
 const props = defineProps<Props>()
@@ -206,9 +210,24 @@ watch(
   () => props.show,
   (show) => {
     if (!show) return
-    selected.value = new Set()
+    // 快捷建号预勾指定分组；从上游列表进来时 preset 为空，保持全不勾
+    selected.value = new Set(props.presetRemoteGroupIDs ?? [])
     selectedLocal.value = new Set()
     form.value = { concurrency: undefined, priority: undefined, key_name_prefix: '' }
+  }
+)
+
+// 分组快照是打开弹窗后异步拉回来的，此时才知道预勾的分组是否真的存在。
+// 已被上游删掉的分组不该留在勾选集里——提交上去只会拿到一个建号失败。
+watch(
+  () => props.groups,
+  (groups) => {
+    if (!props.show || selected.value.size === 0) return
+    const available = new Set(groups.map((group) => group.remote_group_id))
+    const filtered = new Set([...selected.value].filter((id) => available.has(id)))
+    if (filtered.size !== selected.value.size) {
+      selected.value = filtered
+    }
   }
 )
 

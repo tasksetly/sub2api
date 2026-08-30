@@ -161,6 +161,8 @@ export default {
       compareRateCorrectedFrom: '声明 ×{raw} × 修正 {correction}',
       compareProvider: '上游',
       compareInUse: '已建号',
+      compareProvision: '快捷建号',
+      compareProvisionHint: '在该上游分组建 API Key，并同步落地成本地账号',
       comparePlatformAll: '全部平台',
       compareStale: '未启用同步',
       comparePlatformHint: '跨平台比倍率没有意义，建议按平台筛选后再比'

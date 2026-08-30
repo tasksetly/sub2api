@@ -158,6 +158,10 @@ type UpstreamProviderRepository interface {
 	List(ctx context.Context, params pagination.PaginationParams, status, search string) ([]UpstreamProviderWithStats, *pagination.PaginationResult, error)
 	ListSyncable(ctx context.Context) ([]UpstreamProvider, error)
 	ExistsByName(ctx context.Context, name string, excludeID int64) (bool, error)
+	// ListNamesByIDs 批量取 id → 名称，供账号列表回填「来自哪个上游」。
+	// 只查名称，不解密任何凭据：这条路径每次列表请求都会走，没必要付解密开销。
+	// 包含软删除的上游——账号还在用它签发的 Key，名称得照样显示得出来。
+	ListNamesByIDs(ctx context.Context, ids []int64) (map[int64]string, error)
 
 	// UpdateSession 只更新 token 缓存，避免整行覆盖把并发的同步结果写丢。
 	UpdateSession(ctx context.Context, id int64, token string, expiresAt time.Time) error

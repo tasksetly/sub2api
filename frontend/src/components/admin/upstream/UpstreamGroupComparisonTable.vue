@@ -53,6 +53,7 @@
             <th class="th-cell">{{ t('admin.upstreamProviders.colDailyLimit') }}</th>
             <th class="th-cell">{{ t('admin.upstreamProviders.colMonthlyLimit') }}</th>
             <th class="th-cell">{{ t('admin.upstreamProviders.compareInUse') }}</th>
+            <th class="th-cell text-right">{{ t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900">
@@ -154,6 +155,19 @@
               </span>
               <span v-else class="text-gray-400">—</span>
             </td>
+
+            <!-- 快捷建号：直接从比价行开建，省去回上游列表再勾一遍分组。
+                 停用/未同步的上游也允许建：管理员可能正是要临时借它顶一下。 -->
+            <td class="px-3 py-2 text-right">
+              <button
+                class="btn btn-secondary btn-sm whitespace-nowrap"
+                :title="t('admin.upstreamProviders.compareProvisionHint')"
+                @click="emit('provision', row)"
+              >
+                <Icon name="plus" size="sm" class="mr-1" />
+                {{ t('admin.upstreamProviders.compareProvision') }}
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -184,6 +198,11 @@ import Pagination from '@/components/common/Pagination.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+
+// 建号本身交给父组件：它已经持有建号弹窗、本地分组和上游列表的状态
+const emit = defineEmits<{
+  (e: 'provision', row: UpstreamGroupComparison): void
+}>()
 
 const rows = ref<UpstreamGroupComparison[]>([])
 const loading = ref(false)
