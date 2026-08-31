@@ -3181,7 +3181,8 @@ func (r *oauthPendingFlowUserRepo) GetByID(ctx context.Context, id int64) (*serv
 }
 
 func (r *oauthPendingFlowUserRepo) GetByEmail(ctx context.Context, email string) (*service.User, error) {
-	entity, err := r.client.User.Query().Where(dbuser.EmailEQ(email)).Only(ctx)
+	// 与真实仓储一致：邮箱按 LOWER(TRIM()) 归一化后匹配。
+	entity, err := r.client.User.Query().Where(userNormalizedEmailPredicate(email)).Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
 			return nil, service.ErrUserNotFound

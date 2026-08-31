@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"strconv"
 	"strings"
@@ -250,12 +251,15 @@ func (h *AuthHandler) LinuxDoOAuthCallback(c *gin.Context) {
 		redirectOAuthError(c, frontendCallback, "userinfo_failed", "failed to fetch user info", "")
 		return
 	}
-	compatEmail := strings.TrimSpace(email)
+	upstreamEmail := strings.TrimSpace(email)
 
-	// 安全考虑：不要把第三方返回的 email 直接映射到本地账号（可能与本地邮箱用户冲突导致账号被接管）。
-	// 统一使用基于 subject 的稳定合成邮箱来做账号绑定。
-	if subject != "" {
-		email = linuxDoSyntheticEmail(subject)
+	// LinuxDo Connect 返回的邮箱由上游校验过，直接用它建号/登录：
+	// 邮箱已存在即视为同一个人直接登录，不存在则直接注册，注册与登录流程一致，无需再发验证邮件。
+	// 上游没给邮箱（或格式非法）时回落到基于 subject 的稳定合成邮箱。
+	email = linuxDoAccountEmail(upstreamEmail, subject)
+	if email == "" {
+		redirectOAuthError(c, frontendCallback, "userinfo_failed", "failed to resolve account email", "")
+		return
 	}
 	identityKey := service.PendingAuthIdentityKey{
 		ProviderType:    "linuxdo",
@@ -269,8 +273,8 @@ func (h *AuthHandler) LinuxDoOAuthCallback(c *gin.Context) {
 		"suggested_display_name": displayName,
 		"suggested_avatar_url":   avatarURL,
 	}
-	if compatEmail != "" && !strings.EqualFold(strings.TrimSpace(compatEmail), strings.TrimSpace(email)) {
-		upstreamClaims["compat_email"] = compatEmail
+	if upstreamEmail != "" && !strings.EqualFold(upstreamEmail, email) {
+		upstreamClaims["compat_email"] = upstreamEmail
 	}
 	if intent == oauthIntentBindCurrentUser {
 		targetUserID, err := h.readOAuthBindUserIDFromCookie(c, linuxDoOAuthBindUserCookieName)
@@ -297,24 +301,61 @@ func (h *AuthHandler) LinuxDoOAuthCallback(c *gin.Context) {
 		return
 	}
 
+	// 三种情况统一走一条路，全程不再有中间页：
+	//   1. identity 已绑过 → 用该账号的邮箱登录（上游改了邮箱也不会丢账号）；
+	//   2. 邮箱已有账号   → 绑定 identity 后直接登录；
+	//   3. 都没有         → 直接建号登录。
 	existingIdentityUser, err := h.findOAuthIdentityUser(c.Request.Context(), identityKey)
 	if err != nil {
 		redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(err), infraerrors.Message(err))
 		return
 	}
-	if existingIdentityUser != nil {
-		if err := h.createOAuthPendingSession(c, oauthPendingSessionPayload{
-			Intent:                 oauthIntentLogin,
-			Identity:               identityKey,
-			TargetUserID:           &existingIdentityUser.ID,
-			ResolvedEmail:          existingIdentityUser.Email,
-			RedirectTo:             redirectTo,
-			BrowserSessionKey:      browserSessionKey,
-			UpstreamIdentityClaims: upstreamClaims,
-			CompletionResponse: map[string]any{
-				"redirect": redirectTo,
-			},
-		}); err != nil {
+
+	loginEmail := email
+	loginUser := existingIdentityUser
+	if loginUser != nil {
+		loginEmail = strings.TrimSpace(loginUser.Email)
+	} else {
+		loginUser, err = h.findLinuxDoAccountEmailUser(c.Request.Context(), loginEmail)
+		if err != nil {
+			redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(err), infraerrors.Message(err))
+			return
+		}
+	}
+
+	if loginUser == nil {
+		if err := h.ensureBackendModeAllowsNewUserLogin(c.Request.Context()); err != nil {
+			redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(err), infraerrors.Message(err))
+			return
+		}
+	} else if err := h.ensureBackendModeAllowsLinuxDoUser(c.Request.Context(), loginUser.ID); err != nil {
+		redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(err), infraerrors.Message(err))
+		return
+	}
+
+	tokenPair, user, err := h.authService.LoginOrRegisterOAuthWithTokenPairAndPromoCode(
+		c.Request.Context(),
+		loginEmail,
+		username,
+		"",
+		"",
+		readOAuthPromoCode(c),
+		"linuxdo",
+	)
+	if err != nil {
+		// 只有"缺邀请码"需要前端补一步；其余错误直接回报。
+		if !errors.Is(err, service.ErrOAuthInvitationRequired) {
+			redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(err), infraerrors.Message(err))
+			return
+		}
+		if err := h.createLinuxDoOAuthInvitationPendingSession(
+			c,
+			identityKey,
+			loginEmail,
+			redirectTo,
+			browserSessionKey,
+			upstreamClaims,
+		); err != nil {
 			redirectOAuthError(c, frontendCallback, "session_error", "failed to continue oauth login", "")
 			return
 		}
@@ -322,91 +363,54 @@ func (h *AuthHandler) LinuxDoOAuthCallback(c *gin.Context) {
 		return
 	}
 
-	compatEmailUser, err := h.findLinuxDoCompatEmailUser(c.Request.Context(), compatEmail)
-	if err != nil {
-		redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(err), infraerrors.Message(err))
-		return
-	}
-	emailVerificationRequired := h != nil && h.authService != nil && h.authService.IsEmailVerifyEnabled(c.Request.Context())
-	forceEmailOnSignup := h.isForceEmailOnThirdPartySignup(c.Request.Context())
-	if compatEmailUser == nil && !emailVerificationRequired && !forceEmailOnSignup {
-		if err := h.ensureBackendModeAllowsNewUserLogin(c.Request.Context()); err != nil {
-			redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(err), infraerrors.Message(err))
-			return
-		}
-		tokenPair, user, err := h.authService.LoginOrRegisterOAuthWithTokenPairAndPromoCode(
-			c.Request.Context(),
-			email,
-			username,
-			"",
-			"",
-			readOAuthPromoCode(c),
-			"linuxdo",
-		)
-		if err == nil {
-			if err := applyPendingOAuthBinding(
-				c.Request.Context(),
-				h.entClient(),
-				h.authService,
-				h.userService,
-				&dbent.PendingAuthSession{
-					Intent:                 oauthIntentLogin,
-					ProviderType:           identityKey.ProviderType,
-					ProviderKey:            identityKey.ProviderKey,
-					ProviderSubject:        identityKey.ProviderSubject,
-					ResolvedEmail:          email,
-					UpstreamIdentityClaims: upstreamClaims,
-				},
-				nil,
-				&user.ID,
-				true,
-				false,
-			); err != nil {
-				redirectOAuthError(c, frontendCallback, "session_error", "failed to bind oauth identity", "")
-				return
-			}
-			h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
-			clearOAuthPendingSessionCookie(c, secureCookie)
-			clearOAuthPendingBrowserCookie(c, secureCookie)
-			redirectOAuthTokenPair(c, frontendCallback, tokenPair, redirectTo)
-			return
-		}
-		if !errors.Is(err, service.ErrOAuthInvitationRequired) {
-			redirectOAuthError(c, frontendCallback, "session_error", infraerrors.Reason(err), infraerrors.Message(err))
-			return
-		}
-	}
-	if err := h.createLinuxDoOAuthChoicePendingSession(
-		c,
-		identityKey,
-		email,
-		email,
-		redirectTo,
-		browserSessionKey,
-		upstreamClaims,
-		compatEmail,
-		compatEmailUser,
-		emailVerificationRequired,
-		forceEmailOnSignup,
+	if err := applyPendingOAuthBinding(
+		c.Request.Context(),
+		h.entClient(),
+		h.authService,
+		h.userService,
+		&dbent.PendingAuthSession{
+			Intent:                 oauthIntentLogin,
+			ProviderType:           identityKey.ProviderType,
+			ProviderKey:            identityKey.ProviderKey,
+			ProviderSubject:        identityKey.ProviderSubject,
+			ResolvedEmail:          loginEmail,
+			UpstreamIdentityClaims: upstreamClaims,
+		},
+		nil,
+		&user.ID,
+		true,
+		false,
 	); err != nil {
-		redirectOAuthError(c, frontendCallback, "session_error", "failed to continue oauth login", "")
+		redirectOAuthError(c, frontendCallback, "session_error", "failed to bind oauth identity", "")
 		return
 	}
-	redirectToFrontendCallback(c, frontendCallback)
+	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
+	clearOAuthPendingSessionCookie(c, secureCookie)
+	clearOAuthPendingBrowserCookie(c, secureCookie)
+	redirectOAuthTokenPair(c, frontendCallback, tokenPair, redirectTo)
 }
 
-func (h *AuthHandler) findLinuxDoCompatEmailUser(ctx context.Context, email string) (*dbent.User, error) {
+// linuxDoAccountEmail 解析用于建号/登录的账号邮箱：优先用上游返回的真实邮箱，
+// 上游没给或格式非法时回落到基于 subject 的稳定合成邮箱。
+func linuxDoAccountEmail(upstreamEmail string, subject string) string {
+	upstreamEmail = strings.TrimSpace(upstreamEmail)
+	if upstreamEmail != "" && len(upstreamEmail) <= 255 {
+		if _, err := mail.ParseAddress(upstreamEmail); err == nil {
+			return upstreamEmail
+		}
+	}
+	return linuxDoSyntheticEmail(subject)
+}
+
+// findLinuxDoAccountEmailUser 查找账号邮箱对应的既有用户；没有则返回 (nil, nil)。
+func (h *AuthHandler) findLinuxDoAccountEmailUser(ctx context.Context, email string) (*dbent.User, error) {
 	client := h.entClient()
 	if client == nil {
 		return nil, infraerrors.ServiceUnavailable("PENDING_AUTH_NOT_READY", "pending auth service is not ready")
 	}
 
-	email = strings.TrimSpace(strings.ToLower(email))
-	if email == "" ||
-		strings.HasSuffix(email, service.LinuxDoConnectSyntheticEmailDomain) ||
-		strings.HasSuffix(email, service.OIDCConnectSyntheticEmailDomain) ||
-		strings.HasSuffix(email, service.WeChatConnectSyntheticEmailDomain) ||
-		strings.HasSuffix(email, service.DingTalkConnectSyntheticEmailDomain) {
+	email = strings.TrimSpace(email)
+	if email == "" {
 		return nil, nil
 	}
 
@@ -415,7 +419,7 @@ func (h *AuthHandler) findLinuxDoCompatEmailUser(ctx context.Context, email stri
 		Order(dbent.Asc(dbuser.FieldID)).
 		All(ctx)
 	if err != nil {
-		return nil, infraerrors.InternalServer("COMPAT_EMAIL_LOOKUP_FAILED", "failed to look up compat email user").WithCause(err)
+		return nil, infraerrors.InternalServer("ACCOUNT_EMAIL_LOOKUP_FAILED", "failed to look up account email user").WithCause(err)
 	}
 	switch len(userEntity) {
 	case 0:
@@ -427,77 +431,45 @@ func (h *AuthHandler) findLinuxDoCompatEmailUser(ctx context.Context, email stri
 	}
 }
 
-func (h *AuthHandler) createLinuxDoOAuthChoicePendingSession(
+// ensureBackendModeAllowsLinuxDoUser 在后台模式下拦截非管理员的既有账号登录。
+func (h *AuthHandler) ensureBackendModeAllowsLinuxDoUser(ctx context.Context, userID int64) error {
+	if h == nil || !h.isBackendModeEnabled(ctx) {
+		return nil
+	}
+	if h.userService == nil {
+		return infraerrors.ServiceUnavailable("USER_SERVICE_NOT_READY", "user service is not ready")
+	}
+	user, err := h.userService.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	return h.ensureBackendModeAllowsUser(ctx, user)
+}
+
+// createLinuxDoOAuthInvitationPendingSession 仅在"注册需要邀请码"时使用：
+// 挂起会话让前端补一个邀请码，随后走 complete-registration 建号。
+func (h *AuthHandler) createLinuxDoOAuthInvitationPendingSession(
 	c *gin.Context,
 	identity service.PendingAuthIdentityKey,
-	suggestedEmail string,
-	resolvedEmail string,
+	email string,
 	redirectTo string,
 	browserSessionKey string,
 	upstreamClaims map[string]any,
-	compatEmail string,
-	compatEmailUser *dbent.User,
-	emailVerificationRequired bool,
-	forceEmailOnSignup bool,
 ) error {
-	suggestionEmail := strings.TrimSpace(suggestedEmail)
-	canonicalEmail := strings.TrimSpace(resolvedEmail)
-	if suggestionEmail == "" {
-		suggestionEmail = canonicalEmail
-	}
-
-	completionResponse := map[string]any{
-		"step":                      oauthPendingChoiceStep,
-		"adoption_required":         true,
-		"redirect":                  strings.TrimSpace(redirectTo),
-		"email":                     suggestionEmail,
-		"resolved_email":            canonicalEmail,
-		"existing_account_email":    "",
-		"existing_account_bindable": false,
-		"create_account_allowed":    true,
-		"force_email_on_signup":     forceEmailOnSignup,
-		"choice_reason":             "third_party_signup",
-	}
-	if strings.TrimSpace(compatEmail) != "" {
-		completionResponse["compat_email"] = strings.TrimSpace(compatEmail)
-	}
-	resolvedChoiceEmail := suggestionEmail
-	if compatEmailUser != nil {
-		completionResponse["email"] = strings.TrimSpace(compatEmailUser.Email)
-		completionResponse["existing_account_email"] = strings.TrimSpace(compatEmailUser.Email)
-		completionResponse["existing_account_bindable"] = true
-		completionResponse["choice_reason"] = "compat_email_match"
-		resolvedChoiceEmail = strings.TrimSpace(compatEmailUser.Email)
-	}
-	if forceEmailOnSignup && compatEmailUser == nil {
-		completionResponse["choice_reason"] = "force_email_on_signup"
-	}
-	if (emailVerificationRequired || forceEmailOnSignup) && compatEmailUser == nil {
-		completionResponse["step"] = "create_account_required"
-		completionResponse["email_binding_required"] = true
-		completionResponse["force_email_on_signup"] = true
-		if emailVerificationRequired {
-			completionResponse["choice_reason"] = "email_verification_required"
-		}
-		delete(completionResponse, "email")
-		delete(completionResponse, "resolved_email")
-		resolvedChoiceEmail = ""
-	}
-
-	var targetUserID *int64
-	if compatEmailUser != nil && compatEmailUser.ID > 0 {
-		targetUserID = &compatEmailUser.ID
-	}
-
 	return h.createOAuthPendingSession(c, oauthPendingSessionPayload{
 		Intent:                 oauthIntentLogin,
 		Identity:               identity,
-		TargetUserID:           targetUserID,
-		ResolvedEmail:          resolvedChoiceEmail,
+		ResolvedEmail:          email,
 		RedirectTo:             redirectTo,
 		BrowserSessionKey:      browserSessionKey,
 		UpstreamIdentityClaims: upstreamClaims,
-		CompletionResponse:     completionResponse,
+		CompletionResponse: map[string]any{
+			"error":             "invitation_required",
+			"adoption_required": true,
+			"redirect":          strings.TrimSpace(redirectTo),
+			"email":             strings.TrimSpace(email),
+			"resolved_email":    strings.TrimSpace(email),
+		},
 	})
 }
 
@@ -549,14 +521,17 @@ func (h *AuthHandler) CompleteLinuxDoOAuthRegistration(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	if updatedSession, handled, err := h.legacyCompleteRegistrationSessionStatus(c, session); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	} else if handled {
-		c.JSON(http.StatusOK, buildPendingOAuthSessionStatusPayload(updatedSession))
-		return
-	} else {
-		session = updatedSession
+	// LinuxDo 走"邮箱直接建号"流程：只有邀请码这一步需要前端补，不再回落到补邮箱/选账号。
+	if !pendingSessionWantsInvitation(mergePendingCompletionResponse(session, nil)) {
+		if updatedSession, handled, err := h.legacyCompleteRegistrationSessionStatus(c, session); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		} else if handled {
+			c.JSON(http.StatusOK, buildPendingOAuthSessionStatusPayload(updatedSession))
+			return
+		} else {
+			session = updatedSession
+		}
 	}
 	if err := h.ensureBackendModeAllowsNewUserLogin(c.Request.Context()); err != nil {
 		response.ErrorFrom(c, err)
