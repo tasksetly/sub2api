@@ -220,14 +220,18 @@ func (s *FrontendServer) injectSettings(settingsJSON []byte) []byte {
 // injectSiteFavicon replaces the static favicon with a configured, browser-safe image URL.
 func injectSiteFavicon(html, settingsJSON []byte) []byte {
 	var cfg struct {
-		SiteLogo string `json:"site_logo"`
+		SiteLogo    string `json:"site_logo"`
+		SiteFavicon string `json:"site_favicon"`
 	}
 	if err := json.Unmarshal(settingsJSON, &cfg); err != nil {
 		return html
 	}
 
-	logoURL := safeImageURL(cfg.SiteLogo)
-	if logoURL == "" {
+	faviconURL := safeImageURL(cfg.SiteFavicon)
+	if faviconURL == "" {
+		faviconURL = safeImageURL(cfg.SiteLogo)
+	}
+	if faviconURL == "" {
 		return html
 	}
 
@@ -240,7 +244,7 @@ func injectSiteFavicon(html, settingsJSON []byte) []byte {
 		return html
 	}
 	linkEnd := linkStart + linkEndOffset + 1
-	replacement := []byte(`<link rel="icon" href="` + htmlpkg.EscapeString(logoURL) + `" />`)
+	replacement := []byte(`<link rel="icon" href="` + htmlpkg.EscapeString(faviconURL) + `" />`)
 
 	var buf bytes.Buffer
 	buf.Write(html[:linkStart])

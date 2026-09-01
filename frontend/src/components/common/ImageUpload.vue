@@ -4,7 +4,7 @@
     <div class="flex-shrink-0">
       <div
         class="flex items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 dark:border-dark-600 dark:bg-dark-800"
-        :class="[previewSizeClass, { 'border-solid': !!modelValue }]"
+        :class="[previewShapeClass, { 'border-solid': !!modelValue }]"
       >
         <!-- SVG mode: render inline -->
         <span
@@ -84,6 +84,7 @@ const props = withDefaults(defineProps<{
   removeLabel?: string
   hint?: string
   maxSize?: number // bytes
+  previewShape?: 'square' | 'wide'
 }>(), {
   mode: 'image',
   size: 'md',
@@ -91,6 +92,7 @@ const props = withDefaults(defineProps<{
   removeLabel: '',
   hint: '',
   maxSize: 300 * 1024,
+  previewShape: 'square',
 })
 
 const emit = defineEmits<{
@@ -108,7 +110,9 @@ const sanitizedValue = computed(() =>
   props.mode === 'svg' ? sanitizeSvg(props.modelValue ?? '') : ''
 )
 
-const previewSizeClass = computed(() => props.size === 'sm' ? 'h-14 w-14' : 'h-20 w-20')
+const previewShapeClass = computed(() => props.previewShape === 'wide'
+  ? (props.size === 'sm' ? 'h-14 w-28' : 'h-20 w-40')
+  : (props.size === 'sm' ? 'h-14 w-14' : 'h-20 w-20'))
 const innerSizeClass = computed(() => props.size === 'sm' ? 'h-7 w-7' : 'h-12 w-12')
 const placeholderSizeClass = computed(() => props.size === 'sm' ? 'h-5 w-5' : 'h-8 w-8')
 
@@ -136,7 +140,7 @@ function handleUpload(event: Event) {
     }
     reader.readAsText(file)
   } else {
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') && !file.name.toLowerCase().endsWith('.svg')) {
       error.value = t('common.selectImageFile')
       input.value = ''
       return

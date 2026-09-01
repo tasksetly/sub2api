@@ -6482,10 +6482,28 @@
                 <ImageUpload
                   v-model="form.site_logo"
                   mode="image"
+                  preview-shape="wide"
                   :upload-label="t('admin.settings.site.uploadImage')"
                   :remove-label="t('admin.settings.site.remove')"
                   :hint="t('admin.settings.site.logoHint')"
-                  :max-size="300 * 1024"
+                  :max-size="1 * 1024 * 1024"
+                />
+              </div>
+
+              <!-- Site Favicon Upload -->
+              <div>
+                <label
+                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  {{ t("admin.settings.site.siteFavicon") }}
+                </label>
+                <ImageUpload
+                  v-model="form.site_favicon"
+                  mode="image"
+                  :upload-label="t('admin.settings.site.uploadImage')"
+                  :remove-label="t('admin.settings.site.remove')"
+                  :hint="t('admin.settings.site.faviconHint')"
+                  :max-size="1 * 1024 * 1024"
                 />
               </div>
 
@@ -9421,6 +9439,7 @@ const form = reactive<SettingsForm>({
   default_user_rpm_limit: 0,
   site_name: "Sub2API",
   site_logo: "",
+  site_favicon: "",
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",
   contact_info: "",
@@ -11047,6 +11066,7 @@ async function saveSettings() {
       default_user_rpm_limit: form.default_user_rpm_limit,
       site_name: form.site_name,
       site_logo: form.site_logo,
+      site_favicon: form.site_favicon,
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
