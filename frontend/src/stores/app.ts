@@ -23,6 +23,7 @@ export const useAppStore = defineStore('app', () => {
   const publicSettingsLoading = ref<boolean>(false)
   const siteName = ref<string>('Sub2API')
   const siteLogo = ref<string>('')
+  const siteContentLogo = ref<string>('')
   const siteFavicon = ref<string>('')
   const siteVersion = ref<string>('')
   const contactInfo = ref<string>('')
@@ -233,6 +234,7 @@ export const useAppStore = defineStore('app', () => {
     cachedPublicSettings.value = config
     siteName.value = config.site_name || 'Sub2API'
     siteLogo.value = config.site_logo || ''
+    siteContentLogo.value = config.site_content_logo || ''
     siteFavicon.value = config.site_favicon || ''
     siteVersion.value = config.version || ''
     contactInfo.value = config.contact_info || ''
@@ -279,6 +281,7 @@ export const useAppStore = defineStore('app', () => {
         aliyun_captcha_region: 'cn',
         site_name: siteName.value,
         site_logo: siteLogo.value,
+        site_content_logo: siteContentLogo.value,
         site_favicon: siteFavicon.value,
         site_subtitle: '',
         api_base_url: apiBaseUrl.value,
@@ -384,6 +387,7 @@ export const useAppStore = defineStore('app', () => {
     publicSettingsLoaded,
     siteName,
     siteLogo,
+    siteContentLogo,
     siteFavicon,
     siteVersion,
     contactInfo,

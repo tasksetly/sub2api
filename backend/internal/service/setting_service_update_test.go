@@ -238,6 +238,18 @@ func TestSettingService_UpdateSettings_PersistsCompactHomeEnabled(t *testing.T) 
 	require.Equal(t, "true", repo.updates[SettingKeyCompactHomeEnabled])
 }
 
+func TestSettingService_UpdateSettings_PersistsSiteContentLogo(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		SiteContentLogo: "data:image/png;base64,content-logo",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "data:image/png;base64,content-logo", repo.updates[SettingKeySiteContentLogo])
+}
+
 func TestSettingService_UpdateSettings_DefaultSubscriptions_ValidGroup(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	groupReader := &defaultSubGroupReaderStub{

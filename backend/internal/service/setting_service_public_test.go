@@ -101,6 +101,17 @@ func TestSettingService_GetPublicSettings_ExposesCompactHomeEnabled(t *testing.T
 	require.False(t, missingSettings.CompactHomeEnabled)
 }
 
+func TestSettingService_GetPublicSettings_ExposesSiteContentLogo(t *testing.T) {
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeySiteContentLogo: "https://example.com/content-logo.png",
+	}}, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+
+	require.NoError(t, err)
+	require.Equal(t, "https://example.com/content-logo.png", settings.SiteContentLogo)
+}
+
 func TestSettingService_ChannelMonitorHideThroughputDefaultsToPrivate(t *testing.T) {
 	missing := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).GetChannelMonitorRuntime(context.Background())
 	require.True(t, missing.HideThroughput)

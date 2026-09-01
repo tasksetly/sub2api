@@ -182,6 +182,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAPIKeyACLTrustForwardedIP,
 		SettingKeySiteName,
 		SettingKeySiteLogo,
+		SettingKeySiteContentLogo,
 		SettingKeySiteFavicon,
 		SettingKeySiteSubtitle,
 		SettingKeyAPIBaseURL,
@@ -323,6 +324,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		AliyunCaptchaRegion:                 normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
 		SiteName:                            s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
 		SiteLogo:                            settings[SettingKeySiteLogo],
+		SiteContentLogo:                     settings[SettingKeySiteContentLogo],
 		SiteFavicon:                         settings[SettingKeySiteFavicon],
 		SiteSubtitle:                        s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
 		APIBaseURL:                          settings[SettingKeyAPIBaseURL],
@@ -567,6 +569,7 @@ type PublicSettingsInjectionPayload struct {
 	AliyunCaptchaRegion                 string                   `json:"aliyun_captcha_region"`
 	SiteName                            string                   `json:"site_name"`
 	SiteLogo                            string                   `json:"site_logo"`
+	SiteContentLogo                     string                   `json:"site_content_logo"`
 	SiteFavicon                         string                   `json:"site_favicon"`
 	SiteSubtitle                        string                   `json:"site_subtitle"`
 	APIBaseURL                          string                   `json:"api_base_url"`
@@ -654,6 +657,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AliyunCaptchaRegion:                 settings.AliyunCaptchaRegion,
 		SiteName:                            settings.SiteName,
 		SiteLogo:                            settings.SiteLogo,
+		SiteContentLogo:                     settings.SiteContentLogo,
 		SiteFavicon:                         settings.SiteFavicon,
 		SiteSubtitle:                        settings.SiteSubtitle,
 		APIBaseURL:                          settings.APIBaseURL,

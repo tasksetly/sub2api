@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 const dir = dirname(fileURLToPath(import.meta.url))
 const sidebarSource = readFileSync(resolve(dir, '../AppSidebar.vue'), 'utf8')
+const authLayoutSource = readFileSync(resolve(dir, '../AuthLayout.vue'), 'utf8')
 const homeViewSource = readFileSync(resolve(dir, '../../../views/HomeView.vue'), 'utf8')
 const keyUsageViewSource = readFileSync(resolve(dir, '../../../views/KeyUsageView.vue'), 'utf8')
 
@@ -15,8 +16,14 @@ describe('site_logo sanitization', () => {
     expect(sidebarSource).toContain('sanitizeUrl(appStore.siteLogo')
   })
 
-  it('HomeView applies sanitizeUrl to siteLogo', () => {
+  it('AuthLayout uses the page content logo with a site logo fallback', () => {
+    expect(authLayoutSource).toContain('appStore.cachedPublicSettings?.site_content_logo || appStore.siteContentLogo || appStore.siteLogo')
+    expect(authLayoutSource).toContain('sanitizeUrl')
+  })
+
+  it('HomeView applies sanitizeUrl to both navigation and content logos', () => {
     expect(homeViewSource).toContain('sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo')
+    expect(homeViewSource).toContain('appStore.cachedPublicSettings?.site_content_logo || appStore.siteContentLogo || appStore.cachedPublicSettings?.site_logo || appStore.siteLogo')
   })
 
   it('KeyUsageView applies sanitizeUrl to siteLogo', () => {

@@ -296,6 +296,7 @@ const (
 	// OEM设置
 	SettingKeySiteName                    = "site_name"                     // 网站名称
 	SettingKeySiteLogo                    = "site_logo"                     // 网站Logo (base64)
+	SettingKeySiteContentLogo             = "site_content_logo"             // 页面内容Logo（登录/注册页与首页主视觉）
 	SettingKeySiteFavicon                 = "site_favicon"                  // 浏览器标签页图标
 	SettingKeySiteSubtitle                = "site_subtitle"                 // 网站副标题
 	SettingKeyAPIBaseURL                  = "api_base_url"                  // API端点地址（用于客户端配置和导入）

@@ -8,6 +8,7 @@ const { appStore, authStore } = vi.hoisted(() => ({
     cachedPublicSettings: {} as Record<string, unknown>,
     siteName: 'Fallback site',
     siteLogo: '',
+    siteContentLogo: '',
     docUrl: '',
     publicSettingsLoaded: true,
     fetchPublicSettings: vi.fn(),
@@ -90,6 +91,17 @@ describe('HomeView compact mode', () => {
     const wrapper = mountHome({ compact_home_enabled: true, home_content: ' \n\t ' })
 
     expect(wrapper.get('[data-testid="compact-home"]').text()).toContain('Test site')
+  })
+
+  it('uses the page content logo in the compact home body while keeping the navigation logo separate', () => {
+    const wrapper = mountHome({
+      compact_home_enabled: true,
+      site_logo: '/navigation-logo.png',
+      site_content_logo: '/content-logo.png',
+    })
+
+    expect(wrapper.get('[data-testid="home-content-logo"]').attributes('src')).toBe('/content-logo.png')
+    expect(wrapper.find('header img').attributes('src')).toBe('/navigation-logo.png')
   })
 
   it.each([undefined, false])('selects the default home when compact mode is %s', (enabled) => {

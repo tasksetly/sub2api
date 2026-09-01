@@ -48,7 +48,7 @@ async function bootstrap() {
   if (appStore.siteName && appStore.siteName !== 'Sub2API') {
     document.title = `${appStore.siteName} - AI API Gateway`
   }
-  updateFavicon(appStore.siteLogo)
+  updateFavicon(appStore.siteFavicon || appStore.siteLogo)
 
   await initI18n()
 

@@ -150,6 +150,7 @@ type SystemSettings struct {
 
 	SiteName                    string           `json:"site_name"`
 	SiteLogo                    string           `json:"site_logo"`
+	SiteContentLogo             string           `json:"site_content_logo"`
 	SiteFavicon                 string           `json:"site_favicon"`
 	SiteSubtitle                string           `json:"site_subtitle"`
 	APIBaseURL                  string           `json:"api_base_url"`
@@ -376,6 +377,7 @@ type PublicSettings struct {
 	AliyunCaptchaRegion                 string                   `json:"aliyun_captcha_region"`
 	SiteName                            string                   `json:"site_name"`
 	SiteLogo                            string                   `json:"site_logo"`
+	SiteContentLogo                     string                   `json:"site_content_logo"`
 	SiteFavicon                         string                   `json:"site_favicon"`
 	SiteSubtitle                        string                   `json:"site_subtitle"`
 	APIBaseURL                          string                   `json:"api_base_url"`

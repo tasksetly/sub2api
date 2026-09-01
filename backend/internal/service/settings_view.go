@@ -151,6 +151,7 @@ type SystemSettings struct {
 
 	SiteName                    string
 	SiteLogo                    string
+	SiteContentLogo             string
 	SiteFavicon                 string
 	SiteSubtitle                string
 	APIBaseURL                  string
@@ -341,6 +342,7 @@ type PublicSettings struct {
 	AliyunCaptchaRegion                 string
 	SiteName                            string
 	SiteLogo                            string
+	SiteContentLogo                     string
 	SiteFavicon                         string
 	SiteSubtitle                        string
 	APIBaseURL                          string

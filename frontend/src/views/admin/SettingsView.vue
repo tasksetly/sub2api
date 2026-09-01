@@ -6472,39 +6472,68 @@
                 </p>
               </div>
 
-              <!-- Site Logo Upload -->
-              <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.site.siteLogo") }}
-                </label>
-                <ImageUpload
-                  v-model="form.site_logo"
-                  mode="image"
-                  preview-shape="wide"
-                  :upload-label="t('admin.settings.site.uploadImage')"
-                  :remove-label="t('admin.settings.site.remove')"
-                  :hint="t('admin.settings.site.logoHint')"
-                  :max-size="1 * 1024 * 1024"
-                />
-              </div>
+              <!-- Brand Images -->
+              <div class="border-t border-gray-100 pt-5 dark:border-dark-700">
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white">
+                  {{ t("admin.settings.site.brandAssetsTitle") }}
+                </h3>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.site.brandAssetsDescription") }}
+                </p>
 
-              <!-- Site Favicon Upload -->
-              <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.site.siteFavicon") }}
-                </label>
-                <ImageUpload
-                  v-model="form.site_favicon"
-                  mode="image"
-                  :upload-label="t('admin.settings.site.uploadImage')"
-                  :remove-label="t('admin.settings.site.remove')"
-                  :hint="t('admin.settings.site.faviconHint')"
-                  :max-size="1 * 1024 * 1024"
-                />
+                <div class="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-2">
+                  <!-- Navigation Logo -->
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{ t("admin.settings.site.siteLogo") }}
+                    </label>
+                    <ImageUpload
+                      v-model="form.site_logo"
+                      mode="image"
+                      preview-shape="wide"
+                      :upload-label="t('admin.settings.site.uploadImage')"
+                      :remove-label="t('admin.settings.site.remove')"
+                      :hint="t('admin.settings.site.logoHint')"
+                      :max-size="1 * 1024 * 1024"
+                    />
+                  </div>
+
+                  <!-- Page Content Logo -->
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{ t("admin.settings.site.siteContentLogo") }}
+                    </label>
+                    <ImageUpload
+                      v-model="form.site_content_logo"
+                      mode="image"
+                      :upload-label="t('admin.settings.site.uploadImage')"
+                      :remove-label="t('admin.settings.site.remove')"
+                      :hint="t('admin.settings.site.contentLogoHint')"
+                      :max-size="1 * 1024 * 1024"
+                    />
+                  </div>
+
+                  <!-- Favicon -->
+                  <div>
+                    <label
+                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{ t("admin.settings.site.siteFavicon") }}
+                    </label>
+                    <ImageUpload
+                      v-model="form.site_favicon"
+                      mode="image"
+                      :upload-label="t('admin.settings.site.uploadImage')"
+                      :remove-label="t('admin.settings.site.remove')"
+                      :hint="t('admin.settings.site.faviconHint')"
+                      :max-size="1 * 1024 * 1024"
+                    />
+                  </div>
+                </div>
               </div>
 
               <!-- Home Content -->
@@ -9439,6 +9468,7 @@ const form = reactive<SettingsForm>({
   default_user_rpm_limit: 0,
   site_name: "Sub2API",
   site_logo: "",
+  site_content_logo: "",
   site_favicon: "",
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",
@@ -11066,6 +11096,7 @@ async function saveSettings() {
       default_user_rpm_limit: form.default_user_rpm_limit,
       site_name: form.site_name,
       site_logo: form.site_logo,
+      site_content_logo: form.site_content_logo,
       site_favicon: form.site_favicon,
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,

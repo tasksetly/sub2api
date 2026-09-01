@@ -61,7 +61,8 @@
     <main class="flex min-w-0 flex-1 items-center justify-center px-4 py-16 sm:px-6">
       <div class="min-w-0 max-w-2xl text-center">
         <img
-          :src="siteLogo || '/logo.svg'"
+          data-testid="home-content-logo"
+          :src="contentLogo || '/logo.svg'"
           alt="Logo"
           class="mx-auto mb-6 h-20 w-20 rounded-2xl object-contain"
         />
@@ -407,6 +408,10 @@ const appStore = useAppStore()
 // Site settings - directly from appStore (already initialized from injected config)
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
+const contentLogo = computed(() => sanitizeUrl(
+  appStore.cachedPublicSettings?.site_content_logo || appStore.siteContentLogo || appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '',
+  { allowRelative: true, allowDataUrl: true },
+))
 const siteSubtitle = computed(() =>
   resolveHomeSubtitle(
     appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform',

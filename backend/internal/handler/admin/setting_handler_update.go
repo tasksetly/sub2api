@@ -155,6 +155,7 @@ type UpdateSettingsRequest struct {
 	// OEM设置
 	SiteName                    string                `json:"site_name"`
 	SiteLogo                    string                `json:"site_logo"`
+	SiteContentLogo             string                `json:"site_content_logo"`
 	SiteFavicon                 string                `json:"site_favicon"`
 	SiteSubtitle                string                `json:"site_subtitle"`
 	APIBaseURL                  string                `json:"api_base_url"`
@@ -1612,6 +1613,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GoogleOAuthFrontendRedirectURL:         req.GoogleOAuthFrontendRedirectURL,
 		SiteName:                               req.SiteName,
 		SiteLogo:                               req.SiteLogo,
+		SiteContentLogo:                        req.SiteContentLogo,
 		SiteFavicon:                            req.SiteFavicon,
 		SiteSubtitle:                           req.SiteSubtitle,
 		APIBaseURL:                             req.APIBaseURL,
@@ -2224,6 +2226,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GoogleOAuthFrontendRedirectURL:                         updatedSettings.GoogleOAuthFrontendRedirectURL,
 		SiteName:                                               updatedSettings.SiteName,
 		SiteLogo:                                               updatedSettings.SiteLogo,
+		SiteContentLogo:                                        updatedSettings.SiteContentLogo,
 		SiteFavicon:                                            updatedSettings.SiteFavicon,
 		SiteSubtitle:                                           updatedSettings.SiteSubtitle,
 		APIBaseURL:                                             updatedSettings.APIBaseURL,
