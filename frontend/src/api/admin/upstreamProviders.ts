@@ -1,7 +1,7 @@
 /**
  * Admin Upstream Providers API endpoints
  *
- * 上游 sub2api 供应商管理：存后台账号密码 → 自动登录 → 拉分组倍率/余额/并发
+ * 上游 sub2api 供应商管理：存后台凭据 → 登录/续期 → 拉分组倍率/余额/并发
  * → 直接在上游建 API Key 并落地成本地账号。
  */
 
@@ -76,7 +76,7 @@ export async function remove(id: number): Promise<void> {
 }
 
 /**
- * 测试连接：只验证账号密码能否登录上游，不落任何快照
+ * 测试连接：验证当前保存的上游会话或登录凭据能否访问上游，不落任何快照
  */
 export async function testConnection(id: number): Promise<UpstreamProfile> {
   const { data } = await apiClient.post<UpstreamProfile>(

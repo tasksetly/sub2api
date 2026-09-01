@@ -7,10 +7,11 @@
 
 目标：在本地管理端集中管理所有上游，做到
 
-1. 存上游后台的账号密码，自动登录拿 token
-2. 拉取上游的分组（含倍率、限额）、账户余额、并发限制
-3. 直接在上游创建 API Key，并落地成本地账户，无需去上游页面
-4. 一张表横向比价：分组倍率 + 限额、余额 + 并发、本地实际用量成本
+1. 存上游后台凭据，自动登录拿 access/refresh token
+2. access JWT 到期前优先用 refresh token 换发新 token，失败再用密码重新登录
+3. 拉取上游的分组（含倍率、限额）、账户余额、并发限制
+4. 直接在上游创建 API Key，并落地成本地账户，无需去上游页面
+5. 一张表横向比价：分组倍率 + 限额、余额 + 并发、本地实际用量成本
 
 ## 2. 关键设计决策
 
@@ -21,7 +22,7 @@
 
 | | upstream_billing_probe（已有） | 本功能（新增） |
 |---|---|---|
-| 凭据 | 账号的 API Key | 后台账号密码 |
+| 凭据 | 账号的 API Key | 后台账号密码或 access/refresh token |
 | 能看到 | 该 Key 已绑定分组的倍率 | 全部可用分组 + 余额 + 并发 |
 | 能否建 Key | 否 | 是 |
 | 前提 | 账号已存在 | 账号还不存在 |
@@ -35,18 +36,22 @@
 | 用途 | 接口 | 本仓库位置 |
 |---|---|---|
 | 登录 | `POST /api/v1/auth/login` | `internal/handler/auth_handler.go:238` |
+| JWT 续期 | `POST /api/v1/auth/refresh` | `internal/handler/auth_handler.go:685` |
 | 2FA | `POST /api/v1/auth/login/2fa` | `internal/handler/auth_handler.go:300` |
 | 余额 + 并发 | `GET /api/v1/user/profile` | `internal/server/routes/user.go:31` |
 | 分组（倍率/限额） | `GET /api/v1/groups/available` | `internal/server/routes/user.go:88` |
 | 专属倍率覆盖 | `GET /api/v1/groups/rates` | `internal/server/routes/user.go:89` |
 | 创建 API Key | `POST /api/v1/keys` | `internal/server/routes/user.go:80` |
 
-### 2.3 密码必须可逆加密
+### 2.3 会话凭据必须可逆加密
 
-token 过期后要用原密码重新登录，所以 **不能用 bcrypt**。复用已有的
-`internal/repository/aes_encryptor.go`（AES-256-GCM，实现 `service.SecretEncryptor`，
-密钥取自 `cfg.Totp.EncryptionKey`）。加解密边界收在仓储层：service 层拿到的
-`UpstreamProvider.Password` 始终是明文，DTO 层则完全不回传。
+access JWT 不能在本地重新签名：签名密钥属于上游。正确的续期方式是调用上游
+`/api/v1/auth/refresh`，用 refresh token 换发新的 access/refresh token；只有 refresh
+失败时才用原密码重新登录。因此 password、access token、refresh token 都需要可逆加密。
+复用已有的 `internal/repository/aes_encryptor.go`（AES-256-GCM，实现
+`service.SecretEncryptor`，密钥取自 `cfg.Totp.EncryptionKey`）。加解密边界收在仓储层：
+service 层拿到的凭据始终是明文，DTO 层则完全不回传。refresh token 轮转时必须保存
+上游返回的新值；旧 refresh token 不应继续使用。
 
 ### 2.4 accounts 加外键，而不是靠 supplier 字符串匹配
 
@@ -70,11 +75,12 @@ token 过期后要用原密码重新登录，所以 **不能用 bcrypt**。复�
 
 ### upstream_providers
 
-存能登录上游后台的账号。密码/TOTP/token 均为 AES-256-GCM 密文。
+存能登录上游后台的账号。密码/TOTP/access token/refresh token 均为 AES-256-GCM 密文。
 
 关键字段：`base_url`、`username`、`password_encrypted`、`totp_secret_encrypted`、
-`token_encrypted` + `token_expires_at`（会话缓存）、`balance`、`frozen_balance`、
-`upstream_concurrency`（同步快照）、`last_sync_at`、`last_sync_error`、`sync_enabled`。
+`token_encrypted`、`refresh_token_encrypted` + `token_expires_at`（会话缓存）、`balance`、
+`frozen_balance`、`upstream_concurrency`（同步快照）、`last_sync_at`、`last_sync_error`、
+`sync_enabled`。新增字段迁移为 `backend/migrations/224_upstream_provider_refresh_token.sql`。
 
 ### upstream_groups
 
@@ -97,6 +103,7 @@ token 过期后要用原密码重新登录，所以 **不能用 bcrypt**。复�
 ent/schema/upstream_provider.go      实体定义
 ent/schema/upstream_group.go
 migrations/221_upstream_providers.sql
+migrations/224_upstream_provider_refresh_token.sql
 
 internal/service/upstream_provider.go          领域模型 + 仓储接口
 internal/service/upstream_provider_client.go   上游 HTTP 客户端
@@ -123,8 +130,8 @@ internal/handler/admin/upstream_provider_handler.go
 
 ## 5. 安全设计
 
-- **凭据不回显**：DTO 只给 `has_password` / `has_totp_secret` 布尔位。回显等于
-  给任何拿到管理端会话的人一份明文凭据。改密码只能重填。
+- **凭据不回显**：DTO 只给 `has_password` / `has_totp_secret` / `has_refresh_token`
+  布尔位。回显等于给任何拿到管理端会话的人一份明文凭据。改密码只能重填。
 - **SSRF 防护**：`base_url` 由管理员输入，复用 `validateUpstreamBaseURL` 同一套
   口径（`urlvalidator` + allowlist + 私网校验）。
 - **响应体上限** 512KB，**超时** 15s，防止上游拖死同步。
@@ -141,7 +148,10 @@ internal/handler/admin/upstream_provider_handler.go
 | 上游开了验证码 | `UPSTREAM_PROVIDER_CAPTCHA_REQUIRED` | 自动登录彻底不可行，需手动 token |
 | 上游开了 2FA 但本地没存密钥 | `UPSTREAM_PROVIDER_TOTP_REQUIRED` | 补个 TOTP 密钥即可 |
 | 密码错 | `UPSTREAM_PROVIDER_UNAUTHORIZED` | 重填密码 |
+| refresh token 失效 | 上游认证错误 | 有密码时自动回退登录；无密码时需重新粘贴 token |
 
+access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token 失效时，有密码的上游
+自动回退密码登录并覆盖旧会话；只有手工 token 的上游没有可用的续期凭据，只能重新粘贴。
 失败原因落 `last_sync_error`，前端直接展示。
 
 其他：
@@ -154,10 +164,10 @@ internal/handler/admin/upstream_provider_handler.go
 已完成并通过 `go build ./...`：
 
 - [x] Ent schema + `go generate ./ent`
-- [x] SQL 迁移 221
-- [x] 上游 HTTP 客户端（5 个接口 + 2FA + 错误分类）
+- [x] SQL 迁移 221 + 224（refresh token）
+- [x] 上游 HTTP 客户端（登录/refresh/4 个管理接口 + 2FA + 错误分类）
 - [x] 仓储层（含加解密、本地成本聚合、倍率区间）
-- [x] 服务层（登录/token 缓存/同步/建号）
+- [x] 服务层（登录/refresh token 续期/token 缓存/同步/建号）
 - [x] DTO + 管理端 Handler + 路由
 - [x] Wire DI 全链路（`cmd/server/wire_gen.go:226-228`）
 - [x] 30 分钟定时同步 runner（leader lock 防重）
@@ -165,8 +175,8 @@ internal/handler/admin/upstream_provider_handler.go
 待完成：
 
 - [ ] runner 注册进 Wire 的 cleanup 链（`Stop()` 优雅退出）
-- [ ] 前端上游管理页（列表/新增/编辑/测试/同步/勾选建号）+ i18n + TS 类型
-- [ ] 单元测试
+- [x] 前端上游管理页（列表/新增/编辑/测试/同步/勾选建号）+ i18n + TS 类型
+- [x] 上游登录/refresh/手工 token 单元测试
 - [ ] `go test -tags=unit ./...` 与 `golangci-lint run ./...`
 
 ## 8. 环境注意

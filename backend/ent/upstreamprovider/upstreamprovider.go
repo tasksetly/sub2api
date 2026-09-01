@@ -35,6 +35,8 @@ const (
 	FieldTotpSecretEncrypted = "totp_secret_encrypted"
 	// FieldTokenEncrypted holds the string denoting the token_encrypted field in the database.
 	FieldTokenEncrypted = "token_encrypted"
+	// FieldRefreshTokenEncrypted holds the string denoting the refresh_token_encrypted field in the database.
+	FieldRefreshTokenEncrypted = "refresh_token_encrypted"
 	// FieldTokenExpiresAt holds the string denoting the token_expires_at field in the database.
 	FieldTokenExpiresAt = "token_expires_at"
 	// FieldBalance holds the string denoting the balance field in the database.
@@ -90,6 +92,7 @@ var Columns = []string{
 	FieldPasswordEncrypted,
 	FieldTotpSecretEncrypted,
 	FieldTokenEncrypted,
+	FieldRefreshTokenEncrypted,
 	FieldTokenExpiresAt,
 	FieldBalance,
 	FieldFrozenBalance,
@@ -200,6 +203,11 @@ func ByTotpSecretEncrypted(opts ...sql.OrderTermOption) OrderOption {
 // ByTokenEncrypted orders the results by the token_encrypted field.
 func ByTokenEncrypted(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTokenEncrypted, opts...).ToFunc()
+}
+
+// ByRefreshTokenEncrypted orders the results by the refresh_token_encrypted field.
+func ByRefreshTokenEncrypted(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRefreshTokenEncrypted, opts...).ToFunc()
 }
 
 // ByTokenExpiresAt orders the results by the token_expires_at field.

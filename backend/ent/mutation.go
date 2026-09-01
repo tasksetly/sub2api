@@ -46299,6 +46299,7 @@ type UpstreamProviderMutation struct {
 	password_encrypted      *string
 	totp_secret_encrypted   *string
 	token_encrypted         *string
+	refresh_token_encrypted *string
 	token_expires_at        *time.Time
 	balance                 *float64
 	addbalance              *float64
@@ -46833,6 +46834,55 @@ func (m *UpstreamProviderMutation) TokenEncryptedCleared() bool {
 func (m *UpstreamProviderMutation) ResetTokenEncrypted() {
 	m.token_encrypted = nil
 	delete(m.clearedFields, upstreamprovider.FieldTokenEncrypted)
+}
+
+// SetRefreshTokenEncrypted sets the "refresh_token_encrypted" field.
+func (m *UpstreamProviderMutation) SetRefreshTokenEncrypted(s string) {
+	m.refresh_token_encrypted = &s
+}
+
+// RefreshTokenEncrypted returns the value of the "refresh_token_encrypted" field in the mutation.
+func (m *UpstreamProviderMutation) RefreshTokenEncrypted() (r string, exists bool) {
+	v := m.refresh_token_encrypted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRefreshTokenEncrypted returns the old "refresh_token_encrypted" field's value of the UpstreamProvider entity.
+// If the UpstreamProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UpstreamProviderMutation) OldRefreshTokenEncrypted(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRefreshTokenEncrypted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRefreshTokenEncrypted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRefreshTokenEncrypted: %w", err)
+	}
+	return oldValue.RefreshTokenEncrypted, nil
+}
+
+// ClearRefreshTokenEncrypted clears the value of the "refresh_token_encrypted" field.
+func (m *UpstreamProviderMutation) ClearRefreshTokenEncrypted() {
+	m.refresh_token_encrypted = nil
+	m.clearedFields[upstreamprovider.FieldRefreshTokenEncrypted] = struct{}{}
+}
+
+// RefreshTokenEncryptedCleared returns if the "refresh_token_encrypted" field was cleared in this mutation.
+func (m *UpstreamProviderMutation) RefreshTokenEncryptedCleared() bool {
+	_, ok := m.clearedFields[upstreamprovider.FieldRefreshTokenEncrypted]
+	return ok
+}
+
+// ResetRefreshTokenEncrypted resets all changes to the "refresh_token_encrypted" field.
+func (m *UpstreamProviderMutation) ResetRefreshTokenEncrypted() {
+	m.refresh_token_encrypted = nil
+	delete(m.clearedFields, upstreamprovider.FieldRefreshTokenEncrypted)
 }
 
 // SetTokenExpiresAt sets the "token_expires_at" field.
@@ -47511,7 +47561,7 @@ func (m *UpstreamProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UpstreamProviderMutation) Fields() []string {
-	fields := make([]string, 0, 20)
+	fields := make([]string, 0, 21)
 	if m.created_at != nil {
 		fields = append(fields, upstreamprovider.FieldCreatedAt)
 	}
@@ -47541,6 +47591,9 @@ func (m *UpstreamProviderMutation) Fields() []string {
 	}
 	if m.token_encrypted != nil {
 		fields = append(fields, upstreamprovider.FieldTokenEncrypted)
+	}
+	if m.refresh_token_encrypted != nil {
+		fields = append(fields, upstreamprovider.FieldRefreshTokenEncrypted)
 	}
 	if m.token_expires_at != nil {
 		fields = append(fields, upstreamprovider.FieldTokenExpiresAt)
@@ -47600,6 +47653,8 @@ func (m *UpstreamProviderMutation) Field(name string) (ent.Value, bool) {
 		return m.TotpSecretEncrypted()
 	case upstreamprovider.FieldTokenEncrypted:
 		return m.TokenEncrypted()
+	case upstreamprovider.FieldRefreshTokenEncrypted:
+		return m.RefreshTokenEncrypted()
 	case upstreamprovider.FieldTokenExpiresAt:
 		return m.TokenExpiresAt()
 	case upstreamprovider.FieldBalance:
@@ -47649,6 +47704,8 @@ func (m *UpstreamProviderMutation) OldField(ctx context.Context, name string) (e
 		return m.OldTotpSecretEncrypted(ctx)
 	case upstreamprovider.FieldTokenEncrypted:
 		return m.OldTokenEncrypted(ctx)
+	case upstreamprovider.FieldRefreshTokenEncrypted:
+		return m.OldRefreshTokenEncrypted(ctx)
 	case upstreamprovider.FieldTokenExpiresAt:
 		return m.OldTokenExpiresAt(ctx)
 	case upstreamprovider.FieldBalance:
@@ -47747,6 +47804,13 @@ func (m *UpstreamProviderMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTokenEncrypted(v)
+		return nil
+	case upstreamprovider.FieldRefreshTokenEncrypted:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRefreshTokenEncrypted(v)
 		return nil
 	case upstreamprovider.FieldTokenExpiresAt:
 		v, ok := value.(time.Time)
@@ -47911,6 +47975,9 @@ func (m *UpstreamProviderMutation) ClearedFields() []string {
 	if m.FieldCleared(upstreamprovider.FieldTokenEncrypted) {
 		fields = append(fields, upstreamprovider.FieldTokenEncrypted)
 	}
+	if m.FieldCleared(upstreamprovider.FieldRefreshTokenEncrypted) {
+		fields = append(fields, upstreamprovider.FieldRefreshTokenEncrypted)
+	}
 	if m.FieldCleared(upstreamprovider.FieldTokenExpiresAt) {
 		fields = append(fields, upstreamprovider.FieldTokenExpiresAt)
 	}
@@ -47957,6 +48024,9 @@ func (m *UpstreamProviderMutation) ClearField(name string) error {
 		return nil
 	case upstreamprovider.FieldTokenEncrypted:
 		m.ClearTokenEncrypted()
+		return nil
+	case upstreamprovider.FieldRefreshTokenEncrypted:
+		m.ClearRefreshTokenEncrypted()
 		return nil
 	case upstreamprovider.FieldTokenExpiresAt:
 		m.ClearTokenExpiresAt()
@@ -48016,6 +48086,9 @@ func (m *UpstreamProviderMutation) ResetField(name string) error {
 		return nil
 	case upstreamprovider.FieldTokenEncrypted:
 		m.ResetTokenEncrypted()
+		return nil
+	case upstreamprovider.FieldRefreshTokenEncrypted:
+		m.ResetRefreshTokenEncrypted()
 		return nil
 	case upstreamprovider.FieldTokenExpiresAt:
 		m.ResetTokenExpiresAt()

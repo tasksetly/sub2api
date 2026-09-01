@@ -196,7 +196,7 @@ func (h *UpstreamProviderHandler) Delete(c *gin.Context) {
 	response.Success(c, gin.H{"message": "Upstream provider deleted successfully"})
 }
 
-// TestConnection 验证账号密码能否登录上游。
+// TestConnection 验证当前保存的上游会话或登录凭据是否可用。
 // POST /api/v1/admin/upstream-providers/:id/test
 func (h *UpstreamProviderHandler) TestConnection(c *gin.Context) {
 	id, ok := parseUpstreamProviderID(c)

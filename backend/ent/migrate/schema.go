@@ -1751,6 +1751,7 @@ var (
 		{Name: "password_encrypted", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "totp_secret_encrypted", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "token_encrypted", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "refresh_token_encrypted", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "token_expires_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "balance", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "frozen_balance", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
@@ -1771,7 +1772,7 @@ var (
 			{
 				Name:    "upstreamprovider_status",
 				Unique:  false,
-				Columns: []*schema.Column{UpstreamProvidersColumns[17]},
+				Columns: []*schema.Column{UpstreamProvidersColumns[18]},
 			},
 			{
 				Name:    "upstreamprovider_deleted_at",
@@ -1781,7 +1782,7 @@ var (
 			{
 				Name:    "upstreamprovider_sync_enabled",
 				Unique:  false,
-				Columns: []*schema.Column{UpstreamProvidersColumns[20]},
+				Columns: []*schema.Column{UpstreamProvidersColumns[21]},
 			},
 		},
 	}

@@ -20,6 +20,7 @@ function makeProvider(id: number, name: string): UpstreamProviderWithStats {
     has_password: true,
     has_totp_secret: false,
     has_token: false,
+    has_refresh_token: false,
     token_expires_at: null,
     rate_correction: 1,
     balance: null,

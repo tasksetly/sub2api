@@ -202,8 +202,8 @@ const statusOptions = computed(() => [
   { value: 'inactive', label: t('common.inactive') }
 ])
 
-// 已存 token 的到期提示。只有 token、没有密码的上游过期后没有自动续期手段，
-// 得管理员再贴一个，所以这里额外点明。
+// 已存 access token 的到期提示。没有 refresh token 且没有密码的上游过期后
+// 没有自动续期手段，得管理员再贴一个，所以这里额外点明。
 const tokenExpiryHint = computed(() => {
   const provider = props.editing
   if (!provider?.has_token || !provider.token_expires_at) return ''
@@ -215,7 +215,7 @@ const tokenExpiryHint = computed(() => {
     return t('admin.upstreamProviders.tokenExpired')
   }
   const base = `${t('admin.upstreamProviders.tokenExpiresAt')}: ${expiresAt.toLocaleString()}`
-  return provider.has_password
+  return provider.has_password || provider.has_refresh_token
     ? base
     : `${base} · ${t('admin.upstreamProviders.tokenNoAutoRenew')}`
 })

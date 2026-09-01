@@ -67,6 +67,13 @@ func (r *upstreamProviderRepository) Create(ctx context.Context, provider *servi
 			builder.SetTokenExpiresAt(*provider.TokenExpiresAt)
 		}
 	}
+	if provider.RefreshToken != "" {
+		encryptedRefreshToken, encErr := r.encryptor.Encrypt(provider.RefreshToken)
+		if encErr != nil {
+			return fmt.Errorf("encrypt upstream refresh token: %w", encErr)
+		}
+		builder.SetRefreshTokenEncrypted(encryptedRefreshToken)
+	}
 
 	created, err := builder.Save(ctx)
 	if err != nil {
@@ -111,8 +118,8 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 			return fmt.Errorf("encrypt upstream password: %w", err)
 		}
 		builder.SetPasswordEncrypted(encrypted)
-		// 换了密码，缓存的 token 一律作废
-		builder.ClearTokenEncrypted().ClearTokenExpiresAt()
+		// 换了密码，缓存的 access/refresh token 一律作废
+		builder.ClearTokenEncrypted().ClearRefreshTokenEncrypted().ClearTokenExpiresAt()
 	}
 	if provider.TotpSecret != "" {
 		encrypted, err := r.encryptor.Encrypt(provider.TotpSecret)
@@ -129,6 +136,7 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 			return fmt.Errorf("encrypt upstream token: %w", err)
 		}
 		builder.SetTokenEncrypted(encrypted)
+		builder.ClearRefreshTokenEncrypted()
 		if provider.TokenExpiresAt != nil {
 			builder.SetTokenExpiresAt(*provider.TokenExpiresAt)
 		} else {
@@ -356,16 +364,25 @@ func (r *upstreamProviderRepository) ExistsByName(ctx context.Context, name stri
 }
 
 func (r *upstreamProviderRepository) UpdateSession(
-	ctx context.Context, id int64, token string, expiresAt time.Time,
+	ctx context.Context, id int64, token, refreshToken string, expiresAt time.Time,
 ) error {
 	encrypted, err := r.encryptor.Encrypt(token)
 	if err != nil {
 		return fmt.Errorf("encrypt upstream token: %w", err)
 	}
-	return r.client.UpstreamProvider.UpdateOneID(id).
+	builder := r.client.UpstreamProvider.UpdateOneID(id).
 		SetTokenEncrypted(encrypted).
-		SetTokenExpiresAt(expiresAt).
-		Exec(ctx)
+		SetTokenExpiresAt(expiresAt)
+	if refreshToken != "" {
+		encryptedRefreshToken, err := r.encryptor.Encrypt(refreshToken)
+		if err != nil {
+			return fmt.Errorf("encrypt upstream refresh token: %w", err)
+		}
+		builder.SetRefreshTokenEncrypted(encryptedRefreshToken)
+	} else {
+		builder.ClearRefreshTokenEncrypted()
+	}
+	return builder.Exec(ctx)
 }
 
 func (r *upstreamProviderRepository) UpdateSyncSnapshot(
@@ -726,6 +743,13 @@ func (r *upstreamProviderRepository) entityToService(entity *dbent.UpstreamProvi
 			provider.Token = plain
 		} else {
 			slog.Warn("upstream_provider_token_decrypt_failed", "provider_id", entity.ID, "error", err)
+		}
+	}
+	if entity.RefreshTokenEncrypted != nil && *entity.RefreshTokenEncrypted != "" {
+		if plain, err := r.encryptor.Decrypt(*entity.RefreshTokenEncrypted); err == nil {
+			provider.RefreshToken = plain
+		} else {
+			slog.Warn("upstream_provider_refresh_token_decrypt_failed", "provider_id", entity.ID, "error", err)
 		}
 	}
 	return provider

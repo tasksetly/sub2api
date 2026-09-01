@@ -46,7 +46,7 @@ var (
 // UpstreamProviderService 管理上游 sub2api 供应商。
 //
 // 职责边界：
-//   - 登录并缓存 token（token 过期前自动用存的密码重新登录）
+//   - 登录并缓存 token（优先用 refresh token 续期，失败后用存的密码重新登录）
 //   - 同步余额/并发/分组倍率，只读落库供比价，不自动改本地账号
 //   - 按管理员勾选的分组在上游建 API Key，并落地成本地账号
 type UpstreamProviderService struct {
@@ -190,10 +190,11 @@ func (s *UpstreamProviderService) Update(
 	provider.TotpSecret = strings.TrimSpace(input.TotpSecret)
 
 	// 仓储层靠空 Token 判断「不改会话」，所以这里先按「不改」清空，
-	// 存量 token 留一份用于回填响应——provider 会直接被序列化成 DTO，
-	// 不回填的话 has_token 会假报成 false。
-	existingToken, existingExpiry := provider.Token, provider.TokenExpiresAt
+	// 存量会话留一份用于回填响应——provider 会直接被序列化成 DTO，
+	// 不回填的话 has_token/has_refresh_token 会假报成 false。
+	existingToken, existingRefreshToken, existingExpiry := provider.Token, provider.RefreshToken, provider.TokenExpiresAt
 	provider.Token = ""
+	provider.RefreshToken = ""
 	provider.TokenExpiresAt = nil
 
 	// 手填 token 优先于改密码：同时填了以粘贴的 token 为准，因为这类上游
@@ -212,6 +213,7 @@ func (s *UpstreamProviderService) Update(
 	// 改了密码则仓储层已作废缓存 token，保持清空才是真实状态。
 	if token == "" && input.Password == "" {
 		provider.Token = existingToken
+		provider.RefreshToken = existingRefreshToken
 		provider.TokenExpiresAt = existingExpiry
 	}
 	return provider, nil
@@ -522,13 +524,34 @@ func (s *UpstreamProviderService) buildAccountName(prefix, providerName, groupNa
 	return fmt.Sprintf("%s-%s", base, groupName)
 }
 
-// ensureToken 返回可用的上游 token：缓存有效就直接用，否则重新登录并回写缓存。
+// ensureToken 返回可用的上游 token：缓存有效就直接用，否则优先使用 refresh token
+// 续期；refresh 失败时再用密码重新登录并回写完整会话。
 func (s *UpstreamProviderService) ensureToken(ctx context.Context, provider *UpstreamProvider) (string, error) {
 	if provider.HasValidToken(time.Now()) {
 		return provider.Token, nil
 	}
+
+	if strings.TrimSpace(provider.RefreshToken) != "" {
+		result, refreshErr := s.client.RefreshToken(ctx, provider.BaseURL, provider.RefreshToken)
+		if refreshErr == nil {
+			// 兼容未轮转 refresh token 的旧上游：响应不带新值时继续沿用旧值。
+			if strings.TrimSpace(result.RefreshToken) == "" {
+				result.RefreshToken = provider.RefreshToken
+			}
+			s.persistSession(ctx, provider, result)
+			return result.AccessToken, nil
+		}
+		// refresh token 可能因上游重启、管理员主动登出等原因失效；
+		// 有密码时允许无感回退登录，避免一次失效令牌就中断同步。
+		if provider.Password == "" {
+			return "", fmt.Errorf("refresh upstream token: %w", refreshErr)
+		}
+		slog.Warn("upstream_provider_refresh_failed_fallback_login",
+			"provider_id", provider.ID, "error", refreshErr)
+	}
+
 	if provider.Password == "" {
-		// 存过 token 说明这是「手填 token」的上游：没有密码可用来重登，
+		// 只有手填 access token 的上游没有 refresh token 或密码可用来续期，
 		// 只能让管理员再贴一个，提示要说清楚是哪种情况。
 		if provider.Token != "" {
 			return "", ErrUpstreamProviderTokenExpired
@@ -555,13 +578,22 @@ func (s *UpstreamProviderService) ensureToken(ctx context.Context, provider *Ups
 		}
 	}
 
-	if err := s.repo.UpdateSession(ctx, provider.ID, result.AccessToken, result.ExpiresAt); err != nil {
-		// 缓存写失败不致命：这次请求照常用新 token，下次再登录一遍。
+	s.persistSession(ctx, provider, result)
+	return result.AccessToken, nil
+}
+
+// persistSession 同步更新内存和数据库中的 access/refresh token。
+// 缓存写失败不致命：这次请求照常用新 token，下次再登录/续期。
+func (s *UpstreamProviderService) persistSession(ctx context.Context, provider *UpstreamProvider, result *UpstreamLoginResult) {
+	if result == nil {
+		return
+	}
+	if err := s.repo.UpdateSession(ctx, provider.ID, result.AccessToken, result.RefreshToken, result.ExpiresAt); err != nil {
 		slog.Warn("upstream_provider_session_cache_failed", "provider_id", provider.ID, "error", err)
 	}
 	provider.Token = result.AccessToken
+	provider.RefreshToken = result.RefreshToken
 	provider.TokenExpiresAt = &result.ExpiresAt
-	return result.AccessToken, nil
 }
 
 // validateBaseURL 复用账号测试那套 SSRF 防护口径：上游地址由管理员输入，

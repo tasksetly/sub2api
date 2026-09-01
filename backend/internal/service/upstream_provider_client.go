@@ -63,8 +63,9 @@ type upstreamEnvelope struct {
 
 // UpstreamLoginResult 是登录成功后拿到的会话信息。
 type UpstreamLoginResult struct {
-	AccessToken string
-	ExpiresAt   time.Time
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    time.Time
 	// Requires2FA 为真时 AccessToken 为空，需要带 TOTP 码走第二步
 	Requires2FA bool
 	TempToken   string
@@ -108,7 +109,7 @@ type UpstreamCreatedKey struct {
 }
 
 // UpstreamProviderClient 封装对单个上游 sub2api 站点的 HTTP 调用。
-// 无状态：token 由调用方（UpstreamProviderService）缓存与传入。
+// 无状态：access/refresh token 由调用方（UpstreamProviderService）缓存与传入。
 type UpstreamProviderClient struct {
 	httpClient *http.Client
 }
@@ -131,10 +132,11 @@ func (c *UpstreamProviderClient) Login(ctx context.Context, baseURL, username, p
 	}
 
 	var resp struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int64  `json:"expires_in"`
-		Requires2FA bool   `json:"requires_2fa"`
-		TempToken   string `json:"temp_token"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+		Requires2FA  bool   `json:"requires_2fa"`
+		TempToken    string `json:"temp_token"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("parse upstream login response: %w", err)
@@ -147,8 +149,36 @@ func (c *UpstreamProviderClient) Login(ctx context.Context, baseURL, username, p
 		return nil, ErrUpstreamProviderUnauthorized
 	}
 	return &UpstreamLoginResult{
-		AccessToken: resp.AccessToken,
-		ExpiresAt:   tokenExpiry(resp.ExpiresIn),
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		ExpiresAt:    tokenExpiry(resp.ExpiresIn),
+	}, nil
+}
+
+// RefreshToken 用上游 refresh token 换发新的 access/refresh token。
+// 上游采用 refresh token 轮转，因此调用方必须持久化响应中的新 refresh token。
+func (c *UpstreamProviderClient) RefreshToken(ctx context.Context, baseURL, refreshToken string) (*UpstreamLoginResult, error) {
+	payload := map[string]string{"refresh_token": refreshToken}
+	body, err := c.do(ctx, baseURL, http.MethodPost, "/api/v1/auth/refresh", "", payload)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("parse upstream refresh response: %w", err)
+	}
+	if strings.TrimSpace(resp.AccessToken) == "" {
+		return nil, ErrUpstreamProviderUnauthorized
+	}
+	return &UpstreamLoginResult{
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		ExpiresAt:    tokenExpiry(resp.ExpiresIn),
 	}, nil
 }
 
@@ -161,8 +191,9 @@ func (c *UpstreamProviderClient) Login2FA(ctx context.Context, baseURL, tempToke
 	}
 
 	var resp struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int64  `json:"expires_in"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("parse upstream 2fa response: %w", err)
@@ -171,8 +202,9 @@ func (c *UpstreamProviderClient) Login2FA(ctx context.Context, baseURL, tempToke
 		return nil, ErrUpstreamProviderUnauthorized
 	}
 	return &UpstreamLoginResult{
-		AccessToken: resp.AccessToken,
-		ExpiresAt:   tokenExpiry(resp.ExpiresIn),
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		ExpiresAt:    tokenExpiry(resp.ExpiresIn),
 	}, nil
 }
 

@@ -14,12 +14,11 @@ export interface UpstreamProvider {
   username: string
   has_password: boolean
   has_totp_secret: boolean
-  /** 是否存了上游 JWT（手填的或自动登录缓存的） */
+  /** 是否存了上游 access JWT（手填的或自动登录缓存的） */
   has_token: boolean
-  /**
-   * 已存 token 的到期时间。只有 token、没有密码的上游过期后无法自动续期，
-   * 得管理员再贴一个，所以这个时间要露给前端。
-   */
+  /** 是否存了上游登录返回的 refresh token，可自动续期 access JWT */
+  has_refresh_token: boolean
+  /** 已存 access token 的到期时间 */
   token_expires_at: string | null
 
   /**

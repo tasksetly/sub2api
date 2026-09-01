@@ -172,6 +172,26 @@ func (_u *UpstreamProviderUpdate) ClearTokenEncrypted() *UpstreamProviderUpdate 
 	return _u
 }
 
+// SetRefreshTokenEncrypted sets the "refresh_token_encrypted" field.
+func (_u *UpstreamProviderUpdate) SetRefreshTokenEncrypted(v string) *UpstreamProviderUpdate {
+	_u.mutation.SetRefreshTokenEncrypted(v)
+	return _u
+}
+
+// SetNillableRefreshTokenEncrypted sets the "refresh_token_encrypted" field if the given value is not nil.
+func (_u *UpstreamProviderUpdate) SetNillableRefreshTokenEncrypted(v *string) *UpstreamProviderUpdate {
+	if v != nil {
+		_u.SetRefreshTokenEncrypted(*v)
+	}
+	return _u
+}
+
+// ClearRefreshTokenEncrypted clears the value of the "refresh_token_encrypted" field.
+func (_u *UpstreamProviderUpdate) ClearRefreshTokenEncrypted() *UpstreamProviderUpdate {
+	_u.mutation.ClearRefreshTokenEncrypted()
+	return _u
+}
+
 // SetTokenExpiresAt sets the "token_expires_at" field.
 func (_u *UpstreamProviderUpdate) SetTokenExpiresAt(v time.Time) *UpstreamProviderUpdate {
 	_u.mutation.SetTokenExpiresAt(v)
@@ -582,6 +602,12 @@ func (_u *UpstreamProviderUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if _u.mutation.TokenEncryptedCleared() {
 		_spec.ClearField(upstreamprovider.FieldTokenEncrypted, field.TypeString)
 	}
+	if value, ok := _u.mutation.RefreshTokenEncrypted(); ok {
+		_spec.SetField(upstreamprovider.FieldRefreshTokenEncrypted, field.TypeString, value)
+	}
+	if _u.mutation.RefreshTokenEncryptedCleared() {
+		_spec.ClearField(upstreamprovider.FieldRefreshTokenEncrypted, field.TypeString)
+	}
 	if value, ok := _u.mutation.TokenExpiresAt(); ok {
 		_spec.SetField(upstreamprovider.FieldTokenExpiresAt, field.TypeTime, value)
 	}
@@ -894,6 +920,26 @@ func (_u *UpstreamProviderUpdateOne) SetNillableTokenEncrypted(v *string) *Upstr
 // ClearTokenEncrypted clears the value of the "token_encrypted" field.
 func (_u *UpstreamProviderUpdateOne) ClearTokenEncrypted() *UpstreamProviderUpdateOne {
 	_u.mutation.ClearTokenEncrypted()
+	return _u
+}
+
+// SetRefreshTokenEncrypted sets the "refresh_token_encrypted" field.
+func (_u *UpstreamProviderUpdateOne) SetRefreshTokenEncrypted(v string) *UpstreamProviderUpdateOne {
+	_u.mutation.SetRefreshTokenEncrypted(v)
+	return _u
+}
+
+// SetNillableRefreshTokenEncrypted sets the "refresh_token_encrypted" field if the given value is not nil.
+func (_u *UpstreamProviderUpdateOne) SetNillableRefreshTokenEncrypted(v *string) *UpstreamProviderUpdateOne {
+	if v != nil {
+		_u.SetRefreshTokenEncrypted(*v)
+	}
+	return _u
+}
+
+// ClearRefreshTokenEncrypted clears the value of the "refresh_token_encrypted" field.
+func (_u *UpstreamProviderUpdateOne) ClearRefreshTokenEncrypted() *UpstreamProviderUpdateOne {
+	_u.mutation.ClearRefreshTokenEncrypted()
 	return _u
 }
 
@@ -1336,6 +1382,12 @@ func (_u *UpstreamProviderUpdateOne) sqlSave(ctx context.Context) (_node *Upstre
 	}
 	if _u.mutation.TokenEncryptedCleared() {
 		_spec.ClearField(upstreamprovider.FieldTokenEncrypted, field.TypeString)
+	}
+	if value, ok := _u.mutation.RefreshTokenEncrypted(); ok {
+		_spec.SetField(upstreamprovider.FieldRefreshTokenEncrypted, field.TypeString, value)
+	}
+	if _u.mutation.RefreshTokenEncryptedCleared() {
+		_spec.ClearField(upstreamprovider.FieldRefreshTokenEncrypted, field.TypeString)
 	}
 	if value, ok := _u.mutation.TokenExpiresAt(); ok {
 		_spec.SetField(upstreamprovider.FieldTokenExpiresAt, field.TypeTime, value)

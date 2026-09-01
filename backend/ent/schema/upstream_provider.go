@@ -76,11 +76,16 @@ func (UpstreamProvider) Fields() []ent.Field {
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "text"}).
 			Comment("AES-256-GCM encrypted upstream JWT, cached to avoid logging in on every sync."),
+		field.String("refresh_token_encrypted").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "text"}).
+			Comment("AES-256-GCM encrypted upstream refresh token used to renew the access JWT."),
 		field.Time("token_expires_at").
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}).
-			Comment("Cached token expiry; re-login happens before this."),
+			Comment("Cached token expiry; refresh happens before this."),
 
 		// ========== 同步来的只读快照 ==========
 		// 这些值只用于展示比价，不自动写回本地 accounts。

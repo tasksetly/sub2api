@@ -44,10 +44,17 @@
                 <span v-if="provider.has_totp_secret" class="badge badge-primary">
                   {{ t('admin.upstreamProviders.hasTotp') }}
                 </span>
-                <!-- 只有 token 的上游（被 CF 挡住、登不上去）是正常配置，
-                     不该报「未配置密码」；但到期后无法自动续期，要标出来。 -->
                 <span
-                  v-if="!provider.has_password && provider.has_token"
+                  v-if="provider.has_refresh_token"
+                  class="badge badge-primary"
+                  :title="t('admin.upstreamProviders.tokenAutoRenew')"
+                >
+                  {{ t('admin.upstreamProviders.tokenAutoRenew') }}
+                </span>
+                <!-- 只有 token 的上游（被 CF 挡住、登不上去）是正常配置，
+                     不该报「未配置密码」；没有 refresh token 时到期后无法自动续期。 -->
+                <span
+                  v-if="!provider.has_password && provider.has_token && !provider.has_refresh_token"
                   class="badge"
                   :class="isTokenExpired(provider) ? 'badge-warning' : 'badge-primary'"
                   :title="tokenBadgeTitle(provider)"
@@ -58,7 +65,7 @@
                       : t('admin.upstreamProviders.tokenAuth')
                   }}
                 </span>
-                <span v-else-if="!provider.has_password" class="badge badge-warning">
+                <span v-else-if="!provider.has_password && !provider.has_refresh_token" class="badge badge-warning">
                   {{ t('admin.upstreamProviders.noPassword') }}
                 </span>
               </div>

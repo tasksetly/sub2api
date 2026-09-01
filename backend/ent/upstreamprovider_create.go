@@ -132,6 +132,20 @@ func (_c *UpstreamProviderCreate) SetNillableTokenEncrypted(v *string) *Upstream
 	return _c
 }
 
+// SetRefreshTokenEncrypted sets the "refresh_token_encrypted" field.
+func (_c *UpstreamProviderCreate) SetRefreshTokenEncrypted(v string) *UpstreamProviderCreate {
+	_c.mutation.SetRefreshTokenEncrypted(v)
+	return _c
+}
+
+// SetNillableRefreshTokenEncrypted sets the "refresh_token_encrypted" field if the given value is not nil.
+func (_c *UpstreamProviderCreate) SetNillableRefreshTokenEncrypted(v *string) *UpstreamProviderCreate {
+	if v != nil {
+		_c.SetRefreshTokenEncrypted(*v)
+	}
+	return _c
+}
+
 // SetTokenExpiresAt sets the "token_expires_at" field.
 func (_c *UpstreamProviderCreate) SetTokenExpiresAt(v time.Time) *UpstreamProviderCreate {
 	_c.mutation.SetTokenExpiresAt(v)
@@ -489,6 +503,10 @@ func (_c *UpstreamProviderCreate) createSpec() (*UpstreamProvider, *sqlgraph.Cre
 		_spec.SetField(upstreamprovider.FieldTokenEncrypted, field.TypeString, value)
 		_node.TokenEncrypted = &value
 	}
+	if value, ok := _c.mutation.RefreshTokenEncrypted(); ok {
+		_spec.SetField(upstreamprovider.FieldRefreshTokenEncrypted, field.TypeString, value)
+		_node.RefreshTokenEncrypted = &value
+	}
 	if value, ok := _c.mutation.TokenExpiresAt(); ok {
 		_spec.SetField(upstreamprovider.FieldTokenExpiresAt, field.TypeTime, value)
 		_node.TokenExpiresAt = &value
@@ -742,6 +760,24 @@ func (u *UpstreamProviderUpsert) UpdateTokenEncrypted() *UpstreamProviderUpsert 
 // ClearTokenEncrypted clears the value of the "token_encrypted" field.
 func (u *UpstreamProviderUpsert) ClearTokenEncrypted() *UpstreamProviderUpsert {
 	u.SetNull(upstreamprovider.FieldTokenEncrypted)
+	return u
+}
+
+// SetRefreshTokenEncrypted sets the "refresh_token_encrypted" field.
+func (u *UpstreamProviderUpsert) SetRefreshTokenEncrypted(v string) *UpstreamProviderUpsert {
+	u.Set(upstreamprovider.FieldRefreshTokenEncrypted, v)
+	return u
+}
+
+// UpdateRefreshTokenEncrypted sets the "refresh_token_encrypted" field to the value that was provided on create.
+func (u *UpstreamProviderUpsert) UpdateRefreshTokenEncrypted() *UpstreamProviderUpsert {
+	u.SetExcluded(upstreamprovider.FieldRefreshTokenEncrypted)
+	return u
+}
+
+// ClearRefreshTokenEncrypted clears the value of the "refresh_token_encrypted" field.
+func (u *UpstreamProviderUpsert) ClearRefreshTokenEncrypted() *UpstreamProviderUpsert {
+	u.SetNull(upstreamprovider.FieldRefreshTokenEncrypted)
 	return u
 }
 
@@ -1127,6 +1163,27 @@ func (u *UpstreamProviderUpsertOne) UpdateTokenEncrypted() *UpstreamProviderUpse
 func (u *UpstreamProviderUpsertOne) ClearTokenEncrypted() *UpstreamProviderUpsertOne {
 	return u.Update(func(s *UpstreamProviderUpsert) {
 		s.ClearTokenEncrypted()
+	})
+}
+
+// SetRefreshTokenEncrypted sets the "refresh_token_encrypted" field.
+func (u *UpstreamProviderUpsertOne) SetRefreshTokenEncrypted(v string) *UpstreamProviderUpsertOne {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.SetRefreshTokenEncrypted(v)
+	})
+}
+
+// UpdateRefreshTokenEncrypted sets the "refresh_token_encrypted" field to the value that was provided on create.
+func (u *UpstreamProviderUpsertOne) UpdateRefreshTokenEncrypted() *UpstreamProviderUpsertOne {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.UpdateRefreshTokenEncrypted()
+	})
+}
+
+// ClearRefreshTokenEncrypted clears the value of the "refresh_token_encrypted" field.
+func (u *UpstreamProviderUpsertOne) ClearRefreshTokenEncrypted() *UpstreamProviderUpsertOne {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.ClearRefreshTokenEncrypted()
 	})
 }
 
@@ -1709,6 +1766,27 @@ func (u *UpstreamProviderUpsertBulk) UpdateTokenEncrypted() *UpstreamProviderUps
 func (u *UpstreamProviderUpsertBulk) ClearTokenEncrypted() *UpstreamProviderUpsertBulk {
 	return u.Update(func(s *UpstreamProviderUpsert) {
 		s.ClearTokenEncrypted()
+	})
+}
+
+// SetRefreshTokenEncrypted sets the "refresh_token_encrypted" field.
+func (u *UpstreamProviderUpsertBulk) SetRefreshTokenEncrypted(v string) *UpstreamProviderUpsertBulk {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.SetRefreshTokenEncrypted(v)
+	})
+}
+
+// UpdateRefreshTokenEncrypted sets the "refresh_token_encrypted" field to the value that was provided on create.
+func (u *UpstreamProviderUpsertBulk) UpdateRefreshTokenEncrypted() *UpstreamProviderUpsertBulk {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.UpdateRefreshTokenEncrypted()
+	})
+}
+
+// ClearRefreshTokenEncrypted clears the value of the "refresh_token_encrypted" field.
+func (u *UpstreamProviderUpsertBulk) ClearRefreshTokenEncrypted() *UpstreamProviderUpsertBulk {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.ClearRefreshTokenEncrypted()
 	})
 }
 

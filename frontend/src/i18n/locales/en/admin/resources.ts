@@ -72,13 +72,13 @@ export default {
       formUsername: 'Login email',
       formPassword: 'Login password',
       formPasswordHelpCreate:
-        'Stored with AES-256-GCM; needed to log in again once the token expires. Leave blank and paste a token below if a Cloudflare check blocks login',
+        'Stored with AES-256-GCM; when upstream login returns a refresh token, the access JWT is renewed automatically. Leave blank and paste a token below if a Cloudflare check blocks login',
       formPasswordHelpEdit:
-        'Leave blank to keep unchanged. Changing it invalidates the cached token immediately',
+        'Leave blank to keep unchanged. Changing it invalidates the cached access and refresh tokens immediately',
       formPasswordPlaceholderEdit: 'Leave blank to keep',
       formToken: 'Upstream token',
       formTokenHelp:
-        "Use this when a Cloudflare check blocks username/password login: copy the upstream site's JWT from your browser devtools and paste it here. Expiry is read from the token's exp claim, falling back to 7 days",
+        "Use this when a Cloudflare check blocks username/password login: copy the upstream site's JWT from your browser devtools and paste it here. Automatic renewal is available only when upstream login returns a refresh token; expiry is read from the token's exp claim, falling back to 7 days",
       formTokenHelpEdit:
         'Leave blank to keep unchanged. Setting it replaces the cached session; the token wins if you also enter a password',
       formTokenPlaceholder: 'eyJhbGciOi...',
@@ -86,7 +86,7 @@ export default {
       tokenExpiresAt: 'Token expires',
       tokenExpired: 'Token expired',
       tokenNoAutoRenew:
-        'This provider only has a token, no password; paste a fresh one after it expires',
+        'This provider has no refresh token or password; paste a fresh token after it expires',
       formRateCorrection: 'Rate correction',
       formRateCorrectionHelp:
         'Levels out differing top-up ratios: enter 1/ratio (10× top-up → 0.1). Comparison rate = declared rate × this factor; use 1 for 1:1 top-up (no correction)',
@@ -152,6 +152,7 @@ export default {
       hasTotp: '2FA configured',
       noPassword: 'No password stored',
       tokenAuth: 'Token auth',
+      tokenAutoRenew: 'JWT auto-renew',
       captchaHint: 'This upstream requires a captcha; automatic login is not possible',
       totpHint: 'This upstream enforces 2FA — add its TOTP secret',
       noProviders: 'No upstreams yet. Click "Add Upstream" to start',

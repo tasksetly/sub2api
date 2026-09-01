@@ -2134,21 +2134,21 @@ func init() {
 		}
 	}()
 	// upstreamproviderDescUpstreamUserID is the schema descriptor for upstream_user_id field.
-	upstreamproviderDescUpstreamUserID := upstreamproviderFields[11].Descriptor()
+	upstreamproviderDescUpstreamUserID := upstreamproviderFields[12].Descriptor()
 	// upstreamprovider.UpstreamUserIDValidator is a validator for the "upstream_user_id" field. It is called by the builders before save.
 	upstreamprovider.UpstreamUserIDValidator = upstreamproviderDescUpstreamUserID.Validators[0].(func(string) error)
 	// upstreamproviderDescRateCorrection is the schema descriptor for rate_correction field.
-	upstreamproviderDescRateCorrection := upstreamproviderFields[12].Descriptor()
+	upstreamproviderDescRateCorrection := upstreamproviderFields[13].Descriptor()
 	// upstreamprovider.DefaultRateCorrection holds the default value on creation for the rate_correction field.
 	upstreamprovider.DefaultRateCorrection = upstreamproviderDescRateCorrection.Default.(float64)
 	// upstreamproviderDescStatus is the schema descriptor for status field.
-	upstreamproviderDescStatus := upstreamproviderFields[13].Descriptor()
+	upstreamproviderDescStatus := upstreamproviderFields[14].Descriptor()
 	// upstreamprovider.DefaultStatus holds the default value on creation for the status field.
 	upstreamprovider.DefaultStatus = upstreamproviderDescStatus.Default.(string)
 	// upstreamprovider.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	upstreamprovider.StatusValidator = upstreamproviderDescStatus.Validators[0].(func(string) error)
 	// upstreamproviderDescSyncEnabled is the schema descriptor for sync_enabled field.
-	upstreamproviderDescSyncEnabled := upstreamproviderFields[16].Descriptor()
+	upstreamproviderDescSyncEnabled := upstreamproviderFields[17].Descriptor()
 	// upstreamprovider.DefaultSyncEnabled holds the default value on creation for the sync_enabled field.
 	upstreamprovider.DefaultSyncEnabled = upstreamproviderDescSyncEnabled.Default.(bool)
 	usagecleanuptaskMixin := schema.UsageCleanupTask{}.Mixin()

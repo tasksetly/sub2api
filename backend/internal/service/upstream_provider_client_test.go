@@ -35,9 +35,10 @@ func TestUpstreamClientLoginReturnsToken(t *testing.T) {
 		gotBody = string(buf)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(upstreamEnvelopeJSON(t, map[string]any{
-			"access_token": "jwt-token",
-			"expires_in":   3600,
-			"token_type":   "Bearer",
+			"access_token":  "jwt-token",
+			"refresh_token": "refresh-token",
+			"expires_in":    3600,
+			"token_type":    "Bearer",
 		})))
 	}))
 	defer server.Close()
@@ -46,6 +47,7 @@ func TestUpstreamClientLoginReturnsToken(t *testing.T) {
 	result, err := client.Login(context.Background(), server.URL, "admin@example.com", "secret")
 	require.NoError(t, err)
 	require.Equal(t, "jwt-token", result.AccessToken)
+	require.Equal(t, "refresh-token", result.RefreshToken)
 	require.False(t, result.Requires2FA)
 	require.Equal(t, "/api/v1/auth/login", gotPath)
 	require.Contains(t, gotBody, "admin@example.com")
@@ -110,6 +112,30 @@ func TestUpstreamClientLoginClassifiesBadPassword(t *testing.T) {
 	client := NewUpstreamProviderClient()
 	_, err := client.Login(context.Background(), server.URL, "a@b.c", "wrong")
 	require.ErrorIs(t, err, ErrUpstreamProviderUnauthorized)
+}
+
+func TestUpstreamClientRefreshToken(t *testing.T) {
+	var gotBody map[string]string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/v1/auth/refresh", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(upstreamEnvelopeJSON(t, map[string]any{
+			"access_token":  "new-jwt-token",
+			"refresh_token": "new-refresh-token",
+			"expires_in":    7200,
+		})))
+	}))
+	defer server.Close()
+
+	client := NewUpstreamProviderClient()
+	result, err := client.RefreshToken(context.Background(), server.URL, "old-refresh-token")
+	require.NoError(t, err)
+	require.Equal(t, "old-refresh-token", gotBody["refresh_token"])
+	require.Equal(t, "new-jwt-token", result.AccessToken)
+	require.Equal(t, "new-refresh-token", result.RefreshToken)
+	require.WithinDuration(t, time.Now().Add(2*time.Hour), result.ExpiresAt, time.Minute)
 }
 
 func TestUpstreamClientGetProfile(t *testing.T) {

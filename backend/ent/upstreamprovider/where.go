@@ -105,6 +105,11 @@ func TokenEncrypted(v string) predicate.UpstreamProvider {
 	return predicate.UpstreamProvider(sql.FieldEQ(FieldTokenEncrypted, v))
 }
 
+// RefreshTokenEncrypted applies equality check predicate on the "refresh_token_encrypted" field. It's identical to RefreshTokenEncryptedEQ.
+func RefreshTokenEncrypted(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldEQ(FieldRefreshTokenEncrypted, v))
+}
+
 // TokenExpiresAt applies equality check predicate on the "token_expires_at" field. It's identical to TokenExpiresAtEQ.
 func TokenExpiresAt(v time.Time) predicate.UpstreamProvider {
 	return predicate.UpstreamProvider(sql.FieldEQ(FieldTokenExpiresAt, v))
@@ -768,6 +773,81 @@ func TokenEncryptedEqualFold(v string) predicate.UpstreamProvider {
 // TokenEncryptedContainsFold applies the ContainsFold predicate on the "token_encrypted" field.
 func TokenEncryptedContainsFold(v string) predicate.UpstreamProvider {
 	return predicate.UpstreamProvider(sql.FieldContainsFold(FieldTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedEQ applies the EQ predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedEQ(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldEQ(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedNEQ applies the NEQ predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedNEQ(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldNEQ(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedIn applies the In predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedIn(vs ...string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldIn(FieldRefreshTokenEncrypted, vs...))
+}
+
+// RefreshTokenEncryptedNotIn applies the NotIn predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedNotIn(vs ...string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldNotIn(FieldRefreshTokenEncrypted, vs...))
+}
+
+// RefreshTokenEncryptedGT applies the GT predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedGT(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldGT(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedGTE applies the GTE predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedGTE(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldGTE(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedLT applies the LT predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedLT(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldLT(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedLTE applies the LTE predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedLTE(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldLTE(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedContains applies the Contains predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedContains(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldContains(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedHasPrefix applies the HasPrefix predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedHasPrefix(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldHasPrefix(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedHasSuffix applies the HasSuffix predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedHasSuffix(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldHasSuffix(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedIsNil applies the IsNil predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedIsNil() predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldIsNull(FieldRefreshTokenEncrypted))
+}
+
+// RefreshTokenEncryptedNotNil applies the NotNil predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedNotNil() predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldNotNull(FieldRefreshTokenEncrypted))
+}
+
+// RefreshTokenEncryptedEqualFold applies the EqualFold predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedEqualFold(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldEqualFold(FieldRefreshTokenEncrypted, v))
+}
+
+// RefreshTokenEncryptedContainsFold applies the ContainsFold predicate on the "refresh_token_encrypted" field.
+func RefreshTokenEncryptedContainsFold(v string) predicate.UpstreamProvider {
+	return predicate.UpstreamProvider(sql.FieldContainsFold(FieldRefreshTokenEncrypted, v))
 }
 
 // TokenExpiresAtEQ applies the EQ predicate on the "token_expires_at" field.

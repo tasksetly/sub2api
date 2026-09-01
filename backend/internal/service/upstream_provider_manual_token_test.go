@@ -4,6 +4,8 @@ package service
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -16,9 +18,12 @@ import (
 // fakeUpstreamProviderRepo 只实现手填 token 这条路径需要的方法，
 // 其余方法留空以满足接口。
 type fakeUpstreamProviderRepo struct {
-	stored  *UpstreamProvider
-	created *UpstreamProvider
-	updated *UpstreamProvider
+	stored                *UpstreamProvider
+	created               *UpstreamProvider
+	updated               *UpstreamProvider
+	sessionToken          string
+	sessionRefreshToken   string
+	sessionTokenExpiresAt time.Time
 }
 
 func (f *fakeUpstreamProviderRepo) Create(_ context.Context, provider *UpstreamProvider) error {
@@ -64,7 +69,12 @@ func (f *fakeUpstreamProviderRepo) ListNamesByIDs(
 	return map[int64]string{}, nil
 }
 
-func (f *fakeUpstreamProviderRepo) UpdateSession(context.Context, int64, string, time.Time) error {
+func (f *fakeUpstreamProviderRepo) UpdateSession(
+	_ context.Context, _ int64, token, refreshToken string, expiresAt time.Time,
+) error {
+	f.sessionToken = token
+	f.sessionRefreshToken = refreshToken
+	f.sessionTokenExpiresAt = expiresAt
 	return nil
 }
 
@@ -229,6 +239,41 @@ func TestUpdateUpstreamProviderManualToken(t *testing.T) {
 		require.Empty(t, provider.Token)
 		require.Nil(t, provider.TokenExpiresAt)
 	})
+}
+
+// access JWT 进入过期边界后，应先用 refresh token 换发新 token 对。
+func TestEnsureTokenRefreshesAccessTokenWithRefreshToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/v1/auth/refresh", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(upstreamEnvelopeJSON(t, map[string]any{
+			"access_token": "renewed-access",
+			"expires_in":   3600,
+			// 兼容旧上游：不返回 refresh_token 时应继续沿用旧值。
+		})))
+	}))
+	defer server.Close()
+
+	repo := &fakeUpstreamProviderRepo{}
+	svc := newManualTokenService(repo)
+	expired := time.Now().Add(-time.Minute)
+	provider := &UpstreamProvider{
+		ID:             1,
+		BaseURL:        server.URL,
+		Token:          "expired-access",
+		RefreshToken:   "stable-refresh",
+		TokenExpiresAt: &expired,
+	}
+
+	token, err := svc.ensureToken(context.Background(), provider)
+	require.NoError(t, err)
+	require.Equal(t, "renewed-access", token)
+	require.Equal(t, "renewed-access", provider.Token)
+	require.Equal(t, "stable-refresh", provider.RefreshToken)
+	require.True(t, provider.TokenExpiresAt.After(time.Now()))
+	require.Equal(t, "renewed-access", repo.sessionToken)
+	require.Equal(t, "stable-refresh", repo.sessionRefreshToken)
+	require.True(t, repo.sessionTokenExpiresAt.After(time.Now()))
 }
 
 // 只有 token 的上游过期后没有自动续期手段，报错要说清楚是「重贴 token」

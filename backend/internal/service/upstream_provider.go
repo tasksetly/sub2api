@@ -9,7 +9,7 @@ import (
 
 // UpstreamProvider 是一个上游 sub2api 供应商（能登录其后台的账号）。
 //
-// 密码/TOTP/token 在仓储层用 AES-256-GCM 加解密，这里的字段是明文，
+// 密码/TOTP/access token/refresh token 在仓储层用 AES-256-GCM 加解密，这里的字段是明文，
 // 但绝不能进入 DTO 响应——见 dto.UpstreamProviderFromService。
 type UpstreamProvider struct {
 	ID      int64
@@ -26,6 +26,7 @@ type UpstreamProvider struct {
 	RateCorrection float64
 
 	Token          string
+	RefreshToken   string
 	TokenExpiresAt *time.Time
 
 	// 同步来的只读快照
@@ -148,7 +149,7 @@ func (c *UpstreamGroupComparison) CorrectedRate() float64 {
 }
 
 // UpstreamProviderRepository 是上游供应商的持久化接口。
-// 实现负责 password/totp_secret/token 的加解密。
+// 实现负责 password/totp_secret/access token/refresh token 的加解密。
 type UpstreamProviderRepository interface {
 	Create(ctx context.Context, provider *UpstreamProvider) error
 	GetByID(ctx context.Context, id int64) (*UpstreamProvider, error)
@@ -163,8 +164,8 @@ type UpstreamProviderRepository interface {
 	// 包含软删除的上游——账号还在用它签发的 Key，名称得照样显示得出来。
 	ListNamesByIDs(ctx context.Context, ids []int64) (map[int64]string, error)
 
-	// UpdateSession 只更新 token 缓存，避免整行覆盖把并发的同步结果写丢。
-	UpdateSession(ctx context.Context, id int64, token string, expiresAt time.Time) error
+	// UpdateSession 只更新会话缓存，避免整行覆盖把并发的同步结果写丢。
+	UpdateSession(ctx context.Context, id int64, token, refreshToken string, expiresAt time.Time) error
 	// UpdateSyncSnapshot 写入余额/并发/同步状态。
 	UpdateSyncSnapshot(ctx context.Context, id int64, snapshot UpstreamSyncSnapshot) error
 	// MarkSyncFailed 记录同步失败原因，供前端展示。

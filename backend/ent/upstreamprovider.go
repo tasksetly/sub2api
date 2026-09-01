@@ -37,7 +37,9 @@ type UpstreamProvider struct {
 	TotpSecretEncrypted *string `json:"totp_secret_encrypted,omitempty"`
 	// AES-256-GCM encrypted upstream JWT, cached to avoid logging in on every sync.
 	TokenEncrypted *string `json:"token_encrypted,omitempty"`
-	// Cached token expiry; re-login happens before this.
+	// AES-256-GCM encrypted upstream refresh token used to renew the access JWT.
+	RefreshTokenEncrypted *string `json:"refresh_token_encrypted,omitempty"`
+	// Cached token expiry; refresh happens before this.
 	TokenExpiresAt *time.Time `json:"token_expires_at,omitempty"`
 	// Upstream account balance from GET /user/profile.
 	Balance *float64 `json:"balance,omitempty"`
@@ -103,7 +105,7 @@ func (*UpstreamProvider) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case upstreamprovider.FieldID, upstreamprovider.FieldUpstreamConcurrency:
 			values[i] = new(sql.NullInt64)
-		case upstreamprovider.FieldName, upstreamprovider.FieldBaseURL, upstreamprovider.FieldNotes, upstreamprovider.FieldUsername, upstreamprovider.FieldPasswordEncrypted, upstreamprovider.FieldTotpSecretEncrypted, upstreamprovider.FieldTokenEncrypted, upstreamprovider.FieldUpstreamUserID, upstreamprovider.FieldStatus, upstreamprovider.FieldLastSyncError:
+		case upstreamprovider.FieldName, upstreamprovider.FieldBaseURL, upstreamprovider.FieldNotes, upstreamprovider.FieldUsername, upstreamprovider.FieldPasswordEncrypted, upstreamprovider.FieldTotpSecretEncrypted, upstreamprovider.FieldTokenEncrypted, upstreamprovider.FieldRefreshTokenEncrypted, upstreamprovider.FieldUpstreamUserID, upstreamprovider.FieldStatus, upstreamprovider.FieldLastSyncError:
 			values[i] = new(sql.NullString)
 		case upstreamprovider.FieldCreatedAt, upstreamprovider.FieldUpdatedAt, upstreamprovider.FieldDeletedAt, upstreamprovider.FieldTokenExpiresAt, upstreamprovider.FieldLastSyncAt:
 			values[i] = new(sql.NullTime)
@@ -191,6 +193,13 @@ func (_m *UpstreamProvider) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.TokenEncrypted = new(string)
 				*_m.TokenEncrypted = value.String
+			}
+		case upstreamprovider.FieldRefreshTokenEncrypted:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field refresh_token_encrypted", values[i])
+			} else if value.Valid {
+				_m.RefreshTokenEncrypted = new(string)
+				*_m.RefreshTokenEncrypted = value.String
 			}
 		case upstreamprovider.FieldTokenExpiresAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -340,6 +349,11 @@ func (_m *UpstreamProvider) String() string {
 	builder.WriteString(", ")
 	if v := _m.TokenEncrypted; v != nil {
 		builder.WriteString("token_encrypted=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.RefreshTokenEncrypted; v != nil {
+		builder.WriteString("refresh_token_encrypted=")
 		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
