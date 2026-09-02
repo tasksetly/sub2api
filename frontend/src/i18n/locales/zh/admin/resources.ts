@@ -80,7 +80,12 @@ export default {
         '上游做了 Cloudflare 校验、账号密码登不上去时填这里：从浏览器开发者工具里复制上游站点的 JWT 直接粘贴。只有上游登录返回 refresh token 时才能自动续期；有效期从 token 的 exp 解析，解不出按 7 天算',
       formTokenHelpEdit: '留空表示不修改。填了会顶掉当前缓存的会话；与密码同时填时以 Token 为准',
       formTokenPlaceholder: 'eyJhbGciOi...',
-      formTokenRequired: '登录密码和上游 Token 至少填一个',
+      formRefreshToken: 'Refresh Token',
+      formRefreshTokenHelp:
+        '填写与上游 access JWT 配对的 refresh token；access JWT 过期后会自动换发新 token，并保存上游轮转后的 refresh token',
+      formRefreshTokenHelpEdit: '留空表示不修改；可单独补填或与新的 access token 一起替换',
+      formRefreshTokenPlaceholder: '请输入 refresh token',
+      formTokenRequired: '登录密码、上游 access token 或 refresh token 至少填一个',
       tokenExpiresAt: 'Token 到期',
       tokenExpired: 'Token 已过期',
       tokenNoAutoRenew: '该上游没有 refresh token 和密码，过期后需要手动重新粘贴',

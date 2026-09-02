@@ -2,7 +2,7 @@
  * 上游 sub2api 供应商管理类型。
  *
  * 上游本身也是 sub2api 实例，所以这里的字段与本仓库用户侧接口对齐。
- * 安全约定：后端绝不回传明文密码/token，只给 has_password / has_totp_secret 布尔位。
+ * 安全约定：后端绝不回传明文密码/token，只给 has_password / has_totp_secret / has_refresh_token 布尔位。
  */
 
 export interface UpstreamProvider {
@@ -114,14 +114,16 @@ export interface UpstreamProfile {
   status: string
 }
 
-/** password 与 token 二选一：上游做了 CF 校验、登不上去时直接贴 token */
+/** password、access token、refresh token 至少提供一个；refresh token 可单独续期 access JWT */
 export interface CreateUpstreamProviderRequest {
   name: string
   base_url: string
   username: string
   password?: string
-  /** 手填的上游 JWT，直接写入会话缓存；有效期从它的 exp 解析 */
+  /** 手填的上游 access JWT，直接写入会话缓存；有效期从它的 exp 解析 */
   token?: string
+  /** 与 access JWT 配对的上游 refresh token，可单独填写 */
+  refresh_token?: string
   /** 充值比例修正系数（充值 10 倍填 0.1）；省略按 1.0 处理 */
   rate_correction?: number
   totp_secret?: string
@@ -129,14 +131,16 @@ export interface CreateUpstreamProviderRequest {
   sync_enabled?: boolean
 }
 
-/** password/totp_secret/token 留空表示不修改 */
+/** password/totp_secret/token/refresh_token 留空表示不修改 */
 export interface UpdateUpstreamProviderRequest {
   name: string
   base_url: string
   username: string
   password?: string
-  /** 非空时顶掉缓存的会话；与 password 同时填时以它为准 */
+  /** 非空时顶掉缓存的 access 会话；与 password 同时填时以它为准 */
   token?: string
+  /** 非空时更新缓存的 refresh token，可单独补填 */
+  refresh_token?: string
   /** 省略表示不修改 */
   rate_correction?: number
   totp_secret?: string

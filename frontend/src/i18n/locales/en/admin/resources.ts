@@ -82,7 +82,12 @@ export default {
       formTokenHelpEdit:
         'Leave blank to keep unchanged. Setting it replaces the cached session; the token wins if you also enter a password',
       formTokenPlaceholder: 'eyJhbGciOi...',
-      formTokenRequired: 'Enter either a login password or an upstream token',
+      formRefreshToken: 'Refresh token',
+      formRefreshTokenHelp:
+        'Paste the refresh token paired with the upstream access JWT. It will renew the access token automatically and store any rotated refresh token',
+      formRefreshTokenHelpEdit: 'Leave blank to keep unchanged; fill it alone or together with a new access token to replace the session',
+      formRefreshTokenPlaceholder: 'Paste refresh token',
+      formTokenRequired: 'Enter a login password, upstream access token, or refresh token',
       tokenExpiresAt: 'Token expires',
       tokenExpired: 'Token expired',
       tokenNoAutoRenew:

@@ -148,8 +148,25 @@ func TestCreateUpstreamProviderAcceptsTokenWithoutPassword(t *testing.T) {
 	require.Empty(t, repo.created.Password)
 }
 
-// 密码和 token 都没给才算缺凭据。
-func TestCreateUpstreamProviderRequiresPasswordOrToken(t *testing.T) {
+func TestCreateUpstreamProviderAcceptsRefreshTokenWithoutAccessToken(t *testing.T) {
+	repo := &fakeUpstreamProviderRepo{}
+	svc := newManualTokenService(repo)
+
+	provider, err := svc.Create(context.Background(), CreateUpstreamProviderInput{
+		Name:         "refresh-only",
+		BaseURL:      "https://upstream.example.com",
+		Username:     "admin@example.com",
+		RefreshToken: "refresh-token",
+	})
+	require.NoError(t, err)
+	require.Empty(t, provider.Token)
+	require.Equal(t, "refresh-token", provider.RefreshToken)
+	require.NotNil(t, repo.created)
+	require.Equal(t, "refresh-token", repo.created.RefreshToken)
+}
+
+// 密码、access token 和 refresh token 都没给才算缺凭据。
+func TestCreateUpstreamProviderRequiresCredentials(t *testing.T) {
 	svc := newManualTokenService(&fakeUpstreamProviderRepo{})
 
 	_, err := svc.Create(context.Background(), CreateUpstreamProviderInput{
@@ -174,6 +191,7 @@ func TestUpdateUpstreamProviderManualToken(t *testing.T) {
 			BaseURL:        "https://upstream.example.com",
 			Username:       "admin@example.com",
 			Token:          "stored-token",
+			RefreshToken:   "stored-refresh",
 			TokenExpiresAt: &existingExpiry,
 			Status:         StatusActive,
 		}
@@ -194,11 +212,28 @@ func TestUpdateUpstreamProviderManualToken(t *testing.T) {
 		require.Equal(t, fresh, provider.Token)
 		require.WithinDuration(t, exp, *provider.TokenExpiresAt, time.Second)
 		require.Equal(t, fresh, repo.updated.Token)
+		require.Empty(t, provider.RefreshToken)
+		require.Empty(t, repo.updated.RefreshToken)
 	})
 
-	// 没填 token 时仓储层要收到空值（表示不改会话），
-	// 但返回给前端的 provider 得保留存量 token，否则 has_token 假报成 false
-	t.Run("blank token keeps session and still reports it", func(t *testing.T) {
+	// 单独补填 refresh token 时保留原有 access token。
+	t.Run("refresh token can be added separately", func(t *testing.T) {
+		repo := &fakeUpstreamProviderRepo{stored: storedProvider()}
+		svc := newManualTokenService(repo)
+
+		input := baseInput
+		input.RefreshToken = "new-refresh"
+		provider, err := svc.Update(context.Background(), 1, input)
+		require.NoError(t, err)
+		require.Empty(t, repo.updated.Token, "repo 应收到空 token 表示不改 access 会话")
+		require.Equal(t, "stored-token", provider.Token)
+		require.Equal(t, "new-refresh", provider.RefreshToken)
+		require.NotNil(t, provider.TokenExpiresAt)
+	})
+
+	// 没填 token 或 refresh token 时仓储层要收到空值（表示不改会话），
+	// 但返回给前端的 provider 得保留存量凭据，否则 has_token/has_refresh_token 假报成 false
+	t.Run("blank tokens keep session and still report it", func(t *testing.T) {
 		repo := &fakeUpstreamProviderRepo{stored: storedProvider()}
 		svc := newManualTokenService(repo)
 
@@ -206,6 +241,7 @@ func TestUpdateUpstreamProviderManualToken(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, repo.updated.Token, "repo 应收到空 token 表示不改会话")
 		require.Equal(t, "stored-token", provider.Token)
+		require.Equal(t, "stored-refresh", provider.RefreshToken)
 		require.NotNil(t, provider.TokenExpiresAt)
 	})
 

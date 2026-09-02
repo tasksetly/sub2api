@@ -27,10 +27,12 @@ type CreateUpstreamProviderRequest struct {
 	BaseURL string `json:"base_url" binding:"required"`
 	// Username 仍必填：即使只用 token，列表页也要有个标识看是哪个上游账号。
 	Username string `json:"username" binding:"required"`
-	// Password 与 Token 二选一，由 service 校验：上游做了 CF 校验时密码登不上去。
+	// Password、Token、RefreshToken 至少提供一个，由 service 校验：上游做了 CF 校验时可直接粘贴 token 对。
 	Password string `json:"password"`
-	// Token 是管理员从浏览器里拿到的上游 JWT，直接写入会话缓存。
+	// Token 是管理员从浏览器里拿到的上游 access JWT，直接写入会话缓存。
 	Token string `json:"token"`
+	// RefreshToken 是与 access JWT 配对的上游 refresh token，用于 access JWT 过期后自动续期。
+	RefreshToken string `json:"refresh_token"`
 	// RateCorrection 充值比例修正系数（充值 10 倍填 0.1）。省略按 1.0 处理。
 	RateCorrection *float64 `json:"rate_correction" binding:"omitempty,gt=0"`
 	TotpSecret     string   `json:"totp_secret"`
@@ -39,14 +41,16 @@ type CreateUpstreamProviderRequest struct {
 }
 
 // UpdateUpstreamProviderRequest 编辑上游。
-// Password/TotpSecret/Token 留空表示不修改。
+// Password/TotpSecret/Token/RefreshToken 留空表示不修改。
 type UpdateUpstreamProviderRequest struct {
 	Name     string `json:"name" binding:"required"`
 	BaseURL  string `json:"base_url" binding:"required"`
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password"`
-	// Token 非空时顶掉缓存的会话；与 Password 同时填时以 Token 为准。
+	// Token 非空时顶掉缓存的 access 会话；与 Password 同时填时以 Token 为准。
 	Token string `json:"token"`
+	// RefreshToken 非空时更新缓存的 refresh token，可单独补填。
+	RefreshToken string `json:"refresh_token"`
 	// RateCorrection 省略表示不修改
 	RateCorrection *float64 `json:"rate_correction" binding:"omitempty,gt=0"`
 	TotpSecret     string   `json:"totp_secret"`
@@ -133,6 +137,7 @@ func (h *UpstreamProviderHandler) Create(c *gin.Context) {
 		Username:       req.Username,
 		Password:       req.Password,
 		Token:          req.Token,
+		RefreshToken:   req.RefreshToken,
 		RateCorrection: rateCorrection,
 		TotpSecret:     req.TotpSecret,
 		Notes:          req.Notes,
@@ -169,6 +174,7 @@ func (h *UpstreamProviderHandler) Update(c *gin.Context) {
 		Username:       req.Username,
 		Password:       req.Password,
 		Token:          req.Token,
+		RefreshToken:   req.RefreshToken,
 		RateCorrection: req.RateCorrection,
 		TotpSecret:     req.TotpSecret,
 		Notes:          req.Notes,

@@ -73,7 +73,30 @@
         </p>
       </div>
 
-      <!-- 新增时密码和 token 二选一，浏览器的 required 管不了这种跨字段约束 -->
+      <div>
+        <label class="input-label">{{ t('admin.upstreamProviders.formRefreshToken') }}</label>
+        <textarea
+          v-model="form.refresh_token"
+          rows="2"
+          class="input font-mono text-xs"
+          autocomplete="off"
+          spellcheck="false"
+          :placeholder="
+            editing && editing.has_refresh_token
+              ? t('admin.upstreamProviders.formPasswordPlaceholderEdit')
+              : t('admin.upstreamProviders.formRefreshTokenPlaceholder')
+          "
+        ></textarea>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {{
+            editing
+              ? t('admin.upstreamProviders.formRefreshTokenHelpEdit')
+              : t('admin.upstreamProviders.formRefreshTokenHelp')
+          }}
+        </p>
+      </div>
+
+      <!-- 新增时密码、access token、refresh token 至少填写一个，浏览器的 required 管不了这种跨字段约束 -->
       <p v-if="credentialsError" class="text-xs text-red-600 dark:text-red-400">
         {{ t('admin.upstreamProviders.formTokenRequired') }}
       </p>
@@ -176,6 +199,7 @@ function emptyForm() {
     username: '',
     password: '',
     token: '',
+    refresh_token: '',
     // 字符串而非 number：type="number" 的 v-model 给的是字符串，清空时是 ''，
     // 留到提交时统一收敛成 1（不修正）
     rate_correction: '1',
@@ -244,6 +268,7 @@ watch(
         username: editing.username,
         password: '',
         token: '',
+        refresh_token: '',
         rate_correction: String(editing.rate_correction ?? 1),
         totp_secret: '',
         notes: editing.notes ?? '',
@@ -259,10 +284,11 @@ watch(
 
 function handleSubmit() {
   const token = form.value.token.trim()
+  const refreshToken = form.value.refresh_token.trim()
 
-  // 新增时二选一：能自动登录的填密码，被 CF 挡住的贴 token。
+  // 新增时至少提供一种凭据：密码、access token 或 refresh token。
   // 编辑时都可留空（表示不修改），已有凭据不该被这条挡住。
-  if (!props.editing && form.value.password === '' && token === '') {
+  if (!props.editing && form.value.password === '' && token === '' && refreshToken === '') {
     credentialsError.value = true
     return
   }
@@ -287,6 +313,7 @@ function handleSubmit() {
     if (form.value.password !== '') payload.password = form.value.password
     if (form.value.totp_secret !== '') payload.totp_secret = form.value.totp_secret
     if (token !== '') payload.token = token
+    if (refreshToken !== '') payload.refresh_token = refreshToken
     emit('submit', payload)
     return
   }
@@ -295,6 +322,7 @@ function handleSubmit() {
   if (form.value.password !== '') payload.password = form.value.password
   if (form.value.totp_secret !== '') payload.totp_secret = form.value.totp_secret
   if (token !== '') payload.token = token
+  if (refreshToken !== '') payload.refresh_token = refreshToken
   emit('submit', payload)
 }
 </script>

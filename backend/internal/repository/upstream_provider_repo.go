@@ -143,6 +143,15 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 			builder.ClearTokenExpiresAt()
 		}
 	}
+	// refresh token 可单独补填，保留现有 access token；如果同时替换 access token，
+	// 这里会在上面的清理之后写入新的配对值。
+	if provider.RefreshToken != "" {
+		encrypted, err := r.encryptor.Encrypt(provider.RefreshToken)
+		if err != nil {
+			return fmt.Errorf("encrypt upstream refresh token: %w", err)
+		}
+		builder.SetRefreshTokenEncrypted(encrypted)
+	}
 
 	updated, err := builder.Save(ctx)
 	if err != nil {

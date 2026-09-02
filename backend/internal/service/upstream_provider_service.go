@@ -29,10 +29,10 @@ var (
 	ErrUpstreamProviderMissingCredentials = infraerrors.BadRequest(
 		"UPSTREAM_PROVIDER_MISSING_CREDENTIALS", "upstream provider has no stored password; edit it and re-enter the password",
 	)
-	// ErrUpstreamProviderCredentialsRequired 是新增上游时既没给密码也没给 token。
-	// 两者给一个就行：能自动登录的填密码，被 CF 挡住的直接粘 token。
+	// ErrUpstreamProviderCredentialsRequired 是新增上游时没有提供任何可用凭据。
+	// 密码、access token、refresh token 至少给一个。
 	ErrUpstreamProviderCredentialsRequired = infraerrors.BadRequest(
-		"UPSTREAM_PROVIDER_CREDENTIALS_REQUIRED", "either password or token is required",
+		"UPSTREAM_PROVIDER_CREDENTIALS_REQUIRED", "password, access token, or refresh token is required",
 	)
 	// ErrUpstreamProviderTokenExpired 专指「只有手填 token、且它已过期」。
 	// 与 MISSING_CREDENTIALS 分开：这类上游（CF 校验）本来就登不上，
@@ -83,13 +83,14 @@ type CreateUpstreamProviderInput struct {
 	TotpSecret     string
 	Notes          *string
 	SyncEnabled    bool
-	// Token 是管理员手填的上游 JWT。上游做了 CF 校验时账号密码登不上去，
-	// 直接贴一个浏览器里拿到的 token 就能同步/建号。有效期从 JWT 的 exp 解析。
+	// Token 是管理员手填的上游 access JWT。有效期从 JWT 的 exp 解析。
 	Token string
+	// RefreshToken 是与手填 access JWT 配对的上游 refresh token，可单独提供。
+	RefreshToken string
 }
 
 // UpdateUpstreamProviderInput 是编辑上游的入参。
-// Password/TotpSecret 为空表示不修改。
+// Password/TotpSecret/Token/RefreshToken 为空表示不修改。
 type UpdateUpstreamProviderInput struct {
 	Name     string
 	BaseURL  string
@@ -101,8 +102,10 @@ type UpdateUpstreamProviderInput struct {
 	Notes          *string
 	Status         string
 	SyncEnabled    bool
-	// Token 为空表示不修改；非空表示用这个手填 JWT 顶掉缓存的会话。
+	// Token 为空表示不修改；非空表示用这个手填 access JWT 顶掉缓存的会话。
 	Token string
+	// RefreshToken 为空表示不修改；非空表示更新缓存的 refresh token，可单独补填。
+	RefreshToken string
 }
 
 func (s *UpstreamProviderService) Create(
@@ -116,9 +119,10 @@ func (s *UpstreamProviderService) Create(
 	if name == "" {
 		return nil, infraerrors.BadRequest("UPSTREAM_PROVIDER_NAME_REQUIRED", "name is required")
 	}
-	// 密码和 token 二选一即可：能自动登录的填密码，被 CF 挡住的直接粘 token。
+	// 密码、access token、refresh token 至少提供一个；refresh token 可以单独用于换发 access JWT。
 	token := strings.TrimSpace(input.Token)
-	if strings.TrimSpace(input.Password) == "" && token == "" {
+	refreshToken := strings.TrimSpace(input.RefreshToken)
+	if strings.TrimSpace(input.Password) == "" && token == "" && refreshToken == "" {
 		return nil, ErrUpstreamProviderCredentialsRequired
 	}
 
@@ -146,6 +150,7 @@ func (s *UpstreamProviderService) Create(
 		provider.Token = token
 		provider.TokenExpiresAt = &expiresAt
 	}
+	provider.RefreshToken = refreshToken
 	if err := s.repo.Create(ctx, provider); err != nil {
 		return nil, fmt.Errorf("create upstream provider: %w", err)
 	}
@@ -200,24 +205,31 @@ func (s *UpstreamProviderService) Update(
 	provider.RefreshToken = ""
 	provider.TokenExpiresAt = nil
 
-	// 手填 token 优先于改密码：同时填了以粘贴的 token 为准，因为这类上游
+	// 手填 token 优先于改密码：同时填了以粘贴的 access token 为准，因为这类上游
 	// （CF 校验）本来就登不上，用密码重登只会把刚贴进来的会话作废。
 	token := strings.TrimSpace(input.Token)
+	refreshToken := strings.TrimSpace(input.RefreshToken)
 	if token != "" {
 		expiresAt := upstreamTokenExpiry(token)
 		provider.Token = token
 		provider.TokenExpiresAt = &expiresAt
 	}
+	if refreshToken != "" {
+		provider.RefreshToken = refreshToken
+	}
 
 	if err := s.repo.Update(ctx, provider); err != nil {
 		return nil, fmt.Errorf("update upstream provider: %w", err)
 	}
-	// 既没贴新 token 也没改密码时会话原样保留，把存量值还回去。
-	// 改了密码则仓储层已作废缓存 token，保持清空才是真实状态。
+	// 没有替换 access token、也没改密码时，保留存量 access token。
+	// 没有显式更新 refresh token 时，再保留存量 refresh token；改密码或替换
+	// access token 时仓储层会清理旧会话，保持清空才是真实状态。
 	if token == "" && input.Password == "" {
 		provider.Token = existingToken
-		provider.RefreshToken = existingRefreshToken
 		provider.TokenExpiresAt = existingExpiry
+		if refreshToken == "" {
+			provider.RefreshToken = existingRefreshToken
+		}
 	}
 	return provider, nil
 }
