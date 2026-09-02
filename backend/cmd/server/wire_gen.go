@@ -224,7 +224,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	grokOAuthHandler := admin.NewGrokOAuthHandler(grokOAuthService, adminService, grokQuotaService, tokenRefreshService)
 	proxyHandler := admin.NewProxyHandler(adminService)
 	upstreamProviderRepository := repository.NewUpstreamProviderRepository(client, db, secretEncryptor)
-	upstreamProviderService := service.NewUpstreamProviderService(upstreamProviderRepository, adminService, configConfig)
+	upstreamProviderService := service.NewUpstreamProviderService(upstreamProviderRepository, adminService, accountTestService, configConfig)
 	upstreamProviderHandler := admin.NewUpstreamProviderHandler(upstreamProviderService)
 	adminRedeemHandler := admin.NewRedeemHandler(adminService, redeemService)
 	promoHandler := admin.NewPromoHandler(promoService)

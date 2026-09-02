@@ -564,8 +564,7 @@ func (r *upstreamProviderRepository) ListGroups(
 // 本地已建号数量。COALESCE(effective, base) 与 UpstreamGroup.ComparableRate()
 // 口径一致——专属倍率优先。
 //
-// 只列出未软删除的上游：删掉的上游其分组已被外键级联清掉，但这里显式加条件
-// 更稳，也让查询意图自解释。
+// 只列出未软删除且状态为 active 的上游：失效的上游其分组不应出现在比价列表中。
 func (r *upstreamProviderRepository) ListAllGroupsForComparison(
 	ctx context.Context, platform string, params pagination.PaginationParams,
 ) ([]service.UpstreamGroupComparison, *pagination.PaginationResult, error) {
@@ -575,7 +574,9 @@ func (r *upstreamProviderRepository) ListAllGroupsForComparison(
 	const countQuery = `
 		SELECT COUNT(*)
 		FROM upstream_groups g
-		JOIN upstream_providers p ON p.id = g.upstream_provider_id AND p.deleted_at IS NULL
+		JOIN upstream_providers p ON p.id = g.upstream_provider_id 
+			AND p.deleted_at IS NULL 
+			AND p.status = 'active'
 		WHERE ($1 = '' OR g.platform = $1)`
 	// 用 QueryContext 而非 QueryRowContext：sqlExecutor 接口只暴露
 	// ExecContext/QueryContext，给接口加方法会牵动所有实现与测试替身。
@@ -604,7 +605,9 @@ func (r *upstreamProviderRepository) ListAllGroupsForComparison(
 		       p.name, p.status, p.balance, p.sync_enabled, p.rate_correction,
 		       COALESCE(a.cnt, 0) AS local_account_count
 		FROM upstream_groups g
-		JOIN upstream_providers p ON p.id = g.upstream_provider_id AND p.deleted_at IS NULL
+		JOIN upstream_providers p ON p.id = g.upstream_provider_id 
+			AND p.deleted_at IS NULL 
+			AND p.status = 'active'
 		LEFT JOIN (
 		    SELECT upstream_provider_id, upstream_remote_group_id, COUNT(*) AS cnt
 		    FROM accounts

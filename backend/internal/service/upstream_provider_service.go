@@ -50,22 +50,25 @@ var (
 //   - 同步余额/并发/分组倍率，只读落库供比价，不自动改本地账号
 //   - 按管理员勾选的分组在上游建 API Key，并落地成本地账号
 type UpstreamProviderService struct {
-	repo         UpstreamProviderRepository
-	client       *UpstreamProviderClient
-	adminService AdminService
-	cfg          *config.Config
+	repo               UpstreamProviderRepository
+	client             *UpstreamProviderClient
+	adminService       AdminService
+	accountTestService *AccountTestService
+	cfg                *config.Config
 }
 
 func NewUpstreamProviderService(
 	repo UpstreamProviderRepository,
 	adminService AdminService,
+	accountTestService *AccountTestService,
 	cfg *config.Config,
 ) *UpstreamProviderService {
 	return &UpstreamProviderService{
-		repo:         repo,
-		client:       NewUpstreamProviderClient(),
-		adminService: adminService,
-		cfg:          cfg,
+		repo:               repo,
+		client:             NewUpstreamProviderClient(),
+		adminService:       adminService,
+		accountTestService: accountTestService,
+		cfg:                cfg,
 	}
 }
 
@@ -475,6 +478,8 @@ func (s *UpstreamProviderService) ProvisionAccounts(
 //
 // platform 取上游分组的 platform：这决定了本地按哪套协议转发。
 // 上游 sub2api 暴露的是 Anthropic 兼容接口，所以分组没声明平台时兜底 anthropic。
+// 自动同步账号倍率：将上游分组倍率（经充值比例修正）设置到账号上。
+// 自动同步支持的模型：从上游获取模型列表并设置到 model_mapping。
 func (s *UpstreamProviderService) createLocalAccount(
 	ctx context.Context,
 	provider *UpstreamProvider,
@@ -495,17 +500,37 @@ func (s *UpstreamProviderService) createLocalAccount(
 		concurrency = 0
 	}
 
+	// 自动同步倍率：使用上游分组的倍率（优先专属倍率）× 充值比例修正系数
+	correctedRate := group.ComparableRate() * NormalizeRateCorrection(provider.RateCorrection)
+
+	credentials := map[string]any{
+		"api_key":  created.Key,
+		"base_url": provider.BaseURL,
+	}
+
+	// 自动同步模型：从上游获取支持的模型列表并设置到 model_mapping
+	if s.accountTestService != nil {
+		if err := s.syncUpstreamModels(ctx, credentials, platform); err != nil {
+			slog.Warn("upstream_provider_sync_models_failed",
+				"provider_id", provider.ID, "group_id", group.RemoteGroupID, "error", err)
+			// 模型同步失败不应阻止账号创建，继续创建账号
+		}
+	}
+
+	// 默认启用上游计费探测和倍率同步：快捷创建的账号来自上游，
+	// 应该持续跟随上游的倍率变化。
+	probeEnabled := true
+
 	accountInput := &CreateAccountInput{
-		Name:     accountName,
-		Supplier: provider.Name,
-		Platform: platform,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"api_key":  created.Key,
-			"base_url": provider.BaseURL,
-		},
+		Name:                  accountName,
+		Supplier:              provider.Name,
+		Platform:              platform,
+		Type:                  AccountTypeAPIKey,
+		Credentials:           credentials,
 		Concurrency:           concurrency,
 		Priority:              input.Priority,
+		RateMultiplier:        &correctedRate,
+		ProbeEnabled:          &probeEnabled,
 		GroupIDs:              input.LocalGroupIDs,
 		UpstreamProviderID:    &provider.ID,
 		UpstreamRemoteGroupID: &group.RemoteGroupID,
@@ -513,7 +538,30 @@ func (s *UpstreamProviderService) createLocalAccount(
 		// 悄悄进默认分组会立刻参与真实流量调度。
 		SkipDefaultGroupBind: len(input.LocalGroupIDs) == 0,
 	}
-	return s.adminService.CreateAccount(ctx, accountInput)
+
+	account, err := s.adminService.CreateAccount(ctx, accountInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// 启用「同步上游声明倍率」：持续跟踪上游倍率变化并自动更新
+	rateSyncEnabled := true
+	if err := s.enableUpstreamRateSync(ctx, account.ID); err != nil {
+		slog.Warn("upstream_provider_enable_rate_sync_failed",
+			"account_id", account.ID, "provider_id", provider.ID, "error", err)
+		// 同步功能启用失败不影响账号可用性，继续
+	}
+
+	// 记录自动同步的倍率和模型信息
+	slog.Info("upstream_provider_account_created",
+		"account_id", account.ID,
+		"provider_id", provider.ID,
+		"group_id", group.RemoteGroupID,
+		"rate_multiplier", correctedRate,
+		"has_model_mapping", credentials["model_mapping"] != nil,
+		"rate_sync_enabled", rateSyncEnabled)
+
+	return account, nil
 }
 
 func (s *UpstreamProviderService) buildAccountName(prefix, providerName, groupName string) string {
@@ -522,6 +570,87 @@ func (s *UpstreamProviderService) buildAccountName(prefix, providerName, groupNa
 		base = providerName
 	}
 	return fmt.Sprintf("%s-%s", base, groupName)
+}
+
+// enableUpstreamRateSync 启用账号的上游计费倍率自动同步功能。
+// 这会同时启用探测和倍率同步两个开关。
+func (s *UpstreamProviderService) enableUpstreamRateSync(ctx context.Context, accountID int64) error {
+	if s.adminService == nil {
+		return fmt.Errorf("admin service not available")
+	}
+
+	// 先获取账号以获得必填字段
+	account, err := s.adminService.GetAccount(ctx, accountID)
+	if err != nil {
+		return err
+	}
+
+	probeEnabled := true
+	rateSyncEnabled := true
+
+	// 通过 UpdateAccount 启用探测和倍率同步
+	_, err = s.adminService.UpdateAccount(ctx, accountID, &UpdateAccountInput{
+		Name:            account.Name,
+		Type:            account.Type,
+		ProbeEnabled:    &probeEnabled,
+		RateSyncEnabled: &rateSyncEnabled,
+	})
+	return err
+}
+
+// syncUpstreamModels 从上游同步支持的模型列表并设置到 credentials 的 model_mapping 中。
+// 仅支持能从上游拉取模型列表的平台（anthropic、openai、gemini、grok、antigravity）。
+func (s *UpstreamProviderService) syncUpstreamModels(
+	ctx context.Context,
+	credentials map[string]any,
+	platform string,
+) error {
+	// 检查是否支持模型同步的平台
+	switch platform {
+	case PlatformAnthropic, PlatformOpenAI, PlatformGemini, PlatformGrok, PlatformAntigravity:
+		// 支持的平台，继续
+	default:
+		// 不支持的平台，跳过模型同步
+		return nil
+	}
+
+	// 需要 accountTestService 来获取上游模型
+	if s.accountTestService == nil {
+		return fmt.Errorf("account test service not available")
+	}
+
+	// 构建临时账号用于获取模型列表
+	tempAccount := &Account{
+		Platform:    platform,
+		Type:        AccountTypeAPIKey,
+		Credentials: credentials,
+	}
+
+	// 尝试从上游获取支持的模型
+	models, err := s.accountTestService.FetchUpstreamSupportedModels(ctx, tempAccount)
+	if err != nil {
+		// 模型同步失败不应阻止账号创建，返回错误供调用方记录
+		return fmt.Errorf("fetch upstream models: %w", err)
+	}
+
+	if len(models) == 0 {
+		return fmt.Errorf("no models returned from upstream")
+	}
+
+	// 将模型列表转换为 model_mapping 格式：模型名 -> 模型名（1:1 映射，表示支持该模型）
+	modelMapping := make(map[string]string, len(models))
+	for _, model := range models {
+		modelMapping[model] = model
+	}
+
+	// 设置到 credentials 中
+	credentials["model_mapping"] = modelMapping
+
+	slog.Info("upstream_provider_models_synced",
+		"platform", platform,
+		"model_count", len(models))
+
+	return nil
 }
 
 // ensureToken 返回可用的上游 token：缓存有效就直接用，否则优先使用 refresh token
