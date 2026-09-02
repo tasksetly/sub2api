@@ -128,6 +128,7 @@ export default {
       provisionHint:
         'For each selected group an upstream API key is created and a local account is added.',
       provisionSelectGroups: 'Select groups',
+      provisionPlatformAll: 'All platforms',
       provisionLocalGroups: 'Bind to local groups',
       provisionLocalGroupsHelp:
         'If empty the new account is left unbound so you can verify its rate before it serves traffic',

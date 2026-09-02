@@ -55,12 +55,40 @@
           <div v-else-if="groups.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
             {{ t('admin.upstreamProviders.groupsEmpty') }}
           </div>
-          <div
-            v-else
-            class="max-h-64 divide-y divide-gray-200 overflow-y-auto rounded border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
-          >
+          <template v-else>
+            <div v-if="platforms.length > 1" class="mb-2 flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                class="rounded px-2 py-0.5 text-xs"
+                :class="
+                  platformFilter === 'all'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                "
+                @click="platformFilter = 'all'"
+              >
+                {{ t('admin.upstreamProviders.provisionPlatformAll') }}
+              </button>
+              <button
+                v-for="platform in platforms"
+                :key="platform"
+                type="button"
+                class="rounded px-2 py-0.5 text-xs"
+                :class="
+                  platformFilter === platform
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                "
+                @click="platformFilter = platform"
+              >
+                {{ platform }}
+              </button>
+            </div>
+            <div
+              class="max-h-64 divide-y divide-gray-200 overflow-y-auto rounded border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
+            >
             <label
-              v-for="group in sortedGroups"
+              v-for="group in filteredGroups"
               :key="group.id"
               class="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
             >
@@ -84,7 +112,8 @@
                 {{ group.daily_limit_usd !== null ? `$${group.daily_limit_usd.toFixed(2)}/d` : '' }}
               </span>
             </label>
-          </div>
+            </div>
+          </template>
         </div>
 
         <div>
@@ -195,15 +224,28 @@ const { t } = useI18n()
 
 const selected = ref<Set<number>>(new Set())
 const selectedLocal = ref<Set<number>>(new Set())
+const platformFilter = ref<string>('all')
 const form = ref({
   concurrency: undefined as number | undefined,
   priority: undefined as number | undefined,
   key_name_prefix: ''
 })
 
+// 提取所有唯一的平台
+const platforms = computed(() => {
+  const platformSet = new Set(props.groups.map((g) => g.platform).filter(Boolean))
+  return Array.from(platformSet).sort()
+})
+
+// 按平台过滤分组
+const filteredByPlatform = computed(() => {
+  if (platformFilter.value === 'all') return props.groups
+  return props.groups.filter((g) => g.platform === platformFilter.value)
+})
+
 // 按比价倍率升序，最便宜的排最前
-const sortedGroups = computed(() =>
-  [...props.groups].sort((a, b) => a.comparable_rate - b.comparable_rate)
+const filteredGroups = computed(() =>
+  [...filteredByPlatform.value].sort((a, b) => a.comparable_rate - b.comparable_rate)
 )
 
 watch(
@@ -213,6 +255,7 @@ watch(
     // 快捷建号预勾指定分组；从上游列表进来时 preset 为空，保持全不勾
     selected.value = new Set(props.presetRemoteGroupIDs ?? [])
     selectedLocal.value = new Set()
+    platformFilter.value = 'all'
     form.value = { concurrency: undefined, priority: undefined, key_name_prefix: '' }
   }
 )
