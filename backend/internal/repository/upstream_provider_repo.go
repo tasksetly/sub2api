@@ -111,15 +111,17 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 		builder.ClearNotes()
 	}
 
+	passwordChanged := provider.Password != ""
+	tokenProvided := provider.Token != ""
+	refreshTokenProvided := provider.RefreshToken != ""
+
 	// 密码为空表示「不修改」，避免编辑其他字段时把密码清掉。
-	if provider.Password != "" {
+	if passwordChanged {
 		encrypted, err := r.encryptor.Encrypt(provider.Password)
 		if err != nil {
 			return fmt.Errorf("encrypt upstream password: %w", err)
 		}
 		builder.SetPasswordEncrypted(encrypted)
-		// 换了密码，缓存的 access/refresh token 一律作废
-		builder.ClearTokenEncrypted().ClearRefreshTokenEncrypted().ClearTokenExpiresAt()
 	}
 	if provider.TotpSecret != "" {
 		encrypted, err := r.encryptor.Encrypt(provider.TotpSecret)
@@ -128,24 +130,44 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 		}
 		builder.SetTotpSecretEncrypted(encrypted)
 	}
-	// token 为空表示「不改会话」。必须放在密码之后：两者同时填时以手填 token
-	// 为准，否则上面那句 ClearToken 会把刚贴进来的 token 抹掉。
-	if provider.Token != "" {
+	// token 为空表示「不改会话」。密码和 token 同时填写时以手填 token 为准。
+	if tokenProvided {
 		encrypted, err := r.encryptor.Encrypt(provider.Token)
 		if err != nil {
 			return fmt.Errorf("encrypt upstream token: %w", err)
 		}
 		builder.SetTokenEncrypted(encrypted)
-		builder.ClearRefreshTokenEncrypted()
 		if provider.TokenExpiresAt != nil {
 			builder.SetTokenExpiresAt(*provider.TokenExpiresAt)
 		} else {
 			builder.ClearTokenExpiresAt()
 		}
 	}
-	// refresh token 可单独补填，保留现有 access token；如果同时替换 access token，
-	// 这里会在上面的清理之后写入新的配对值。
-	if provider.RefreshToken != "" {
+
+	// 每个会话列只生成一次更新操作，避免 PostgreSQL 报 multiple assignments。
+	// 改密码会作废旧 access token；手填 token 时它优先于密码。refresh token 可单独补填。
+	if tokenProvided {
+		if refreshTokenProvided {
+			encrypted, err := r.encryptor.Encrypt(provider.RefreshToken)
+			if err != nil {
+				return fmt.Errorf("encrypt upstream refresh token: %w", err)
+			}
+			builder.SetRefreshTokenEncrypted(encrypted)
+		} else {
+			builder.ClearRefreshTokenEncrypted()
+		}
+	} else if passwordChanged {
+		builder.ClearTokenEncrypted().ClearTokenExpiresAt()
+		if refreshTokenProvided {
+			encrypted, err := r.encryptor.Encrypt(provider.RefreshToken)
+			if err != nil {
+				return fmt.Errorf("encrypt upstream refresh token: %w", err)
+			}
+			builder.SetRefreshTokenEncrypted(encrypted)
+		} else {
+			builder.ClearRefreshTokenEncrypted()
+		}
+	} else if refreshTokenProvided {
 		encrypted, err := r.encryptor.Encrypt(provider.RefreshToken)
 		if err != nil {
 			return fmt.Errorf("encrypt upstream refresh token: %w", err)
