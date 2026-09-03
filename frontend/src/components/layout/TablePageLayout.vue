@@ -47,7 +47,7 @@ onUnmounted(() => {
 /* 桌面端：Flexbox 布局 */
 .table-page-layout {
   @apply flex flex-col gap-6;
-  height: calc(100vh - 64px - 4rem); /* 减去 header + lg:p-8 的上下padding */
+  min-height: calc(100vh - 64px - 4rem); /* 减去 header + lg:p-8 的上下padding */
 }
 
 .layout-section-fixed {
@@ -56,6 +56,7 @@ onUnmounted(() => {
 
 .layout-section-scrollable {
   @apply flex-1 min-h-0 flex flex-col;
+  min-height: 600px; /* 确保至少能显示多行数据 */
 }
 
 /* 表格滚动容器 - 增强版表体滚动方案 */
