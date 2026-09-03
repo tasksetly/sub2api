@@ -374,7 +374,7 @@
             {{ t('home.docs') }}
           </a>
           <a
-            href="https://t.me/ro_skyd"
+            href="https://t.me/FlexusAI"
             target="_blank"
             rel="noopener noreferrer"
             class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"

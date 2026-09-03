@@ -164,7 +164,7 @@
                 </router-link>
 
                 <a
-                  href="https://t.me/ro_skyd"
+                  href="https://t.me/FlexusAI"
                   target="_blank"
                   rel="noopener noreferrer"
                   @click="closeDropdown"
