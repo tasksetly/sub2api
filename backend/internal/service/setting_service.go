@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/singleflight"
 	"sync"
 )
@@ -118,6 +120,8 @@ type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[i
 // SettingService 系统设置服务
 type SettingService struct {
 	settingRepo                 SettingRepository
+	redisClient                 *redis.Client
+	fallbackSelectionModeCache  atomic.Value // *cachedFallbackSelectionMode
 	defaultSubGroupReader       DefaultSubscriptionGroupReader
 	proxyRepo                   ProxyRepository // for resolving websearch provider proxy URLs
 	cfg                         *config.Config
@@ -152,6 +156,11 @@ type SettingService struct {
 
 	channelMonitorRuntimeListenersMu sync.Mutex
 	channelMonitorRuntimeListeners   []func()
+}
+
+type cachedFallbackSelectionMode struct {
+	value     string
+	expiresAt time.Time
 }
 
 // DefaultPlatformQuotaSetting 单 platform 三档限额（nil = 沿用上层；0 = 显式禁用；>0 = 上限）
@@ -288,6 +297,18 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 	}
 }
 
+// SetRedisClient enables the second-level cache for hot settings.
+func (s *SettingService) SetRedisClient(client *redis.Client) { s.redisClient = client }
+
+func (s *SettingService) invalidateFallbackSelectionModeCache() {
+	if s != nil {
+		s.fallbackSelectionModeCache.Store((*cachedFallbackSelectionMode)(nil))
+		if s.redisClient != nil {
+			_ = s.redisClient.Del(context.Background(), "sub2api:setting:"+SettingKeyFallbackSelectionMode).Err()
+		}
+	}
+}
+
 // SetDefaultSubscriptionGroupReader injects an optional group reader for default subscription validation.
 func (s *SettingService) SetDefaultSubscriptionGroupReader(reader DefaultSubscriptionGroupReader) {
 	s.defaultSubGroupReader = reader
@@ -368,6 +389,30 @@ func (s *SettingService) GetAllSettings(ctx context.Context) (*SystemSettings, e
 	}
 
 	return s.parseSettings(settings), nil
+}
+
+func (s *SettingService) GetFallbackSelectionMode(ctx context.Context) string {
+	if s == nil {
+		return "last_used"
+	}
+	if cached, ok := s.fallbackSelectionModeCache.Load().(*cachedFallbackSelectionMode); ok && cached != nil && time.Now().Before(cached.expiresAt) {
+		return cached.value
+	}
+	mode := ""
+	if s.redisClient != nil {
+		mode = s.redisClient.Get(ctx, "sub2api:setting:"+SettingKeyFallbackSelectionMode).Val()
+	}
+	if mode == "" && s.settingRepo != nil {
+		if raw, err := s.settingRepo.GetValue(ctx, SettingKeyFallbackSelectionMode); err == nil {
+			mode = raw
+			if s.redisClient != nil {
+				s.redisClient.Set(ctx, "sub2api:setting:"+SettingKeyFallbackSelectionMode, mode, 30*time.Second)
+			}
+		}
+	}
+	mode = normalizeFallbackSelectionMode(mode)
+	s.fallbackSelectionModeCache.Store(&cachedFallbackSelectionMode{value: mode, expiresAt: time.Now().Add(2 * time.Second)})
+	return mode
 }
 
 // SetOnUpdateCallback sets a callback function to be called when settings are updated

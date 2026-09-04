@@ -4889,6 +4889,18 @@
               </div>
 
               <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" for="fallback-selection-mode">
+                  {{ t("admin.settings.scheduling.selectionMode") }}
+                </label>
+                <select id="fallback-selection-mode" v-model="form.fallback_selection_mode" class="input w-full max-w-sm">
+                  <option value="last_used">{{ t("admin.settings.scheduling.selectionModeLastUsed") }}</option>
+                  <option value="random">{{ t("admin.settings.scheduling.selectionModeRandom") }}</option>
+                  <option value="polling">{{ t("admin.settings.scheduling.selectionModePolling") }}</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.settings.scheduling.selectionModeHint") }}</p>
+              </div>
+
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
                 <div class="mb-3">
                   <label class="font-medium text-gray-900 dark:text-white">
                     {{
@@ -9655,6 +9667,7 @@ const form = reactive<SettingsForm>({
   max_claude_code_version: "",
   // 分组隔离
   allow_ungrouped_key_scheduling: false,
+  fallback_selection_mode: "last_used",
   openai_low_upstream_rate_priority_enabled: false,
   openai_oauth_scheduling_rate_multiplier: 1,
   openai_advanced_scheduler_enabled: false,
@@ -11242,6 +11255,7 @@ async function saveSettings() {
       min_claude_code_version: form.min_claude_code_version,
       max_claude_code_version: form.max_claude_code_version,
       allow_ungrouped_key_scheduling: form.allow_ungrouped_key_scheduling,
+      fallback_selection_mode: form.fallback_selection_mode,
       enable_fingerprint_unification: form.enable_fingerprint_unification,
       enable_metadata_passthrough: form.enable_metadata_passthrough,
       enable_cch_signing: form.enable_cch_signing,
