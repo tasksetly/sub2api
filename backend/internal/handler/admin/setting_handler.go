@@ -290,6 +290,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		MinClaudeCodeVersion:                                   settings.MinClaudeCodeVersion,
 		MaxClaudeCodeVersion:                                   settings.MaxClaudeCodeVersion,
 		AllowUngroupedKeyScheduling:                            settings.AllowUngroupedKeyScheduling,
+		FallbackSelectionMode:                                  settings.FallbackSelectionMode,
 		BackendModeEnabled:                                     settings.BackendModeEnabled,
 		EnableFingerprintUnification:                           settings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:                              settings.EnableMetadataPassthrough,
