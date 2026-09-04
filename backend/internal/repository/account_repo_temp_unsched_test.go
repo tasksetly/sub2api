@@ -26,6 +26,18 @@ func TestAccountRepository_SetTempUnschedulable_NoRowsAffectedDoesNotWriteOutbox
 	require.NotContains(t, strings.Join(exec.execQueries, "\n"), "scheduler_outbox")
 }
 
+func TestAccountRepository_ClearTempUnschedulableIfReason_NoRowsAffectedDoesNotWriteOutbox(t *testing.T) {
+	exec := &recordingSQLExecutor{result: rowsAffectedResult(0)}
+	repo := newAccountRepositoryWithSQL(nil, exec, nil)
+
+	cleared, err := repo.ClearTempUnschedulableIfReason(context.Background(), 42, "scheduled_test_failed")
+	require.NoError(t, err)
+	require.False(t, cleared)
+	require.Len(t, exec.execQueries, 1)
+	require.Contains(t, exec.execQueries[0], "temp_unschedulable_reason = $2")
+	require.NotContains(t, strings.Join(exec.execQueries, "\n"), "scheduler_outbox")
+}
+
 func TestAccountRepository_GrokCredentialConditionalMutationsAreEligibleAndAtomicallyPropagated(t *testing.T) {
 	proxyID := int64(77)
 	snapshot := service.GrokCredentialMutationSnapshot{

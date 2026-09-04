@@ -80,6 +80,18 @@ const (
 	openAI403CounterWindowMinutes   = 180
 )
 
+const (
+	scheduledTestFailureCooldown             = 5 * time.Minute
+	scheduledTestFailureTempUnschedulableReason = "scheduled_test_failed"
+)
+
+// tempUnschedulableReasonClearer clears a temporary scheduling block only when
+// it still belongs to the caller that created it. It prevents a successful
+// scheduled test from clearing a newer block written by request handling.
+type tempUnschedulableReasonClearer interface {
+	ClearTempUnschedulableIfReason(ctx context.Context, id int64, reason string) (bool, error)
+}
+
 // NewRateLimitService 创建RateLimitService实例
 func NewRateLimitService(accountRepo AccountRepository, usageRepo UsageLogRepository, cfg *config.Config, geminiQuotaService *GeminiQuotaService, tempUnschedCache TempUnschedCache) *RateLimitService {
 	return &RateLimitService{
@@ -136,6 +148,56 @@ func (s *RateLimitService) notifyAccountSchedulingBlockCleared(accountID int64) 
 		return
 	}
 	s.runtimeBlocker.ClearAccountSchedulingBlock(accountID)
+}
+
+// MarkAccountTemporarilyUnschedulableAfterScheduledTestFailure parks an
+// account for a short period after a scheduled connectivity test fails.
+func (s *RateLimitService) MarkAccountTemporarilyUnschedulableAfterScheduledTestFailure(ctx context.Context, accountID int64) error {
+	if s == nil || s.accountRepo == nil {
+		return nil
+	}
+
+	account, err := s.accountRepo.GetByID(ctx, accountID)
+	if err != nil {
+		return err
+	}
+	if account == nil {
+		return nil
+	}
+
+	until := time.Now().Add(scheduledTestFailureCooldown)
+	if account.TempUnschedulableUntil != nil && !account.TempUnschedulableUntil.Before(until) {
+		return nil
+	}
+	if err := s.accountRepo.SetTempUnschedulable(ctx, accountID, until, scheduledTestFailureTempUnschedulableReason); err != nil {
+		return err
+	}
+	s.notifyAccountSchedulingBlocked(account, until, scheduledTestFailureTempUnschedulableReason)
+	return nil
+}
+
+// ClearScheduledTestFailureTemporaryUnschedulable restores an account only
+// when its temporary block was written by a prior scheduled-test failure.
+func (s *RateLimitService) ClearScheduledTestFailureTemporaryUnschedulable(ctx context.Context, accountID int64) error {
+	if s == nil || s.accountRepo == nil {
+		return nil
+	}
+
+	clearer, ok := s.accountRepo.(tempUnschedulableReasonClearer)
+	if !ok {
+		return nil
+	}
+	cleared, err := clearer.ClearTempUnschedulableIfReason(ctx, accountID, scheduledTestFailureTempUnschedulableReason)
+	if err != nil || !cleared {
+		return err
+	}
+	if s.tempUnschedCache != nil {
+		if err := s.tempUnschedCache.DeleteTempUnsched(ctx, accountID); err != nil {
+			slog.Warn("scheduled_test_clear_temp_unsched_cache_failed", "account_id", accountID, "error", err)
+		}
+	}
+	s.notifyAccountSchedulingBlockCleared(accountID)
+	return nil
 }
 
 // ApplyAccountSchedulingThreshold evaluates admin-configured per-platform

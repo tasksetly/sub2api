@@ -22,6 +22,12 @@ type rateLimitClearRepoStub struct {
 	clearAntigravityCalls     int
 	clearModelRateLimitCalls  int
 	clearTempUnschedCalls     int
+	setTempUnschedCalls       int
+	setTempUnschedUntil       time.Time
+	setTempUnschedReason      string
+	conditionalClearCalls     int
+	conditionalClearReason    string
+	conditionalClearApplied   bool
 	clearErrorErr             error
 	clearRateLimitErr         error
 	clearAntigravityErr       error
@@ -60,6 +66,19 @@ func (r *rateLimitClearRepoStub) ClearModelRateLimits(ctx context.Context, id in
 func (r *rateLimitClearRepoStub) ClearTempUnschedulable(ctx context.Context, id int64) error {
 	r.clearTempUnschedCalls++
 	return r.clearTempUnschedulableErr
+}
+
+func (r *rateLimitClearRepoStub) SetTempUnschedulable(_ context.Context, _ int64, until time.Time, reason string) error {
+	r.setTempUnschedCalls++
+	r.setTempUnschedUntil = until
+	r.setTempUnschedReason = reason
+	return nil
+}
+
+func (r *rateLimitClearRepoStub) ClearTempUnschedulableIfReason(_ context.Context, _ int64, reason string) (bool, error) {
+	r.conditionalClearCalls++
+	r.conditionalClearReason = reason
+	return r.conditionalClearApplied, nil
 }
 
 type tempUnschedCacheRecorder struct {
@@ -282,6 +301,66 @@ func TestRateLimitService_RecoverAccountAfterSuccessfulTest_ClearErrorFailed(t *
 	require.Equal(t, 1, repo.getByIDCalls)
 	require.Equal(t, 1, repo.clearErrorCalls)
 	require.Equal(t, 0, repo.clearRateLimitCalls)
+}
+
+func TestRateLimitService_ScheduledTestFailureTemporarilyUnschedulable(t *testing.T) {
+	repo := &rateLimitClearRepoStub{
+		getByIDAccount: &Account{ID: 42, Status: StatusActive, Schedulable: true},
+	}
+	blocker := &runtimeBlockRecorder{}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	svc.SetAccountRuntimeBlocker(blocker)
+
+	before := time.Now()
+	err := svc.MarkAccountTemporarilyUnschedulableAfterScheduledTestFailure(context.Background(), 42)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, repo.setTempUnschedCalls)
+	require.Equal(t, scheduledTestFailureTempUnschedulableReason, repo.setTempUnschedReason)
+	require.WithinDuration(t, before.Add(scheduledTestFailureCooldown), repo.setTempUnschedUntil, time.Second)
+	require.Len(t, blocker.accounts, 1)
+	require.Equal(t, int64(42), blocker.accounts[0].ID)
+}
+
+func TestRateLimitService_ScheduledTestFailurePreservesLongerExistingBlock(t *testing.T) {
+	until := time.Now().Add(10 * time.Minute)
+	repo := &rateLimitClearRepoStub{
+		getByIDAccount: &Account{ID: 42, TempUnschedulableUntil: &until},
+	}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+
+	err := svc.MarkAccountTemporarilyUnschedulableAfterScheduledTestFailure(context.Background(), 42)
+	require.NoError(t, err)
+	require.Zero(t, repo.setTempUnschedCalls)
+}
+
+func TestRateLimitService_ScheduledTestSuccessClearsOnlyScheduledTestBlock(t *testing.T) {
+	repo := &rateLimitClearRepoStub{conditionalClearApplied: true}
+	cache := &tempUnschedCacheRecorder{}
+	blocker := &runtimeBlockRecorder{}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, cache)
+	svc.SetAccountRuntimeBlocker(blocker)
+
+	err := svc.ClearScheduledTestFailureTemporaryUnschedulable(context.Background(), 42)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.conditionalClearCalls)
+	require.Equal(t, scheduledTestFailureTempUnschedulableReason, repo.conditionalClearReason)
+	require.Equal(t, []int64{42}, cache.deletedIDs)
+	require.Equal(t, []int64{42}, blocker.clearedIDs)
+}
+
+func TestRateLimitService_ScheduledTestSuccessLeavesOtherTemporaryBlockUntouched(t *testing.T) {
+	repo := &rateLimitClearRepoStub{conditionalClearApplied: false}
+	cache := &tempUnschedCacheRecorder{}
+	blocker := &runtimeBlockRecorder{}
+	svc := NewRateLimitService(repo, nil, &config.Config{}, nil, cache)
+	svc.SetAccountRuntimeBlocker(blocker)
+
+	err := svc.ClearScheduledTestFailureTemporaryUnschedulable(context.Background(), 42)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.conditionalClearCalls)
+	require.Empty(t, cache.deletedIDs)
+	require.Empty(t, blocker.clearedIDs)
 }
 
 func TestRateLimitService_RecoverAccountState_InvalidatesOAuthTokenOnErrorRecovery(t *testing.T) {

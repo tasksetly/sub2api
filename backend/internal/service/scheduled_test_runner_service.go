@@ -123,11 +123,18 @@ func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *Sched
 	result, err := s.accountTestSvc.RunTestBackground(ctx, plan.AccountID, plan.ModelID)
 	if err != nil {
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d RunTestBackground error: %v", plan.ID, err)
+		s.markAccountTemporarilyUnschedulable(ctx, plan.AccountID, plan.ID)
 		return
 	}
 
 	if err := s.scheduledSvc.SaveResult(ctx, plan.ID, plan.MaxResults, result); err != nil {
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d SaveResult error: %v", plan.ID, err)
+	}
+
+	if result.Status == "failed" {
+		s.markAccountTemporarilyUnschedulable(ctx, plan.AccountID, plan.ID)
+	} else {
+		s.clearScheduledTestTemporaryUnschedulable(ctx, plan.AccountID, plan.ID)
 	}
 
 	// Auto-recover account if test succeeded and auto_recover is enabled.
@@ -143,6 +150,24 @@ func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *Sched
 
 	if err := s.planRepo.UpdateAfterRun(ctx, plan.ID, time.Now(), nextRun); err != nil {
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d UpdateAfterRun error: %v", plan.ID, err)
+	}
+}
+
+func (s *ScheduledTestRunnerService) markAccountTemporarilyUnschedulable(ctx context.Context, accountID int64, planID int64) {
+	if s.rateLimitSvc == nil {
+		return
+	}
+	if err := s.rateLimitSvc.MarkAccountTemporarilyUnschedulableAfterScheduledTestFailure(ctx, accountID); err != nil {
+		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d temporary unschedulable failed: %v", planID, err)
+	}
+}
+
+func (s *ScheduledTestRunnerService) clearScheduledTestTemporaryUnschedulable(ctx context.Context, accountID int64, planID int64) {
+	if s.rateLimitSvc == nil {
+		return
+	}
+	if err := s.rateLimitSvc.ClearScheduledTestFailureTemporaryUnschedulable(ctx, accountID); err != nil {
+		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d clear scheduled-test temporary unschedulable failed: %v", planID, err)
 	}
 }
 
