@@ -441,6 +441,7 @@ export default {
         selectionModeLastUsed: '最后使用（LRU）',
         selectionModeRandom: '随机',
         selectionModePolling: '顺序轮询',
+        selectionModePollingAll: '纯顺序轮询（忽略优先级）',
         accountSchedulingThresholdsTitle: '平台账号自动停调阈值',
         accountSchedulingThresholdsDescription: '当账号当前原生用量窗口（OpenAI Codex/Anthropic 会话，或 Grok 请求/Token 利用率）达到该百分比时，Sub2API 会临时将其移出调度，直到窗口重置。填 100 表示禁用。',
         accountSchedulingThresholdsGlobalHint: '系统级默认值，作用于该平台全部账号。可在账号编辑页对单个账号覆盖。',

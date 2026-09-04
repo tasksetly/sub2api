@@ -79,6 +79,22 @@ func isPollingSelectionMode(mode string) bool {
 	return mode == "polling" || mode == "round_robin"
 }
 
+func isPurePollingSelectionMode(mode string) bool {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	return mode == "polling_all" || mode == "round_robin_all"
+}
+
+func selectAccountByPurePolling(accounts []*Account, key string) []*Account {
+	if len(accounts) <= 1 {
+		return accounts
+	}
+	ordered := append([]*Account(nil), accounts...)
+	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
+	start := nextPollingIndex(key, len(ordered))
+	rotated := append([]*Account(nil), ordered[start:]...)
+	return append(rotated, ordered[:start]...)
+}
+
 // SelectAccount 选择账号（粘性会话+优先级）
 func (s *GatewayService) SelectAccount(ctx context.Context, groupID *int64, sessionHash string) (*Account, error) {
 	return s.SelectAccountForModel(ctx, groupID, sessionHash, "")
@@ -775,16 +791,26 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		// 分层过滤选择：优先级 →（可选）最早重置 → 负载率 → LRU
 		for len(available) > 0 {
 			// 1. 取优先级最小的集合
-			candidates := filterByMinPriority(available)
+			candidates := available
+			if !isPurePollingSelectionMode(cfg.FallbackSelectionMode) {
+				candidates = filterByMinPriority(available)
+			}
 			// 2. （可选）use-it-or-lose-it：优先选用会话窗口最早重置的账号
 			if cfg.PreferSoonestReset {
 				candidates = filterBySoonestReset(candidates)
 			}
 			// 3. 取负载率最低的集合
-			candidates = filterByMinLoadRate(candidates)
+			if !isPurePollingSelectionMode(cfg.FallbackSelectionMode) {
+				candidates = filterByMinLoadRate(candidates)
+			}
 			// 4. LRU 选择最久未用的账号
 			selected := selectByLRU(candidates, preferOAuth)
-			if isPollingSelectionMode(cfg.FallbackSelectionMode) {
+			if isPurePollingSelectionMode(cfg.FallbackSelectionMode) {
+				selected = func() *accountWithLoad {
+					v := selectByPolling(candidates, fmt.Sprintf("load:%v:%s", derefGroupID(groupID), platform))
+					return v
+				}()
+			} else if isPollingSelectionMode(cfg.FallbackSelectionMode) {
 				selected = selectByPolling(candidates, fmt.Sprintf("load:%v:%s", derefGroupID(groupID), platform))
 			}
 			if selected == nil {
@@ -817,7 +843,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 
 	// ============ Layer 3: 兜底排队 ============
-	if isPollingSelectionMode(cfg.FallbackSelectionMode) {
+	if isPurePollingSelectionMode(cfg.FallbackSelectionMode) {
+		candidates = selectAccountByPurePolling(candidates, fmt.Sprintf("fallback:%v:%s", derefGroupID(groupID), platform))
+	} else if isPollingSelectionMode(cfg.FallbackSelectionMode) {
 		candidates = selectAccountByPolling(candidates, fmt.Sprintf("fallback:%v:%s", derefGroupID(groupID), platform), preferOAuth)
 	} else {
 		s.sortCandidatesForFallback(candidates, preferOAuth, cfg.FallbackSelectionMode)

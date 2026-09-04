@@ -24,6 +24,8 @@ func normalizeFallbackSelectionMode(mode string) string {
 		return "random"
 	case "polling", "round_robin":
 		return "polling"
+	case "polling_all", "round_robin_all":
+		return "polling_all"
 	default:
 		return "last_used"
 	}

@@ -1387,7 +1387,8 @@ type GatewaySchedulingConfig struct {
 	FallbackMaxWaiting  int           `mapstructure:"fallback_max_waiting"`
 
 	// 账户选择策略: "last_used"(按最后使用时间排序，默认)、"random"(随机)，
-	// 或 "polling"/"round_robin"(同优先级候选按顺序轮换)。
+	// 或 "polling"/"round_robin"(同优先级候选按顺序轮换)，
+	// "polling_all"/"round_robin_all"(忽略优先级的纯顺序轮询)。
 	FallbackSelectionMode string `mapstructure:"fallback_selection_mode"`
 
 	// PreferSoonestReset 开启后，负载感知选择会优先选用「会话窗口最早重置」的账号
