@@ -38,7 +38,7 @@ export type SchedulingThresholdPlatformType =
   | "grok"
 
 export type AccountSchedulingThresholdsMap = Record<SchedulingThresholdPlatformType, number>
-export type FallbackSelectionMode = "last_used" | "random" | "polling" | "polling_all"
+export type FallbackSelectionMode = "last_used" | "random" | "polling"
 
 export const SCHEDULING_THRESHOLD_PLATFORMS: SchedulingThresholdPlatformType[] = [
   "openai",

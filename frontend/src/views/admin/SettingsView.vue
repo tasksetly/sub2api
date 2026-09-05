@@ -4896,7 +4896,6 @@
                   <option value="last_used">{{ t("admin.settings.scheduling.selectionModeLastUsed") }}</option>
                   <option value="random">{{ t("admin.settings.scheduling.selectionModeRandom") }}</option>
                   <option value="polling">{{ t("admin.settings.scheduling.selectionModePolling") }}</option>
-                  <option value="polling_all">{{ t("admin.settings.scheduling.selectionModePollingAll") }}</option>
                 </select>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t("admin.settings.scheduling.selectionModeHint") }}</p>
               </div>
