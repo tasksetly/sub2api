@@ -11,8 +11,6 @@ import (
 	mathrand "math/rand"
 	"sort"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -21,63 +19,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 )
-
-// pollingCounters keeps the next position for each scheduling bucket. The
-// counter is process-local by design; scheduler snapshots may be rebuilt at
-// any time, so account IDs are sorted before applying the position.
-var pollingCounters sync.Map // map[string]*atomic.Uint64
-
-func nextPollingIndex(key string, size int) int {
-	if size <= 0 {
-		return 0
-	}
-	counter := &atomic.Uint64{}
-	actual, _ := pollingCounters.LoadOrStore(key, counter)
-	counter, _ = actual.(*atomic.Uint64)
-	return int(counter.Add(1)-1) % size
-}
-
-func selectByPolling(candidates []accountWithLoad, key string) *accountWithLoad {
-	if len(candidates) == 0 {
-		return nil
-	}
-	ordered := append([]accountWithLoad(nil), candidates...)
-	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].account.ID < ordered[j].account.ID })
-	selected := ordered[nextPollingIndex(key, len(ordered))]
-	return &selected
-}
-
-func selectAccountByPolling(accounts []*Account, key string, preferOAuth bool) []*Account {
-	if len(accounts) <= 1 {
-		return accounts
-	}
-	ordered := append([]*Account(nil), accounts...)
-	// Preserve the same priority and OAuth admission semantics as other modes.
-	sort.SliceStable(ordered, func(i, j int) bool {
-		if ordered[i].Priority != ordered[j].Priority {
-			return ordered[i].Priority < ordered[j].Priority
-		}
-		if preferOAuth && ordered[i].Type != ordered[j].Type {
-			return ordered[i].Type == AccountTypeOAuth
-		}
-		return ordered[i].ID < ordered[j].ID
-	})
-	// Rotate only within the best priority/OAuth tier.
-	end := 1
-	for end < len(ordered) && ordered[end].Priority == ordered[0].Priority && (!preferOAuth || ordered[end].Type == ordered[0].Type) {
-		end++
-	}
-	start := nextPollingIndex(key, end)
-	rotated := append([]*Account(nil), ordered[start:end]...)
-	rotated = append(rotated, ordered[:start]...)
-	rotated = append(rotated, ordered[end:]...)
-	return rotated
-}
-
-func isPollingSelectionMode(mode string) bool {
-	mode = strings.ToLower(strings.TrimSpace(mode))
-	return mode == "polling" || mode == "round_robin"
-}
 
 // SelectAccount 选择账号（粘性会话+优先级）
 func (s *GatewayService) SelectAccount(ctx context.Context, groupID *int64, sessionHash string) (*Account, error) {
@@ -169,11 +110,6 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		"excluded_ids", excludedIDsList)
 
 	cfg := s.schedulingConfig()
-	// The admin-panel value overrides the static config and is read on each
-	// scheduling request so changes take effect without a restart.
-	if s.settingService != nil {
-		cfg.FallbackSelectionMode = s.settingService.GetFallbackSelectionMode(ctx)
-	}
 
 	// 检查 Claude Code 客户端限制（可能会替换 groupID 为降级分组）
 	group, groupID, err := s.checkClaudeCodeRestriction(ctx, groupID)
@@ -784,9 +720,6 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			candidates = filterByMinLoadRate(candidates)
 			// 4. LRU 选择最久未用的账号
 			selected := selectByLRU(candidates, preferOAuth)
-			if isPollingSelectionMode(cfg.FallbackSelectionMode) {
-				selected = selectByPolling(candidates, fmt.Sprintf("load:%v:%s", derefGroupID(groupID), platform))
-			}
 			if selected == nil {
 				break
 			}
@@ -817,11 +750,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 
 	// ============ Layer 3: 兜底排队 ============
-	if isPollingSelectionMode(cfg.FallbackSelectionMode) {
-		candidates = selectAccountByPolling(candidates, fmt.Sprintf("fallback:%v:%s", derefGroupID(groupID), platform), preferOAuth)
-	} else {
-		s.sortCandidatesForFallback(candidates, preferOAuth, cfg.FallbackSelectionMode)
-	}
+	s.sortCandidatesForFallback(candidates, preferOAuth, cfg.FallbackSelectionMode)
 	for _, acc := range candidates {
 		// 会话数量限制检查（等待计划也需要占用会话配额）
 		if !s.checkAndRegisterSession(ctx, acc, sessionHash) {

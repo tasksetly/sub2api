@@ -240,8 +240,7 @@ type UpdateSettingsRequest struct {
 	MaxClaudeCodeVersion string `json:"max_claude_code_version"`
 
 	// 分组隔离
-	AllowUngroupedKeyScheduling bool   `json:"allow_ungrouped_key_scheduling"`
-	FallbackSelectionMode       string `json:"fallback_selection_mode"`
+	AllowUngroupedKeyScheduling bool `json:"allow_ungrouped_key_scheduling"`
 
 	// Backend Mode
 	BackendModeEnabled bool `json:"backend_mode_enabled"`
@@ -1649,7 +1648,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		MinClaudeCodeVersion:                   req.MinClaudeCodeVersion,
 		MaxClaudeCodeVersion:                   req.MaxClaudeCodeVersion,
 		AllowUngroupedKeyScheduling:            req.AllowUngroupedKeyScheduling,
-		FallbackSelectionMode:                  req.FallbackSelectionMode,
 		BackendModeEnabled:                     req.BackendModeEnabled,
 		AllowUserViewErrorRequests: func() bool {
 			if req.AllowUserViewErrorRequests != nil {
@@ -2267,7 +2265,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		MinClaudeCodeVersion:                                   updatedSettings.MinClaudeCodeVersion,
 		MaxClaudeCodeVersion:                                   updatedSettings.MaxClaudeCodeVersion,
 		AllowUngroupedKeyScheduling:                            updatedSettings.AllowUngroupedKeyScheduling,
-		FallbackSelectionMode:                                  updatedSettings.FallbackSelectionMode,
 		BackendModeEnabled:                                     updatedSettings.BackendModeEnabled,
 		EnableFingerprintUnification:                           updatedSettings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:                              updatedSettings.EnableMetadataPassthrough,

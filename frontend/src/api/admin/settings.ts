@@ -38,7 +38,6 @@ export type SchedulingThresholdPlatformType =
   | "grok"
 
 export type AccountSchedulingThresholdsMap = Record<SchedulingThresholdPlatformType, number>
-export type FallbackSelectionMode = "last_used" | "random" | "polling"
 
 export const SCHEDULING_THRESHOLD_PLATFORMS: SchedulingThresholdPlatformType[] = [
   "openai",
@@ -616,7 +615,6 @@ export interface SystemSettings {
 
   // 分组隔离
   allow_ungrouped_key_scheduling: boolean;
-  fallback_selection_mode: FallbackSelectionMode;
 
   // Gateway forwarding behavior
   enable_fingerprint_unification: boolean;
@@ -935,7 +933,6 @@ export interface UpdateSettingsRequest {
   min_claude_code_version?: string;
   max_claude_code_version?: string;
   allow_ungrouped_key_scheduling?: boolean;
-  fallback_selection_mode?: FallbackSelectionMode;
   enable_fingerprint_unification?: boolean;
   enable_metadata_passthrough?: boolean;
   enable_cch_signing?: boolean;

@@ -9,20 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSelectAccountByPollingRotatesBestPriority(t *testing.T) {
-	key := "test-polling-rotation"
-	accounts := []*Account{
-		{ID: 30, Priority: 2},
-		{ID: 10, Priority: 1},
-		{ID: 20, Priority: 1},
-	}
-	first := selectAccountByPolling(accounts, key, false)
-	second := selectAccountByPolling(accounts, key, false)
-	if first[0].ID != 10 || second[0].ID != 20 {
-		t.Fatalf("polling should rotate sorted best-priority accounts, got %d then %d", first[0].ID, second[0].ID)
-	}
-}
-
 // --- helpers ---
 
 func testTimePtr(t time.Time) *time.Time { return &t }
