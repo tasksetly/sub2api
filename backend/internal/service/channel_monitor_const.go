@@ -53,8 +53,8 @@ const (
 	providerOpenAIResponsesPath = "/v1/responses"
 	// providerAnthropicPath Anthropic Messages 路径。
 	providerAnthropicPath = "/v1/messages"
-	// providerGeminiPathTemplate Gemini generateContent 路径模板（含 model 占位）。
-	providerGeminiPathTemplate = "/v1beta/models/%s:generateContent"
+	// providerGeminiPathTemplate Gemini SSE 流式生成路径模板（含 model 占位）。
+	providerGeminiPathTemplate = "/v1beta/models/%s:streamGenerateContent?alt=sse"
 
 	// MonitorProviderOpenAI / Anthropic / Gemini / Grok provider 字符串常量（也是 ent enum 的实际值）。
 	MonitorProviderOpenAI    = "openai"
