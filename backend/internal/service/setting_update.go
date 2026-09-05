@@ -78,7 +78,6 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaultsOmitting(ctx contex
 	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
 		return err
 	}
-	s.invalidateFallbackSelectionModeCache()
 	s.refreshCachedSettingsAfterWrite(ctx, settings, omitted)
 	return nil
 }
