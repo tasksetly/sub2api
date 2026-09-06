@@ -367,11 +367,19 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 
 // chatCompletionsErrorResponse writes an error in OpenAI Chat Completions format.
 func (h *GatewayHandler) chatCompletionsErrorResponse(c *gin.Context, status int, errType, message string) {
+	h.chatCompletionsErrorResponseWithCode(c, status, errType, "", message)
+}
+
+func (h *GatewayHandler) chatCompletionsErrorResponseWithCode(c *gin.Context, status int, errType, code, message string) {
+	errorBody := gin.H{
+		"type":    errType,
+		"message": message,
+	}
+	if code != "" {
+		errorBody["code"] = code
+	}
 	c.JSON(status, gin.H{
-		"error": gin.H{
-			"type":    errType,
-			"message": message,
-		},
+		"error": errorBody,
 	})
 }
 
@@ -382,6 +390,15 @@ func (h *GatewayHandler) handleCCFailoverExhausted(c *gin.Context, lastErr *serv
 	}
 	if lastErr != nil {
 		copyFailoverRetryAfter(c, lastErr.ResponseHeaders)
+	}
+	if lastErr != nil && lastErr.IsOpenAIModelUnavailable() {
+		message := strings.TrimSpace(lastErr.ClientMessage)
+		if message == "" {
+			message = "The selected account does not support the requested model"
+		}
+		service.SetOpsUpstreamError(c, http.StatusBadRequest, message, "")
+		h.chatCompletionsErrorResponseWithCode(c, http.StatusBadRequest, "invalid_request_error", service.OpenAIModelUnavailableCode, message)
+		return
 	}
 	if lastErr != nil && lastErr.IsCredentialFailure() {
 		status, message := credentialFailoverClientResponse(lastErr)

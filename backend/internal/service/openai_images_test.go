@@ -1438,6 +1438,37 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyAccessStateUsesTypedFailover(t 
 	require.False(t, c.Writer.Written())
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIKeyModelUnavailableUsesTypedFailover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-1","prompt":"draw a cat"}`)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"code":"model_not_found","message":"unknown provider for model gpt-image-1"}}`)),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	account := &Account{ID: 52, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk-test"}}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+
+	require.Nil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.True(t, failoverErr.IsOpenAIModelUnavailable())
+	require.True(t, failoverErr.ShouldRetryNextAccount())
+	require.False(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, http.StatusBadRequest, failoverErr.ClientStatusCode)
+	require.Equal(t, "unknown provider for model gpt-image-1", failoverErr.ClientMessage)
+	require.False(t, c.Writer.Written())
+}
+
 func TestOpenAIGatewayServiceForwardImages_APIKeyStreamJSONResponseBillsImage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","stream":true,"response_format":"b64_json"}`)

@@ -3152,3 +3152,53 @@ data: {"type":"response.failed","error":{"message":"This content was flagged"}}
 		require.False(t, openAIForwardErrorAlreadyCommunicated(c, c.Writer.Size(), errors.New("openai cyber_policy: blocked")))
 	})
 }
+
+func TestOpenAIModelUnavailableFailoverExhaustedReturns400ModelNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+
+	(&OpenAIGatewayHandler{}).handleFailoverExhausted(c, &service.UpstreamFailoverError{
+		StatusCode:       http.StatusBadRequest,
+		Reason:           service.OpenAIModelUnavailableReason,
+		ClientStatusCode: http.StatusBadRequest,
+		ClientMessage:    "unknown provider for model gpt-5.6-sol",
+		ResponseBody:     []byte(`{"error":{"code":"model_not_found","message":"unknown provider for model gpt-5.6-sol"}}`),
+	}, false)
+
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	require.Equal(t, "invalid_request_error", gjson.Get(recorder.Body.String(), "error.type").String())
+	require.Equal(t, service.OpenAIModelUnavailableCode, gjson.Get(recorder.Body.String(), "error.code").String())
+	require.Equal(t, "unknown provider for model gpt-5.6-sol", gjson.Get(recorder.Body.String(), "error.message").String())
+}
+
+func TestGatewayModelUnavailableFailoverExhaustedReturns400ModelNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	failoverErr := &service.UpstreamFailoverError{
+		StatusCode:       http.StatusBadRequest,
+		Reason:           service.OpenAIModelUnavailableReason,
+		ClientStatusCode: http.StatusBadRequest,
+		ClientMessage:    "unknown provider for model gpt-5.6-sol",
+	}
+
+	t.Run("responses compatibility", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		(&GatewayHandler{}).handleResponsesFailoverExhausted(c, failoverErr, false)
+
+		require.Equal(t, http.StatusBadRequest, recorder.Code)
+		require.Equal(t, service.OpenAIModelUnavailableCode, gjson.Get(recorder.Body.String(), "error.code").String())
+		require.Equal(t, failoverErr.ClientMessage, gjson.Get(recorder.Body.String(), "error.message").String())
+	})
+
+	t.Run("chat completions compatibility", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		(&GatewayHandler{}).handleCCFailoverExhausted(c, failoverErr, false)
+
+		require.Equal(t, http.StatusBadRequest, recorder.Code)
+		require.Equal(t, "invalid_request_error", gjson.Get(recorder.Body.String(), "error.type").String())
+		require.Equal(t, service.OpenAIModelUnavailableCode, gjson.Get(recorder.Body.String(), "error.code").String())
+		require.Equal(t, failoverErr.ClientMessage, gjson.Get(recorder.Body.String(), "error.message").String())
+	})
+}

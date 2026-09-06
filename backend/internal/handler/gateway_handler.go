@@ -1905,6 +1905,15 @@ func (h *GatewayHandler) handleConcurrencyError(c *gin.Context, err error, slotT
 }
 
 func (h *GatewayHandler) handleFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
+	if failoverErr != nil && failoverErr.IsOpenAIModelUnavailable() {
+		message := strings.TrimSpace(failoverErr.ClientMessage)
+		if message == "" {
+			message = "The selected account does not support the requested model"
+		}
+		service.SetOpsUpstreamError(c, http.StatusBadRequest, message, "")
+		h.handleStreamingAwareErrorWithCode(c, http.StatusBadRequest, "invalid_request_error", service.OpenAIModelUnavailableCode, message, streamStarted)
+		return
+	}
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
 	if service.IsOpenAISilentRefusalErrorBody(responseBody) {

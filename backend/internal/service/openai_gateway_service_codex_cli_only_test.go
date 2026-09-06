@@ -365,6 +365,70 @@ func TestShouldFailoverOpenAIUpstreamResponseContextWindow502(t *testing.T) {
 	))
 }
 
+func TestOpenAIUpstreamModelUnavailableError(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       []byte
+		want       bool
+	}{
+		{
+			name:       "structured model_not_found code",
+			statusCode: http.StatusBadRequest,
+			body:       []byte(`{"error":{"code":"model_not_found","message":"unknown provider for model gpt-5.6-sol"}}`),
+			want:       true,
+		},
+		{
+			name:       "unknown provider message",
+			statusCode: http.StatusBadRequest,
+			body:       []byte(`{"error":{"message":"unknown provider for model gpt-5.6-sol"}}`),
+			want:       true,
+		},
+		{
+			name:       "generic endpoint model unsupported detail is ignored",
+			statusCode: http.StatusBadRequest,
+			body:       []byte(`{"detail":"The requested model is not supported on this endpoint"}`),
+			want:       false,
+		},
+		{
+			name:       "context error is not model unavailable",
+			statusCode: http.StatusBadRequest,
+			body:       []byte(`{"error":{"code":"context_length_exceeded","message":"maximum context length exceeded"}}`),
+			want:       false,
+		},
+		{
+			name:       "invalid parameter is not model unavailable",
+			statusCode: http.StatusBadRequest,
+			body:       []byte(`{"error":{"code":"invalid_parameter","message":"temperature must be less than 2"}}`),
+			want:       false,
+		},
+		{
+			name:       "echoed request text is ignored",
+			statusCode: http.StatusBadRequest,
+			body:       []byte(`{"error":{"message":"invalid input"},"echo":"unknown provider for model"}`),
+			want:       false,
+		},
+		{
+			name:       "wrong status is ignored",
+			statusCode: http.StatusNotFound,
+			body:       []byte(`{"error":{"code":"model_not_found","message":"model not found"}}`),
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isOpenAIUpstreamModelUnavailableError(tt.statusCode, tt.body))
+		})
+	}
+
+	svc := &OpenAIGatewayService{}
+	account := &Account{Platform: PlatformOpenAI}
+	body := []byte(`{"error":{"code":"model_not_found","message":"unknown provider for model gpt-5.6-sol"}}`)
+	require.True(t, svc.shouldFailoverOpenAIAccountResponse(account, http.StatusBadRequest, "", body))
+	require.False(t, svc.shouldFailoverOpenAIAccountResponse(&Account{Platform: PlatformGrok}, http.StatusBadRequest, "", body))
+}
+
 func TestOpenAIGatewayService_Forward_LogsInstructionsRequiredDetails(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logSink, restore := captureStructuredLog(t)

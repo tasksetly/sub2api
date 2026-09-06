@@ -1564,6 +1564,14 @@ func (h *OpenAIGatewayHandler) handleAnthropicFailoverExhausted(c *gin.Context, 
 	if failoverErr != nil {
 		copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
 	}
+	if failoverErr != nil && failoverErr.IsOpenAIModelUnavailable() {
+		message := strings.TrimSpace(failoverErr.ClientMessage)
+		if message == "" {
+			message = "The selected account does not support the requested model"
+		}
+		h.anthropicStreamingAwareError(c, http.StatusBadRequest, "invalid_request_error", message, streamStarted)
+		return
+	}
 	if failoverErr != nil && failoverErr.IsCredentialFailure() {
 		status, message := credentialFailoverClientResponse(failoverErr)
 		h.anthropicStreamingAwareError(c, status, "api_error", message, streamStarted)
@@ -3284,6 +3292,23 @@ func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverE
 			"invalid_request_error",
 			service.OpenAIRequestBodyTooLargeClientMessage,
 			streamStarted,
+		)
+		return
+	}
+	if failoverErr.IsOpenAIModelUnavailable() {
+		message := strings.TrimSpace(failoverErr.ClientMessage)
+		if message == "" {
+			message = "The selected account does not support the requested model"
+		}
+		service.SetOpsUpstreamError(c, http.StatusBadRequest, message, "")
+		h.handleStreamingAwareErrorWithCode(
+			c,
+			http.StatusBadRequest,
+			"invalid_request_error",
+			service.OpenAIModelUnavailableCode,
+			message,
+			streamStarted,
+			false,
 		)
 		return
 	}

@@ -2448,6 +2448,8 @@ func parseOpenAIImageTryAgainCooldown(body []byte) time.Duration {
 
 const upstreamModelNotFoundCooldown = 30 * time.Minute
 const upstreamModelNotFoundReason = "upstream_404_model_not_found"
+const upstreamOpenAIModelUnavailableCooldown = 30 * time.Minute
+const upstreamOpenAIModelUnavailableReason = "upstream_400_openai_model_unavailable"
 const upstreamCodexPlanGatedModelCooldown = 30 * time.Minute
 const upstreamCodexPlanGatedModelReason = "upstream_400_codex_plan_gated_model"
 const tempUnschedBodyMaxBytes = 64 << 10
@@ -2455,12 +2457,12 @@ const tempUnschedMessageMaxBytes = 2048
 
 // HandleUpstreamModelNotFound marks the requested model as temporarily
 // unavailable on the account when the upstream deterministically reports it
-// cannot serve that model: a 404 model-not-found, or the Codex 400 rejecting a
-// plan-gated model on a ChatGPT OAuth account. Returning true tells the caller
-// to fail the current attempt over to another account; the scheduler skips the
-// (account, model) pair via IsSchedulableForModelWithContext until the
-// cooldown expires, instead of re-selecting an account that can never serve
-// the model.
+// cannot serve that model: a 404 model-not-found, an explicit OpenAI 400
+// model-unavailable response, or the Codex 400 rejecting a plan-gated model on
+// a ChatGPT OAuth account. Returning true tells the caller to fail the current
+// attempt over to another account; the scheduler skips the (account, model)
+// pair via IsSchedulableForModelWithContext until the cooldown expires, instead
+// of re-selecting an account that can never serve the model.
 func (s *RateLimitService) HandleUpstreamModelNotFound(ctx context.Context, account *Account, requestedModel string, statusCode int, responseBody []byte) bool {
 	if s == nil || account == nil || s.accountRepo == nil {
 		return false
@@ -2475,6 +2477,8 @@ func (s *RateLimitService) HandleUpstreamModelNotFound(ctx context.Context, acco
 		cooldown, reason = upstreamModelNotFoundCooldown, upstreamModelNotFoundReason
 	case isOpenAIOAuthAccount(account) && isOpenAICodexPlanGatedModelError(statusCode, responseBody):
 		cooldown, reason = upstreamCodexPlanGatedModelCooldown, upstreamCodexPlanGatedModelReason
+	case account.Platform == PlatformOpenAI && isOpenAIUpstreamModelUnavailableError(statusCode, responseBody):
+		cooldown, reason = upstreamOpenAIModelUnavailableCooldown, upstreamOpenAIModelUnavailableReason
 	default:
 		return false
 	}

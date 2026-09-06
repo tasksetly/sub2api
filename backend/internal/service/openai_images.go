@@ -650,7 +650,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		resp.Body = io.NopCloser(bytes.NewReader(respBody))
 		upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(respBody))
 		upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
-		if s.shouldFailoverOpenAIUpstreamResponse(resp.StatusCode, upstreamMsg, respBody) {
+		if s.shouldFailoverOpenAIAccountResponse(account, resp.StatusCode, upstreamMsg, respBody) {
 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 				ProxyID:            opsUpstreamProxyID(account),
 				ProxyName:          opsUpstreamProxyName(account),
@@ -670,6 +670,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			}
 			if isOpenAIHTTPUpstreamAccessStateError(resp.StatusCode, upstreamMsg, respBody) {
 				return nil, newOpenAIUpstreamFailoverError(resp.StatusCode, resp.Header, respBody, upstreamMsg, retryableOnSameAccount)
+			}
+			if isOpenAIUpstreamModelUnavailableError(resp.StatusCode, respBody) {
+				return nil, s.newOpenAIAccountFailoverError(account, resp.StatusCode, resp.Header, respBody, upstreamMsg, shouldDisable, retryableOnSameAccount)
 			}
 			return nil, &UpstreamFailoverError{StatusCode: resp.StatusCode, ResponseBody: respBody, RetryableOnSameAccount: retryableOnSameAccount}
 		}

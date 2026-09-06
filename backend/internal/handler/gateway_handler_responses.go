@@ -373,7 +373,15 @@ func (h *GatewayHandler) handleResponsesFailoverExhausted(c *gin.Context, lastEr
 		statusCode = lastErr.StatusCode
 	}
 	status, code, message := statusCode, "server_error", "All available accounts exhausted"
-	if lastErr != nil && lastErr.IsCredentialFailure() {
+	if lastErr != nil && lastErr.IsOpenAIModelUnavailable() {
+		status = http.StatusBadRequest
+		code = service.OpenAIModelUnavailableCode
+		message = strings.TrimSpace(lastErr.ClientMessage)
+		if message == "" {
+			message = "The selected account does not support the requested model"
+		}
+		service.SetOpsUpstreamError(c, http.StatusBadRequest, message, "")
+	} else if lastErr != nil && lastErr.IsCredentialFailure() {
 		status, message = credentialFailoverClientResponse(lastErr)
 	} else if lastErr != nil && lastErr.IsOpenAICapacityShed() && strings.TrimSpace(lastErr.ClientMessage) != "" {
 		status = lastErr.ClientStatusCode

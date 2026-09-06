@@ -224,6 +224,36 @@ func TestFailoverOpenAIUpstreamHTTPError_NilContextSkipsTempUnschedulablePolicy(
 	require.Empty(t, repo.modelRateLimitKey)
 }
 
+func TestFailoverOpenAIUpstreamHTTPError_ModelUnavailable400CoolsModelAndFailsOver(t *testing.T) {
+	repo := &tempUnschedulableOpenAIAccountRepo{}
+	svc := &OpenAIGatewayService{
+		rateLimitService: NewRateLimitService(repo, nil, &config.Config{}, nil, nil),
+	}
+	account := &Account{
+		ID:          5101,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+	}
+	responseBody := []byte(`{"error":{"code":"model_not_found","message":"unknown provider for model gpt-5.6-sol","param":"model","type":"invalid_request_error"}}`)
+	resp := &http.Response{StatusCode: http.StatusBadRequest, Header: http.Header{}}
+
+	failoverErr := svc.failoverOpenAIUpstreamHTTPError(
+		context.Background(), nil, account, resp, responseBody,
+		"unknown provider for model gpt-5.6-sol", "gpt-5.6-sol",
+	)
+
+	require.NotNil(t, failoverErr)
+	require.True(t, failoverErr.ShouldRetryNextAccount())
+	require.True(t, failoverErr.IsOpenAIModelUnavailable())
+	require.False(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, http.StatusBadRequest, failoverErr.ClientStatusCode)
+	require.Equal(t, "unknown provider for model gpt-5.6-sol", failoverErr.ClientMessage)
+	require.Equal(t, account.ID, repo.modelRateLimitAccountID)
+	require.Equal(t, "gpt-5.6-sol", repo.modelRateLimitKey)
+}
+
 type groupAwareStubOpenAIAccountRepo struct {
 	stubOpenAIAccountRepo
 }

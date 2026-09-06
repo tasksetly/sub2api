@@ -272,14 +272,66 @@ func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponse(statusCode i
 	return isOpenAITransientProcessingError(statusCode, upstreamMsg, upstreamBody)
 }
 
+// shouldFailoverOpenAIAccountResponse adds account-scoped model availability to
+// the generic HTTP decision. A model-unavailable response only applies to the
+// selected OpenAI account; Grok and other OpenAI-compatible platforms retain
+// their own error policies.
+func (s *OpenAIGatewayService) shouldFailoverOpenAIAccountResponse(account *Account, statusCode int, upstreamMsg string, upstreamBody []byte) bool {
+	if account != nil && account.Platform == PlatformOpenAI && isOpenAIUpstreamModelUnavailableError(statusCode, upstreamBody) {
+		return true
+	}
+	return s.shouldFailoverOpenAIUpstreamResponse(statusCode, upstreamMsg, upstreamBody)
+}
+
 // OpenAIRequestBodyTooLargeClientMessage is the fixed downstream message used
 // after all account-specific request body limit failovers are exhausted.
 const OpenAIRequestBodyTooLargeClientMessage = "Request payload is too large"
 
 const openAIRequestBodyTooLargeReason = GatewayFailureReason("openai_request_body_too_large")
 
+const (
+	// OpenAIModelUnavailableReason identifies an account-specific OpenAI model
+	// rejection. The handler preserves its 400/model_not_found semantics after
+	// all candidate accounts have been tried.
+	OpenAIModelUnavailableReason = GatewayFailureReason("openai_model_unavailable")
+	OpenAIModelUnavailableCode   = "model_not_found"
+)
+
 func isOpenAIRequestBodyTooLargeError(statusCode int, upstreamMsg string, upstreamBody []byte) bool {
 	return statusCode == http.StatusRequestEntityTooLarge && !isOpenAIContextWindowError(upstreamMsg, upstreamBody)
+}
+
+// isOpenAIUpstreamModelUnavailableError recognizes OpenAI's deterministic 400
+// response for a model that the selected account cannot serve. It deliberately
+// inspects only structured error fields (or a plain-text response), so a model
+// name echoed elsewhere in a JSON request error cannot cause account failover.
+func isOpenAIUpstreamModelUnavailableError(statusCode int, body []byte) bool {
+	if statusCode != http.StatusBadRequest || len(body) == 0 {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(extractUpstreamErrorCode(body)), "model_not_found") {
+		return true
+	}
+
+	match := func(value string) bool {
+		normalized := normalizeModelNotFoundBody([]byte(value))
+		return strings.Contains(normalized, "unknown provider for model") ||
+			strings.Contains(normalized, "model not found")
+	}
+	if !gjson.ValidBytes(body) {
+		return match(string(body))
+	}
+	for _, path := range []string{"error.code", "response.error.code", "code"} {
+		if strings.EqualFold(strings.TrimSpace(gjson.GetBytes(body, path).String()), "model_not_found") {
+			return true
+		}
+	}
+	for _, path := range []string{"error.message", "response.error.message", "detail", "message"} {
+		if match(gjson.GetBytes(body, path).String()) {
+			return true
+		}
+	}
+	return false
 }
 
 func newOpenAIUpstreamFailoverError(
@@ -306,7 +358,18 @@ func newOpenAIUpstreamFailoverError(
 		failoverErr.ClientStatusCode = http.StatusRequestEntityTooLarge
 		failoverErr.ClientMessage = OpenAIRequestBodyTooLargeClientMessage
 	}
-	if isOpenAIHTTPUpstreamAccessStateError(statusCode, upstreamMsg, responseBody) {
+	if isOpenAIUpstreamModelUnavailableError(statusCode, responseBody) {
+		failoverErr.RetryableOnSameAccount = false
+		failoverErr.RequestScopedTransient = false
+		failoverErr.Scope = GatewayFailureScopeAccount
+		failoverErr.Reason = OpenAIModelUnavailableReason
+		failoverErr.NextAccountAction = NextAccountRetry
+		failoverErr.ClientStatusCode = http.StatusBadRequest
+		failoverErr.ClientMessage = sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(responseBody)))
+		if failoverErr.ClientMessage == "" {
+			failoverErr.ClientMessage = "The selected account does not support the requested model"
+		}
+	} else if isOpenAIHTTPUpstreamAccessStateError(statusCode, upstreamMsg, responseBody) {
 		failoverErr.RetryableOnSameAccount = false
 		failoverErr.RequestScopedTransient = false
 		failoverErr.Stage = GatewayFailureStageAccountAuth
@@ -427,6 +490,12 @@ func openAICapacityShedClientMessage(upstreamMsg string, body []byte) string {
 // same request even though the selected account rejected its serialized size.
 func (e *UpstreamFailoverError) IsOpenAIRequestBodyTooLarge() bool {
 	return e != nil && e.Reason == openAIRequestBodyTooLargeReason
+}
+
+// IsOpenAIModelUnavailable reports whether an OpenAI account rejected the
+// request because it cannot serve the selected model.
+func (e *UpstreamFailoverError) IsOpenAIModelUnavailable() bool {
+	return e != nil && e.Reason == OpenAIModelUnavailableReason
 }
 
 // IsOpenAICapacityShed reports whether typed client fields were derived from a
