@@ -769,6 +769,9 @@ func shouldFailoverOpenAIPassthroughResponse(account *Account, statusCode int, r
 	if isOpenAIContextWindowError("", responseBody) {
 		return false
 	}
+	if account != nil && account.Platform == PlatformOpenAI && isOpenAIUpstreamModelUnavailableError(statusCode, responseBody) {
+		return true
+	}
 	if isOpenAIHTTPUpstreamAccessStateError(statusCode, "", responseBody) {
 		return true
 	}

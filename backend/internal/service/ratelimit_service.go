@@ -2464,6 +2464,13 @@ const tempUnschedMessageMaxBytes = 2048
 // pair via IsSchedulableForModelWithContext until the cooldown expires, instead
 // of re-selecting an account that can never serve the model.
 func (s *RateLimitService) HandleUpstreamModelNotFound(ctx context.Context, account *Account, requestedModel string, statusCode int, responseBody []byte) bool {
+	modelKey := modelRateLimitKeyForUpstreamModelNotFound(ctx, account, requestedModel)
+	return s.handleUpstreamModelNotFoundForModelKey(ctx, account, requestedModel, modelKey, statusCode, responseBody)
+}
+
+// handleUpstreamModelNotFoundForModelKey accepts a resolved cooldown key so
+// forwarding paths that already applied account mapping do not apply it again.
+func (s *RateLimitService) handleUpstreamModelNotFoundForModelKey(ctx context.Context, account *Account, requestedModel, modelKey string, statusCode int, responseBody []byte) bool {
 	if s == nil || account == nil || s.accountRepo == nil {
 		return false
 	}
@@ -2482,7 +2489,7 @@ func (s *RateLimitService) HandleUpstreamModelNotFound(ctx context.Context, acco
 	default:
 		return false
 	}
-	modelKey := modelRateLimitKeyForUpstreamModelNotFound(ctx, account, requestedModel)
+	modelKey = strings.TrimSpace(modelKey)
 	if modelKey == "" {
 		return false
 	}
