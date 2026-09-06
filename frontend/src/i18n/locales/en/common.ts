@@ -181,6 +181,7 @@ export default {
     modelPlaza: 'Model Plaza',
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
+    plugins: 'Plugins',
     proxies: 'Proxies',
     upstreamProviders: 'Upstreams',
     redeemCodes: 'Redeem Codes',
