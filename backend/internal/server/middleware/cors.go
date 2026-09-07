@@ -54,6 +54,11 @@ func CORS(cfg config.CORSConfig) gin.HandlerFunc {
 		"Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization",
 		"accept", "origin", "Cache-Control", "X-Requested-With", "X-API-Key", "X-Admin-UI-Request", "X-User-UI-Request",
 	}
+	// Anthropic SDK / 浏览器端客户端（如 Chatbox Web）会发送 anthropic-* 请求头，需在 CORS 中显式放行。
+	// anthropic-dangerous-direct-browser-access 是官方 SDK 在浏览器直连时的必需 opt-in 头。
+	allowHeaders = append(allowHeaders,
+		"anthropic-version", "anthropic-beta", "anthropic-dangerous-direct-browser-access",
+	)
 	// OpenAI Node SDK 会发送 x-stainless-* 请求头，需在 CORS 中显式放行。
 	openAIProperties := []string{
 		"lang", "package-version", "os", "arch", "retry-count", "runtime",

@@ -116,6 +116,36 @@ func TestCORS_AllowedOrigin_HasAllowHeaders(t *testing.T) {
 	}
 }
 
+// 浏览器端 Anthropic 客户端（如 Chatbox Web）预检时会声明 anthropic-* 头，
+// Allow-Headers 缺少任意一个都会导致真实请求被浏览器拦截。
+func TestCORS_AllowedOrigin_AllowsAnthropicHeaders(t *testing.T) {
+	cfg := config.CORSConfig{
+		AllowedOrigins:   []string{"https://web.chatboxai.app"},
+		AllowCredentials: false,
+	}
+	middleware := CORS(cfg)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodOptions, "/v1/messages", nil)
+	c.Request.Header.Set("Origin", "https://web.chatboxai.app")
+	c.Request.Header.Set("Access-Control-Request-Headers",
+		"anthropic-dangerous-direct-browser-access, anthropic-version, anthropic-beta, x-api-key")
+
+	middleware(c)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+	allowed := w.Header().Get("Access-Control-Allow-Headers")
+	for _, header := range []string{
+		"anthropic-version",
+		"anthropic-beta",
+		"anthropic-dangerous-direct-browser-access",
+	} {
+		assert.Contains(t, allowed, header,
+			"Allow-Headers 应放行浏览器直连所需的 %s", header)
+	}
+}
+
 func TestCORS_PreflightDisallowedOrigin_ReturnsForbidden(t *testing.T) {
 	cfg := config.CORSConfig{
 		AllowedOrigins:   []string{"https://allowed.example.com"},
