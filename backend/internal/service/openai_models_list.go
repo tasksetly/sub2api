@@ -138,6 +138,9 @@ func standardOpenAIModelsBody(body []byte, fromManifest bool) ([]byte, error) {
 		if len(entry["type"]) == 0 || string(entry["type"]) == "null" || string(entry["type"]) == `""` {
 			entry["type"] = json.RawMessage(`"model"`)
 		}
+		if len(entry["display_name"]) == 0 || string(entry["display_name"]) == "null" || string(entry["display_name"]) == `""` {
+			entry["display_name"], _ = json.Marshal(id)
+		}
 		encoded, err := json.Marshal(entry)
 		if err != nil {
 			return nil, err

@@ -20,6 +20,12 @@ func ordinaryModelsUpstreamResponse(body string) *http.Response {
 	return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}
 }
 
+func TestStandardOpenAIModelsBodyDefaultsTypeAndDisplayName(t *testing.T) {
+	body, err := standardOpenAIModelsBody([]byte(`{"data":[{"id":"missing"},{"id":"empty","type":"","display_name":""},{"id":"null","type":null,"display_name":null},{"id":"custom","type":"special","display_name":"Custom name"}]}`), false)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"object":"list","data":[{"id":"missing","object":"model","created":0,"owned_by":"openai","type":"model","display_name":"missing"},{"id":"empty","object":"model","created":0,"owned_by":"openai","type":"model","display_name":"empty"},{"id":"null","object":"model","created":0,"owned_by":"openai","type":"model","display_name":"null"},{"id":"custom","object":"model","created":0,"owned_by":"openai","type":"special","display_name":"Custom name"}]}`, string(body))
+}
+
 func TestFetchOpenAIModelsListUsesStandardRequestAndIsolatesCodexCache(t *testing.T) {
 	var calls atomic.Int32
 	s := newCodexModelsAPIKeyTestService(&codexModelsHTTPUpstreamStub{do: func(req *http.Request, _ string, accountID int64, concurrency int) (*http.Response, error) {
@@ -63,7 +69,7 @@ func TestFetchOpenAIModelsListOAuthSharesManifestCache(t *testing.T) {
 	account := newCodexModelsTestAccount()
 	response, err := s.FetchOpenAIModelsList(context.Background(), account)
 	require.NoError(t, err)
-	require.JSONEq(t, `{"object":"list","data":[{"id":"special-oauth-model","object":"model","owned_by":"openai","created":0,"type":"model"},{"id":"gpt-image-1","object":"model","owned_by":"openai","created":0,"type":"model"}]}`, string(response.Body))
+	require.JSONEq(t, `{"object":"list","data":[{"id":"special-oauth-model","object":"model","owned_by":"openai","created":0,"type":"model","display_name":"special-oauth-model"},{"id":"gpt-image-1","object":"model","owned_by":"openai","created":0,"type":"model","display_name":"gpt-image-1"}]}`, string(response.Body))
 	manifest, err := s.FetchCodexModelsManifest(context.Background(), account, CodexCanonicalClientVersion(), "")
 	require.NoError(t, err)
 	require.Contains(t, string(manifest.Body), `"slug":"special-oauth-model"`)
