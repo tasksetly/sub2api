@@ -132,6 +132,12 @@ func standardOpenAIModelsBody(body []byte, fromManifest bool) ([]byte, error) {
 		if len(entry["owned_by"]) == 0 || string(entry["owned_by"]) == "null" {
 			entry["owned_by"] = json.RawMessage(`"openai"`)
 		}
+		// OpenAI-compatible upstreams are not required to include `type` in
+		// /v1/models responses. Keep the public model shape stable so callers
+		// never receive an empty type for a valid model entry.
+		if len(entry["type"]) == 0 || string(entry["type"]) == "null" || string(entry["type"]) == `""` {
+			entry["type"] = json.RawMessage(`"model"`)
+		}
 		encoded, err := json.Marshal(entry)
 		if err != nil {
 			return nil, err
