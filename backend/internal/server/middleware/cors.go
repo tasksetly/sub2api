@@ -68,6 +68,11 @@ func CORS(cfg config.CORSConfig) gin.HandlerFunc {
 		allowHeaders = append(allowHeaders, "x-stainless-"+prop)
 	}
 	allowHeadersValue := strings.Join(allowHeaders, ", ")
+	// 与 Allow-Origin: * 一起使用时，允许浏览器预检中声明的任意请求头。
+	// Authorization 仍显式保留：它是 CORS 规范中不能仅由通配符覆盖的请求头。
+	if allowAll {
+		allowHeadersValue = "*, Authorization"
+	}
 
 	return func(c *gin.Context) {
 		origin := strings.TrimSpace(c.GetHeader("Origin"))

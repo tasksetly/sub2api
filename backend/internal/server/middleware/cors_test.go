@@ -204,6 +204,25 @@ func TestCORS_WildcardOrigin_AllowsAny(t *testing.T) {
 		"通配符 origin 应设置 Allow-Methods")
 }
 
+func TestCORS_WildcardOrigin_AllowsAnyRequestHeader(t *testing.T) {
+	cfg := config.CORSConfig{
+		AllowedOrigins:   []string{"*"},
+		AllowCredentials: false,
+	}
+	middleware := CORS(cfg)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodOptions, "/", nil)
+	c.Request.Header.Set("Origin", "https://any-origin.example.com")
+	c.Request.Header.Set("Access-Control-Request-Headers", "x-custom-client-header, authorization")
+
+	middleware(c)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+	assert.Equal(t, "*, Authorization", w.Header().Get("Access-Control-Allow-Headers"))
+}
+
 func TestCORS_AllowCredentials_SetCorrectly(t *testing.T) {
 	cfg := config.CORSConfig{
 		AllowedOrigins:   []string{"https://allowed.example.com"},
