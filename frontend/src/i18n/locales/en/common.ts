@@ -52,6 +52,7 @@ export default {
     close: 'Close',
     toggleMenu: 'Toggle menu',
     userMenu: 'User menu',
+    mainNav: 'Main navigation',
     pageNotFound: 'Page not found',
     download: 'Download',
     enabled: 'Enabled',
@@ -164,6 +165,17 @@ export default {
 
   // Navigation
   nav: {
+    section: {
+      account: 'Account',
+      billing: 'Billing',
+      console: 'Console',
+      develop: 'Develop',
+      overview: 'Overview',
+      resources: 'Resources',
+      security: 'Security',
+      system: 'System',
+      users: 'Users',
+    },
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     tickets: 'My Tickets',

@@ -52,6 +52,7 @@ export default {
     close: '关闭',
     toggleMenu: '切换菜单',
     userMenu: '用户菜单',
+    mainNav: '主导航',
     pageNotFound: '页面不存在',
     download: '下载',
     enabled: '已启用',
@@ -164,6 +165,17 @@ export default {
 
   // Navigation
   nav: {
+    section: {
+      account: '账户',
+      billing: '账单',
+      console: '控制台',
+      develop: '开发',
+      overview: '概览',
+      resources: '资源',
+      security: '安全',
+      system: '系统',
+      users: '用户',
+    },
     dashboard: '仪表盘',
     announcements: '公告',
     tickets: '我的工单',
