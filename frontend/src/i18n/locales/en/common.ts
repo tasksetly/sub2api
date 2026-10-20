@@ -202,6 +202,8 @@ export default {
     logout: 'Logout',
     mySubscriptions: 'My Subscriptions',
     buySubscription: 'Recharge / Subscription',
+    recharge: 'Recharge',
+    subscribe: 'Subscription',
     docs: 'Docs',
     telegramGroup: 'Telegram',
     myOrders: 'My Orders',

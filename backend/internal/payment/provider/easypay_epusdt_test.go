@@ -182,6 +182,13 @@ func TestEasyPayEpusdtSkipsUnsupportedQueryAndRefundEndpoints(t *testing.T) {
 	if _, err := provider.QueryOrder(context.Background(), "sub2_epusdt_2"); err == nil || !strings.Contains(err.Error(), "does not support order queries") {
 		t.Fatalf("QueryOrder error = %v, want Epusdt unsupported-query error", err)
 	}
+	if err := provider.ConfirmNotification(context.Background(), &payment.PaymentNotification{
+		OrderID: "sub2_epusdt_2",
+		Amount:  12.5,
+		Status:  payment.NotificationStatusSuccess,
+	}); err != nil {
+		t.Fatalf("ConfirmNotification error = %v, want Epusdt confirmation to rely on the signed callback", err)
+	}
 	if _, err := provider.Refund(context.Background(), payment.RefundRequest{OrderID: "sub2_epusdt_2", Amount: "12.50"}); err == nil || !strings.Contains(err.Error(), "does not support refunds") {
 		t.Fatalf("Refund error = %v, want Epusdt unsupported-refund error", err)
 	}
