@@ -104,15 +104,15 @@ describe('HomeView compact mode', () => {
     expect(wrapper.get('[data-testid="compact-home"]').text()).toContain('Test site')
   })
 
-  it('uses the page content logo in the compact home body while keeping the navigation logo separate', () => {
+  it('uses the configured site logo throughout compact home even when a legacy content logo exists', () => {
     const wrapper = mountHome({
       compact_home_enabled: true,
-      site_logo: '/navigation-logo.png',
-      site_content_logo: '/content-logo.png',
+      site_logo: '/site-logo.png',
+      site_content_logo: '/legacy-content-logo.png',
     })
 
-    expect(wrapper.get('[data-testid="home-content-logo"]').attributes('src')).toBe('/content-logo.png')
-    expect(wrapper.find('header img').attributes('src')).toBe('/navigation-logo.png')
+    expect(wrapper.get('[data-testid="home-content-logo"]').attributes('src')).toBe('/site-logo.png')
+    expect(wrapper.find('header img').attributes('src')).toBe('/site-logo.png')
   })
 
   it.each([undefined, false])('selects the default home when compact mode is %s', (enabled) => {

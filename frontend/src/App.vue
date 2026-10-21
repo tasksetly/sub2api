@@ -42,10 +42,10 @@ function updateDocumentTitle() {
 
 // Watch for site settings changes and update favicon/title
 watch(
-  () => appStore.siteFavicon || appStore.siteLogo,
-  (newFavicon) => {
-    if (newFavicon) {
-      updateFavicon(newFavicon)
+  () => appStore.siteLogo,
+  (newLogo) => {
+    if (newLogo) {
+      updateFavicon(newLogo)
     }
   },
   { immediate: true }
