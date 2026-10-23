@@ -349,6 +349,7 @@ type Account struct {
 type AccountListItem struct {
 	ID       int64   `json:"id"`
 	Name     string  `json:"name"`
+	Supplier string  `json:"supplier"`
 	Notes    *string `json:"notes"`
 	Platform string  `json:"platform"`
 	Type     string  `json:"type"`
@@ -433,6 +434,10 @@ type AccountListItem struct {
 	ParentPrivacyMode           string `json:"parent_privacy_mode,omitempty"`
 	ParentSubscriptionExpiresAt string `json:"parent_subscription_expires_at,omitempty"`
 	ParentChatGPTAccountID      string `json:"parent_chatgpt_account_id,omitempty"`
+
+	UpstreamProviderID    *int64 `json:"upstream_provider_id,omitempty"`
+	UpstreamRemoteGroupID *int64 `json:"upstream_remote_group_id,omitempty"`
+	UpstreamProviderName  string `json:"upstream_provider_name,omitempty"`
 
 	Proxy    *Proxy  `json:"proxy,omitempty"`
 	GroupIDs []int64 `json:"group_ids,omitempty"`

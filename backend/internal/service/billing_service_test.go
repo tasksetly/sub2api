@@ -754,14 +754,14 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 			model:             "kimi-k2.6",
 			expectedInput:     0.95e-6,
 			expectedOutput:    floatPtr(4e-6),
-			expectedCacheRead: floatPtr(0.15e-6),
+			expectedCacheRead: floatPtr(1.10e-6),
 		},
 		{
 			name:              "kimi for coding explicit alias",
 			model:             "kimi-for-coding",
 			expectedInput:     0.95e-6,
 			expectedOutput:    floatPtr(4e-6),
-			expectedCacheRead: floatPtr(0.15e-6),
+			expectedCacheRead: floatPtr(1.10e-6),
 		},
 		{
 			name:              "kimi k2.5",
@@ -773,31 +773,31 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{
 			name:              "kimi k2-thinking",
 			model:             "kimi-k2-thinking",
-			expectedInput:     0.56e-6,
-			expectedOutput:    floatPtr(2.24e-6),
-			expectedCacheRead: floatPtr(0.14e-6),
+			expectedInput:     4e-6,
+			expectedOutput:    floatPtr(16e-6),
+			expectedCacheRead: floatPtr(1e-6),
 		},
 		{
 			name:              "kimi k2 base",
 			model:             "kimi-k2",
-			expectedInput:     0.56e-6,
-			expectedOutput:    floatPtr(2.24e-6),
-			expectedCacheRead: floatPtr(0.14e-6),
+			expectedInput:     4e-6,
+			expectedOutput:    floatPtr(16e-6),
+			expectedCacheRead: floatPtr(1e-6),
 		},
 		// 关键：k2.6 / k2.5 / k2-thinking 必须先于 k2 匹配
 		{
 			name:              "kimi k2.6 vs k2 ordering",
 			model:             "kimi-k2.6",
-			expectedInput:     0.95e-6, // = k2.6 不是 k2 的 0.56e-6
+			expectedInput:     0.95e-6, // = k2.6 不是 k2 的 4e-6
 			expectedOutput:    floatPtr(4e-6),
-			expectedCacheRead: floatPtr(0.15e-6),
+			expectedCacheRead: floatPtr(1.10e-6),
 		},
 		{
 			name:              "kimi k2 thinking hyphenated variant",
 			model:             "kimi-k2-thinking-preview",
-			expectedInput:     0.56e-6,
-			expectedOutput:    floatPtr(2.24e-6),
-			expectedCacheRead: floatPtr(0.14e-6),
+			expectedInput:     4e-6,
+			expectedOutput:    floatPtr(16e-6),
+			expectedCacheRead: floatPtr(1e-6),
 		},
 
 		// ---- MiniMax M 系列 ----
@@ -848,13 +848,13 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{
 			name:           "doubao embedding vision text rate",
 			model:          "doubao-embedding-vision",
-			expectedInput:  0.098e-6,
+			expectedInput:  0.7e-6,
 			expectedOutput: floatPtr(0),
 		},
 		{
 			name:          "doubao embedding vision versioned alias",
 			model:         "doubao-embedding-vision-251215",
-			expectedInput: 0.098e-6,
+			expectedInput: 0.7e-6,
 		},
 
 		// ---- 负向用例 ----
@@ -879,9 +879,9 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{
 			name:              "kimi k2-0905-preview implicit fallback to k2",
 			model:             "kimi-k2-0905-preview",
-			expectedInput:     0.56e-6,
-			expectedOutput:    floatPtr(2.24e-6),
-			expectedCacheRead: floatPtr(0.14e-6),
+			expectedInput:     4e-6,
+			expectedOutput:    floatPtr(16e-6),
+			expectedCacheRead: floatPtr(1e-6),
 		},
 	}
 
@@ -919,8 +919,8 @@ func TestGetModelPricing_DoubaoEmbeddingVisionImageInputRate(t *testing.T) {
 		pricing, err := svc.GetModelPricing(model)
 		require.NoError(t, err, "model %s should resolve fallback pricing", model)
 		require.NotNil(t, pricing)
-		require.InDelta(t, 0.098e-6, pricing.InputPricePerToken, 1e-12, "text input rate for %s", model)
-		require.InDelta(t, 0.252e-6, pricing.ImageInputPricePerToken, 1e-12, "image input rate for %s", model)
+		require.InDelta(t, 0.7e-6, pricing.InputPricePerToken, 1e-12, "text input rate for %s", model)
+		require.InDelta(t, 1.8e-6, pricing.ImageInputPricePerToken, 1e-12, "image input rate for %s", model)
 		require.Zero(t, pricing.OutputPricePerToken, "embedding has no output cost for %s", model)
 	}
 }
@@ -934,8 +934,8 @@ func TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput(t *testing.T) {
 	mixed := UsageTokens{InputTokens: 1340, ImageInputTokens: 28}
 	cost, err := svc.CalculateCost("doubao-embedding-vision", mixed, 1.0)
 	require.NoError(t, err)
-	wantText := float64(1312) * 0.098e-6
-	wantImage := float64(28) * 0.252e-6
+	wantText := float64(1312) * 0.7e-6
+	wantImage := float64(28) * 1.8e-6
 	require.InDelta(t, wantText, cost.InputCost, 1e-15, "InputCost 仅计文本输入")
 	require.InDelta(t, wantImage, cost.ImageInputCost, 1e-15, "ImageInputCost 单独计图片输入")
 	require.InDelta(t, wantText+wantImage, cost.TotalCost, 1e-15, "TotalCost 口径不变")
@@ -945,7 +945,7 @@ func TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput(t *testing.T) {
 	textOnly := UsageTokens{InputTokens: 1340}
 	costText, err := svc.CalculateCost("doubao-embedding-vision", textOnly, 1.0)
 	require.NoError(t, err)
-	require.InDelta(t, float64(1340)*0.098e-6, costText.InputCost, 1e-15)
+	require.InDelta(t, float64(1340)*0.7e-6, costText.InputCost, 1e-15)
 	require.Zero(t, costText.ImageInputCost)
 
 	// 健壮性：ImageInputTokens 超过 InputTokens 时，文本置 0、计费 token 不超过 InputTokens。
@@ -953,8 +953,8 @@ func TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput(t *testing.T) {
 	costWeird, err := svc.CalculateCost("doubao-embedding-vision", weird, 1.0)
 	require.NoError(t, err)
 	require.Zero(t, costWeird.InputCost, "全为图片输入时文本费用为 0")
-	require.InDelta(t, float64(10)*0.252e-6, costWeird.ImageInputCost, 1e-15)
-	require.InDelta(t, float64(10)*0.252e-6, costWeird.TotalCost, 1e-15)
+	require.InDelta(t, float64(10)*1.8e-6, costWeird.ImageInputCost, 1e-15)
+	require.InDelta(t, float64(10)*1.8e-6, costWeird.TotalCost, 1e-15)
 }
 
 // 复现 issue #4386：gpt-image-2 /v1/images/edits 带 1 张输入图。

@@ -858,14 +858,14 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["kimi-k2.6"] = &ModelPricing{
 		InputPricePerToken:     0.95e-6, // $0.95 per MTok (cache miss)
 		OutputPricePerToken:    4e-6,    // $4.00 per MTok
-		CacheReadPricePerToken: 0.15e-6, // $0.15 per MTok (cache hit, ¥1.10)
+		CacheReadPricePerToken: 1.10e-6, // ¥1.10 per MTok (cache hit; use the local listed amount directly)
 		SupportsCacheBreakdown: false,
 	}
 	// kimi-for-coding 走 Kimi Coding endpoint，按当前 K2.6 coding 档位兜底计费。
 	s.fallbackPrices["kimi-for-coding"] = &ModelPricing{
 		InputPricePerToken:     0.95e-6,
 		OutputPricePerToken:    4e-6,
-		CacheReadPricePerToken: 0.15e-6,
+		CacheReadPricePerToken: 1.10e-6,
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["kimi-k2.5"] = &ModelPricing{
@@ -875,15 +875,15 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["kimi-k2-thinking"] = &ModelPricing{
-		InputPricePerToken:     0.56e-6, // ¥4/百万 ≈ $0.56
-		OutputPricePerToken:    2.24e-6, // ¥16/百万
-		CacheReadPricePerToken: 0.14e-6, // ¥1/百万
+		InputPricePerToken:     4e-6,  // ¥4 per MTok
+		OutputPricePerToken:    16e-6, // ¥16 per MTok
+		CacheReadPricePerToken: 1e-6,  // ¥1 per MTok
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["kimi-k2"] = &ModelPricing{
-		InputPricePerToken:     0.56e-6, // ¥4/百万
-		OutputPricePerToken:    2.24e-6, // ¥16/百万
-		CacheReadPricePerToken: 0.14e-6, // ¥1/百万
+		InputPricePerToken:     4e-6,  // ¥4 per MTok
+		OutputPricePerToken:    16e-6, // ¥16 per MTok
+		CacheReadPricePerToken: 1e-6,  // ¥1 per MTok
 		SupportsCacheBreakdown: false,
 	}
 
@@ -930,11 +930,11 @@ func (s *BillingService) initFallbackPricing() {
 
 	// ---- 火山方舟 豆包 Embedding（多模态向量化）----
 	// doubao-embedding-vision 图文向量化：上游 usage 回传 prompt_tokens_details.{text_tokens,image_tokens}，
-	// 按量付费官方价 文本 ¥0.7/MTok、图片 ¥1.8/MTok；汇率口径 ÷7.14（与本表其他国产模型一致，¥1≈$0.14）。
+	// 按量付费官方价文本 ¥0.7/MTok、图片 ¥1.8/MTok，直接按本地记账单位计价，不做汇率换算。
 	// embedding 无 output，OutputPricePerToken 置 0。
 	s.fallbackPrices["doubao-embedding-vision"] = &ModelPricing{
-		InputPricePerToken:      0.098e-6, // ¥0.7/MTok ≈ $0.098（文本输入）
-		ImageInputPricePerToken: 0.252e-6, // ¥1.8/MTok ≈ $0.252（图片输入）
+		InputPricePerToken:      0.7e-6, // ¥0.7/MTok（文本输入）
+		ImageInputPricePerToken: 1.8e-6, // ¥1.8/MTok（图片输入）
 		OutputPricePerToken:     0,
 		SupportsCacheBreakdown:  false,
 	}

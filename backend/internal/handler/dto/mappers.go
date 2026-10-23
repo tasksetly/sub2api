@@ -471,7 +471,7 @@ func AccountListItemFromAccount(a *Account) *AccountListItem {
 		return nil
 	}
 	return &AccountListItem{
-		ID: a.ID, Name: a.Name, Notes: a.Notes, Platform: a.Platform, Type: a.Type,
+		ID: a.ID, Name: a.Name, Supplier: a.Supplier, Notes: a.Notes, Platform: a.Platform, Type: a.Type,
 		Credentials: a.Credentials, CredentialsStatus: a.CredentialsStatus, Extra: a.Extra,
 		OllamaCloudUsage: a.OllamaCloudUsage, OpenCodeGoUsage: a.OpenCodeGoUsage,
 		ProxyID: a.ProxyID, ProxyFallbackOriginID: a.ProxyFallbackOriginID, ProxyFallbackOriginName: a.ProxyFallbackOriginName,
@@ -500,7 +500,9 @@ func AccountListItemFromAccount(a *Account) *AccountListItem {
 		QuotaNotifyTotalThreshold: a.QuotaNotifyTotalThreshold, ParentAccountID: a.ParentAccountID,
 		QuotaDimension: a.QuotaDimension, ParentEmail: a.ParentEmail, ParentPlanType: a.ParentPlanType,
 		ParentPrivacyMode: a.ParentPrivacyMode, ParentSubscriptionExpiresAt: a.ParentSubscriptionExpiresAt,
-		ParentChatGPTAccountID: a.ParentChatGPTAccountID, Proxy: a.Proxy, GroupIDs: a.GroupIDs,
+		ParentChatGPTAccountID: a.ParentChatGPTAccountID,
+		UpstreamProviderID: a.UpstreamProviderID, UpstreamRemoteGroupID: a.UpstreamRemoteGroupID,
+		UpstreamProviderName: a.UpstreamProviderName, Proxy: a.Proxy, GroupIDs: a.GroupIDs,
 	}
 }
 
