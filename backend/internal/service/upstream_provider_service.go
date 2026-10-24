@@ -462,7 +462,9 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 			snapshotGroups = append(snapshotGroups, UpstreamGroup{
 				UpstreamProviderID: provider.ID, RemoteGroupID: stableNewAPIGroupID(group.Name),
 				RemoteGroupName: group.Name, Name: group.Name, Platform: PlatformOpenAI,
-				SubscriptionType: group.Desc, RateMultiplier: group.Ratio, SyncedAt: now,
+				// NewAPI 的 desc 是自由文本，不能写入本地 subscription_type（仅 20 字符，
+				// 且该字段语义是 standard/subscription，而不是上游分组描述）。
+				SubscriptionType: "", RateMultiplier: group.Ratio, SyncedAt: now,
 			})
 		}
 		if err := s.repo.ReplaceGroups(ctx, provider.ID, snapshotGroups); err != nil {
