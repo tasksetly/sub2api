@@ -12,7 +12,7 @@ export interface UpstreamProvider {
   base_url: string
   notes: string | null
 
-  /** NewAPI token-only providers have no login username. */
+  /** NewAPI providers are token-only; the token may be a nap_ dashboard PAT or sk- relay key. */
   username?: string
   has_password: boolean
   has_totp_secret: boolean
@@ -124,7 +124,7 @@ export interface CreateUpstreamProviderRequest {
   base_url: string
   username?: string
   password?: string
-  /** 手填的上游 access JWT，直接写入会话缓存；有效期从它的 exp 解析 */
+  /** NewAPI: dashboard PAT (nap_...) or relay API key (usually sk-); sub2api: access JWT */
   token?: string
   /** 与 access JWT 配对的上游 refresh token，可单独填写 */
   refresh_token?: string
@@ -142,7 +142,7 @@ export interface UpdateUpstreamProviderRequest {
   base_url: string
   username?: string
   password?: string
-  /** 非空时顶掉缓存的 access 会话；与 password 同时填时以它为准 */
+  /** NewAPI: dashboard PAT (nap_...) or relay API key; sub2api: access JWT */
   token?: string
   /** 非空时更新缓存的 refresh token，可单独补填 */
   refresh_token?: string

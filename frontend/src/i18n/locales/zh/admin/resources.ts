@@ -67,8 +67,8 @@ export default {
 
       formProviderType: '上游类型',
       providerTypeSub2API: 'sub2api（后台账号）',
-      providerTypeNewAPI: 'NewAPI（Bearer Token）',
-      formProviderTypeHelp: 'NewAPI 使用 API token；无需填写登录邮箱和密码。',
+      providerTypeNewAPI: 'NewAPI（Dashboard PAT 或 relay key）',
+      formProviderTypeHelp: 'NewAPI 可填写 nap_... Dashboard PAT 或 sk-... relay API key；无需填写登录邮箱和密码。',
 
       // 表单
       formName: '名称',
@@ -82,8 +82,8 @@ export default {
       formPasswordPlaceholderEdit: '留空则不修改',
       formToken: '上游 Token',
       formNewAPIToken: 'NewAPI Token',
-      formNewAPITokenPlaceholder: 'sk-...',
-      formNewAPITokenHelp: '填写用户在 NewAPI 后台生成的个人 API token。该 token 通过 Bearer 使用；不需要账号、密码、TOTP 或 refresh token。',
+      formNewAPITokenPlaceholder: 'nap_... 或 sk-...',
+      formNewAPITokenHelp: '填写 NewAPI Dashboard PAT（nap_...）；同步需要 profile:read，建号还需要 api_key:read、api_key:write、api_key:reveal。也可填写已有 relay API key（sk-...），用于同步并直接复用。',
       formNewAPITokenRequired: '新增或切换为 NewAPI 时必须填写 NewAPI token。',
       formTokenHelp:
         '上游做了 Cloudflare 校验、账号密码登不上去时填这里：从浏览器开发者工具里复制上游站点的 JWT 直接粘贴。只有上游登录返回 refresh token 时才能自动续期；有效期从 token 的 exp 解析，解不出按 7 天算',
@@ -139,7 +139,7 @@ export default {
       provision: '创建账号',
       provisionTitle: '在 {name} 创建账号',
       provisionHint: '勾选分组后，会在上游创建 API Key 并落地成本地账号。',
-      provisionHintNewAPI: 'NewAPI 个人 API token 会直接复用为本地账号凭据，并为每个勾选的分组落地本地账号。',
+      provisionHintNewAPI: '使用 Dashboard PAT（nap_...）时，会为每个勾选分组创建 relay API key 并保存到本地账号；使用已有 relay key（sk-...）时直接复用。',
       provisionSelectGroups: '选择分组',
       provisionPlatformAll: '全部平台',
       provisionLocalGroups: '绑定到本地分组',

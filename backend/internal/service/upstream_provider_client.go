@@ -17,11 +17,17 @@ import (
 )
 
 // 上游 sub2api / NewAPI 管理客户端。
-// NewAPI 使用用户自己生成的 API token（通常是 sk-）作为 Bearer token；
-// 该 token 不是 JWT，也不支持账号密码登录或 refresh。
+// sub2api 使用 JWT；NewAPI 当前同时存在两类凭据：
+//   - nap_...：dashboard personal access token，用于 /api/user/self、分组和 API key 管理
+//   - sk-...：relay API key，用于 /api/usage/token/ 和 /v1 转发
+//
+// 两者不能混用。
 const (
 	upstreamProviderRequestTimeout = 15 * time.Second
 	upstreamProviderMaxBodyBytes   = 512 * 1024
+
+	// NewAPI dashboard personal access token 的前缀。
+	newAPIDashboardTokenPrefix = "nap_"
 
 	// token 提前过期的安全边界：避免边界时刻拿着刚好失效的 token 请求
 	upstreamProviderTokenSkew = 5 * time.Minute
@@ -93,7 +99,8 @@ type NewAPIGroupInfo struct {
 	Desc  string
 }
 
-// NewAPI 的个人 API token 不是 JWT 登录会话，也不是 dashboard credential。
+// NewAPI 的个人凭据可能是 dashboard PAT（nap_...）或 relay API key（sk-...）。
+// 两者都是 token-only 配置，但 PAT 需要走 dashboard API，relay key 直接用于转发。
 // NewAPIQuotaPerUnit 是 NewAPI 默认的额度单位：500000 quota = $1。
 // 这是 NewAPI 的内部单位，不影响本地账号计费。
 const NewAPIQuotaPerUnit = 500000.0
@@ -117,7 +124,7 @@ type UpstreamGroupInfo struct {
 }
 
 // UpstreamCreatedKey 是本地账号要使用的上游 API Key；sub2api 会现场创建，
-// NewAPI 则直接复用用户提供的个人 API token。
+// NewAPI 的 nap_ PAT 会通过 dashboard API 创建 relay key，sk- relay key 可直接复用。
 type UpstreamCreatedKey struct {
 	ID      int64  `json:"id"`
 	Key     string `json:"key"`
@@ -226,10 +233,39 @@ func (c *UpstreamProviderClient) Login2FA(ctx context.Context, baseURL, tempToke
 	}, nil
 }
 
-// GetNewAPIProfile reads the quota available to the supplied personal API token.
-// NewAPI API tokens are relay credentials, not dashboard sessions, so the
-// token-usage endpoint is the authoritative profile/quota endpoint.
+// GetNewAPIProfile 读取 NewAPI 凭据所属用户/令牌的额度。
+//
+// NewAPI 的 nap_ 是 dashboard personal access token，必须走 UserAuth 保护的
+// /api/user/self；/api/usage/token/ 只接受 relay API key（通常是 sk-）。保留
+// sk- 分支是为了兼容已经配置 relay key 的旧 provider。
 func (c *UpstreamProviderClient) GetNewAPIProfile(ctx context.Context, baseURL, token string) (*UpstreamProfile, error) {
+	if isNewAPIDashboardToken(token) {
+		body, err := c.do(ctx, baseURL, http.MethodGet, "/api/user/self", token, nil)
+		if err != nil {
+			return nil, err
+		}
+		var self map[string]any
+		if err := json.Unmarshal(body, &self); err != nil {
+			return nil, fmt.Errorf("parse NewAPI self profile: %w", err)
+		}
+		quota, quotaKnown := self["quota"]
+		quotaKnown = quotaKnown && quota != nil
+		status := newAPIStringValue(self["status"])
+		if status == "" {
+			status = "active"
+		}
+		return &UpstreamProfile{
+			UserID:           int64(jsonNumber(self["id"])),
+			Email:            newAPIStringValue(self["email"]),
+			Username:         newAPIStringValue(self["username"]),
+			Balance:          jsonNumber(quota) / NewAPIQuotaPerUnit,
+			FrozenBalance:    0,
+			Status:           status,
+			BalanceKnown:     quotaKnown,
+			ConcurrencyKnown: false,
+		}, nil
+	}
+
 	body, err := c.do(ctx, baseURL, http.MethodGet, "/api/usage/token/", token, nil)
 	if err != nil {
 		return nil, err
@@ -256,12 +292,19 @@ func (c *UpstreamProviderClient) GetNewAPIProfile(ctx context.Context, baseURL, 
 	}, nil
 }
 
-// ListNewAPIGroups reads NewAPI's public named-group map. The special "auto" group
-// is intentionally omitted because it cannot be used as a concrete token group.
-// Personal API tokens cannot authenticate dashboard group endpoints, so no
-// dashboard credential is used.
-func (c *UpstreamProviderClient) ListNewAPIGroups(ctx context.Context, baseURL string) ([]NewAPIGroupInfo, error) {
-	body, err := c.do(ctx, baseURL, http.MethodGet, "/api/user/groups", "", nil)
+func isNewAPIDashboardToken(token string) bool {
+	return strings.HasPrefix(strings.TrimSpace(token), newAPIDashboardTokenPrefix)
+}
+
+// ListNewAPIGroups returns the groups usable by the supplied NewAPI user.
+// A nap_ PAT must use /api/user/self/groups (profile:read); the older relay-key
+// compatibility path keeps using the anonymous /api/user/groups endpoint.
+func (c *UpstreamProviderClient) ListNewAPIGroups(ctx context.Context, baseURL, token string) ([]NewAPIGroupInfo, error) {
+	path, authToken := "/api/user/groups", ""
+	if isNewAPIDashboardToken(token) {
+		path, authToken = "/api/user/self/groups", token
+	}
+	body, err := c.do(ctx, baseURL, http.MethodGet, path, authToken, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -378,6 +421,77 @@ func (c *UpstreamProviderClient) CreateAPIKey(
 		return nil, fmt.Errorf("upstream returned an empty api key")
 	}
 	return &created, nil
+}
+
+// CreateNewAPIRelayKey creates a relay API key through a NewAPI dashboard PAT.
+// NewAPI's POST /api/token/ intentionally does not return the plaintext key, so
+// the newly-created key is located by its unique name and revealed through the
+// separately scoped POST /api/token/:id/key endpoint.
+func (c *UpstreamProviderClient) CreateNewAPIRelayKey(
+	ctx context.Context, baseURL, dashboardToken, name, group string,
+) (*UpstreamCreatedKey, error) {
+	uniqueName := uniqueNewAPIKeyName(name)
+	payload := map[string]any{
+		"name":            uniqueName,
+		"group":           strings.TrimSpace(group),
+		"unlimited_quota": true,
+		"expired_time":    -1,
+	}
+	if _, err := c.do(ctx, baseURL, http.MethodPost, "/api/token/", dashboardToken, payload); err != nil {
+		return nil, err
+	}
+
+	body, err := c.do(ctx, baseURL, http.MethodGet, "/api/token/?p=1&size=100", dashboardToken, nil)
+	if err != nil {
+		return nil, err
+	}
+	var page struct {
+		Items []struct {
+			ID   int64  `json:"id"`
+			Name string `json:"name"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(body, &page); err != nil {
+		return nil, fmt.Errorf("parse NewAPI token list: %w", err)
+	}
+	var tokenID int64
+	for _, item := range page.Items {
+		if item.Name == uniqueName {
+			tokenID = item.ID
+			break
+		}
+	}
+	if tokenID <= 0 {
+		return nil, fmt.Errorf("NewAPI did not return the created relay key")
+	}
+
+	body, err = c.do(ctx, baseURL, http.MethodPost, fmt.Sprintf("/api/token/%d/key", tokenID), dashboardToken, nil)
+	if err != nil {
+		return nil, err
+	}
+	var revealed struct {
+		Key string `json:"key"`
+	}
+	if err := json.Unmarshal(body, &revealed); err != nil {
+		return nil, fmt.Errorf("parse NewAPI revealed token: %w", err)
+	}
+	if strings.TrimSpace(revealed.Key) == "" {
+		return nil, fmt.Errorf("NewAPI returned an empty relay key")
+	}
+	return &UpstreamCreatedKey{Key: revealed.Key, Name: uniqueName, Group: group}, nil
+}
+
+func uniqueNewAPIKeyName(name string) string {
+	suffix := fmt.Sprintf("-%d", time.Now().UnixNano())
+	name = strings.TrimSpace(name)
+	maxBaseLen := 50 - len(suffix)
+	if maxBaseLen < 1 {
+		maxBaseLen = 1
+	}
+	if len(name) > maxBaseLen {
+		name = name[:maxBaseLen]
+	}
+	return name + suffix
 }
 
 // do 发一次请求并解开上游的 {code,message,data} 包装，返回 data 原文。

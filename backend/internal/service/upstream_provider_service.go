@@ -96,7 +96,8 @@ type CreateUpstreamProviderInput struct {
 	TotpSecret     string
 	Notes          *string
 	SyncEnabled    bool
-	// Token 是手填的上游凭据：sub2api 为 access JWT，NewAPI 为个人 API token。
+	// Token 是手填的上游凭据：sub2api 为 access JWT，NewAPI 为 nap_ dashboard PAT
+	// 或已生成的 relay API key（通常是 sk-）。
 	// 只有 sub2api 会从 JWT 的 exp 解析有效期。
 	Token string
 	// RefreshToken 是与 sub2api access JWT 配对的 refresh token，可单独提供。
@@ -117,7 +118,8 @@ type UpdateUpstreamProviderInput struct {
 	Notes          *string
 	Status         string
 	SyncEnabled    bool
-	// Token 为空表示不修改；非空时替换当前凭据。sub2api 这里是 access JWT，NewAPI 是个人 API token。
+	// Token 为空表示不修改；非空时替换当前凭据。sub2api 这里是 access JWT，
+	// NewAPI 可以是 dashboard PAT（nap_）或 relay API key（通常是 sk-）。
 	Token string
 	// RefreshToken 为空表示不修改；非空时更新 sub2api 的 refresh token，可单独补填。
 	RefreshToken string
@@ -450,7 +452,7 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 	var groups []UpstreamGroupInfo
 	var rates map[int64]float64
 	if provider.ProviderType == UpstreamProviderTypeNewAPI {
-		newGroups, groupErr := s.client.ListNewAPIGroups(ctx, provider.BaseURL)
+		newGroups, groupErr := s.client.ListNewAPIGroups(ctx, provider.BaseURL, token)
 		if groupErr != nil {
 			return fmt.Errorf("fetch NewAPI groups: %w", groupErr)
 		}
@@ -599,9 +601,20 @@ func (s *UpstreamProviderService) ProvisionAccounts(
 		accountName := s.buildAccountName(input.KeyNamePrefix, provider.Name, group.Name)
 		var created *UpstreamCreatedKey
 		if provider.ProviderType == UpstreamProviderTypeNewAPI {
-			// NewAPI 的 API token 是用户在后台自行生成的个人 token，
-			// 不能也不需要通过 dashboard 接口再次创建；直接复用即可。
-			created = &UpstreamCreatedKey{Key: token}
+			if isNewAPIDashboardToken(token) {
+				// nap_ 是 dashboard PAT，不能直接作为 /v1 relay 凭据；
+				// 使用它创建并 reveal 一个绑定真实分组名称的 relay key。
+				groupName := strings.TrimSpace(group.RemoteGroupName)
+				if groupName == "" {
+					groupName = group.Name
+				}
+				created, err = s.client.CreateNewAPIRelayKey(
+					ctx, provider.BaseURL, token, accountName, groupName,
+				)
+			} else {
+				// 已有 relay API key 可以直接作为本地账号凭据复用。
+				created = &UpstreamCreatedKey{Key: token, Group: group.Name}
+			}
 		} else {
 			created, err = s.client.CreateAPIKey(ctx, provider.BaseURL, token, accountName, remoteGroupID)
 		}
@@ -811,7 +824,7 @@ func (s *UpstreamProviderService) syncUpstreamModels(
 }
 
 // ensureToken 返回可用的上游凭据：sub2api 缓存有效就直接用，否则优先使用 refresh token
-// 续期；refresh 失败时再用密码重新登录。NewAPI 只返回用户提供的个人 API token。
+// 续期；刷新失败再用密码重新登录。NewAPI 只返回用户提供的 nap_ PAT 或 relay key。
 func (s *UpstreamProviderService) ensureToken(ctx context.Context, provider *UpstreamProvider) (string, error) {
 	if provider.ProviderType == UpstreamProviderTypeNewAPI {
 		if strings.TrimSpace(provider.Token) == "" {

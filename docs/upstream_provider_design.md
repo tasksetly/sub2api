@@ -3,9 +3,9 @@
 本功能同时支持两种协议，`upstream_providers.provider_type` 区分：
 
 - `sub2api`：后台账号密码或 sub2api JWT，使用 `/api/v1/*` 管理接口。
-- `newapi`：使用用户在 NewAPI 后台自行生成的个人 API token（通常为 `sk-`）作为 Bearer token。它不是 JWT，也不需要账号、密码、TOTP 或 refresh token；该 token 可查询自身额度并直接作为本地账号凭据。
+- `newapi`：使用 NewAPI 后台生成的 `nap_...` Dashboard Personal Access Token，或已有的 relay API key（通常为 `sk-...`）。两者都不需要账号、密码、TOTP 或 refresh token；PAT 用于 dashboard 管理接口，relay key 用于 `/v1` 和 token 用量接口。
 
-NewAPI 的分组是字符串名称而不是数字 ID，名称保存在 `upstream_groups.remote_group_name`，`remote_group_id` 使用名称的稳定哈希以兼容现有建号接口和前端选择模型。NewAPI API token 不访问 dashboard，分组从公开的 `/api/user/groups` 读取，余额来自 `/api/usage/token/`，按 NewAPI 默认的 `500000 quota = $1` 转换。
+NewAPI 的分组是字符串名称而不是数字 ID，名称保存在 `upstream_groups.remote_group_name`，`remote_group_id` 使用名称的稳定哈希以兼容现有建号接口和前端选择模型。使用 `nap_...` 时，余额来自 `/api/user/self`，分组来自 `/api/user/self/groups`；使用 relay key 时，余额来自 `/api/usage/token/`，分组来自公开的 `/api/user/groups`。额度按 NewAPI 默认的 `500000 quota = $1` 转换。
 
 NewAPI 管理地址统一按站点根地址保存；如果输入地址以 `/v1` 结尾，服务层会去掉该后缀，避免管理接口变成 `/v1/api/...`。只有落地本地 OpenAI 账号时才在凭据 `base_url` 末尾追加 `/v1`。
 
@@ -16,11 +16,11 @@ NewAPI 管理地址统一按站点根地址保存；如果输入地址以 `/v1` 
 
 目标：在本地管理端集中管理所有上游，做到
 
-1. sub2api 使用后台账号密码或已有 JWT；NewAPI 直接使用用户自己生成的个人 API token
+1. sub2api 使用后台账号密码或已有 JWT；NewAPI 使用 `nap_...` Dashboard PAT 或已有 relay API key
 2. sub2api access JWT 到期前优先用 refresh token 换发新 token；NewAPI 不进行登录或 refresh
-3. 拉取上游的分组（含倍率、限额）、账户余额、并发限制
-4. sub2api 可直接在上游创建 API Key；NewAPI 复用用户提供的个人 API token 作为本地账号凭据
-5. 一张表横向比价：分组倍率 + 限额、余额 + 并发、本地实际用量成本
+3. 拉取上游的分组（含倍率）、账户余额，并保留可用的额度快照
+4. sub2api 可直接在上游创建 API Key；NewAPI 的 `nap_...` PAT 通过 dashboard API 创建 relay key，已有 relay key 可直接复用
+5. 一张表横向比价：分组倍率、余额、本地实际用量成本
 
 ## 2. 关键设计决策
 
@@ -31,12 +31,12 @@ NewAPI 管理地址统一按站点根地址保存；如果输入地址以 `/v1` 
 
 | | upstream_billing_probe（已有） | 本功能（新增） |
 |---|---|---|
-| 凭据 | 账号的 API Key | sub2api 后台账号密码/JWT；NewAPI 用户个人 API token |
-| 能看到 | 该 Key 已绑定分组的倍率 | 全部可用分组 + 余额 + 并发 |
-| 能否建 Key | 否 | sub2api 可以；NewAPI 直接复用用户提供的 API token |
-| 前提 | 账号已存在 | sub2api 账号还不存在；NewAPI token 已由用户在后台生成 |
+| 凭据 | 账号的 API Key | sub2api 后台账号密码/JWT；NewAPI `nap_...` PAT 或 relay API key |
+| 能看到 | 该 Key 已绑定分组的倍率 | 全部可用分组 + 余额 |
+| 能否建 Key | 否 | sub2api 直接创建；NewAPI PAT 通过 dashboard token 管理接口创建 |
+| 前提 | 账号已存在 | sub2api 账号还不存在；NewAPI PAT 需要相应的 profile/API key scopes |
 
-所以本功能沿用它的约定（超时、响应体上限、错误分类口径），但独立实现。NewAPI 只使用用户手工生成的个人 API token，不尝试用账号密码登录，也不把它解析或当作 JWT 使用。
+所以本功能沿用它的约定（超时、响应体上限、错误分类口径），但独立实现。NewAPI 使用用户手工提供的 dashboard PAT 或 relay API key，不尝试用账号密码登录，也不把它解析为 JWT。
 
 ### 2.2 上游接口来源
 
@@ -52,20 +52,25 @@ NewAPI 管理地址统一按站点根地址保存；如果输入地址以 `/v1` 
 | 专属倍率覆盖 | `GET /api/v1/groups/rates` | `internal/server/routes/user.go:89` |
 | 创建 API Key | `POST /api/v1/keys` | `internal/server/routes/user.go:80` |
 
-NewAPI 使用用户个人 API token，不经过 sub2api 的 JWT 登录流程，也不调用 token 管理端点：
+NewAPI 的鉴权取决于凭据类型：
 
-| 用途 | 接口 | 说明 |
+| 用途 | `nap_...` Dashboard PAT | `sk-...` relay API key |
 |---|---|---|
-| token 用量/余额 | `GET /api/usage/token/` | API token 的权威额度接口，按 `quota / 500000` 转换 |
-| 可用分组 | `GET /api/user/groups` | 公开分组名称和倍率，不需要 dashboard 登录 |
-| 本地账号凭据 | 用户提供的 `sk-` token | NewAPI API token 直接复用，不在本地或远程再次创建 |
+| 余额/用户信息 | `GET /api/user/self`（需要 `profile:read`） | `GET /api/usage/token/` |
+| 可用分组 | `GET /api/user/self/groups`（需要 `profile:read`） | `GET /api/user/groups` |
+| 创建 relay key | `POST /api/token/`（需要 `api_key:write`） | 不适用 |
+| 查询新 key | `GET /api/token/?p=1&size=100`（需要 `api_key:read`） | 不适用 |
+| reveal 新 key | `POST /api/token/:id/key`（需要 `api_key:reveal`） | 不适用 |
+| 本地账号凭据 | PAT 创建并 reveal 的 relay key | 直接复用该 relay key |
+
+NewAPI 的 `/api/usage/token/` 由 `TokenAuthReadOnly` 处理，会按 `model.Token` 查 relay key；`nap_...` 属于 `model.UserAccessToken`，送到该接口会得到未授权。
 
 NewAPI 的 token usage envelope 返回 `success` 或布尔 `code`；客户端同时兼容这些格式和 sub2api 的数字 `code` envelope。
 
 ### 2.3 凭据必须可逆加密
 
-sub2api 的 access JWT 不能在本地重新签名... 因此 sub2api 的 password、access token、refresh token 都需要可逆加密。
-NewAPI 不登录、不 refresh，只保存用户在其后台生成的个人 API token；该 token 同样按 AES-256-GCM 加密存储。
+sub2api 的 access JWT 不能在本地重新签名，因此 sub2api 的 password、access token、refresh token 都需要可逆加密。
+NewAPI 不登录、不 refresh；`nap_...` PAT 或 relay key 同样按 AES-256-GCM 加密存储。
 复用已有的 `internal/repository/aes_encryptor.go`（AES-256-GCM，实现
 `service.SecretEncryptor`，密钥取自 `cfg.Totp.EncryptionKey`）。加解密边界收在仓储层：
 service 层拿到的凭据始终是明文，DTO 层则完全不回传。
@@ -124,7 +129,7 @@ migrations/246_newapi_upstream_providers.sql
 
 internal/service/upstream_provider.go          领域模型 + 仓储接口
 internal/service/upstream_provider_client.go   上游 HTTP 客户端
-internal/service/upstream_provider_service.go  sub2api 登录/refresh 与 NewAPI token-only 同步/建号编排
+internal/service/upstream_provider_service.go  sub2api 登录/refresh 与 NewAPI PAT/relay-token 同步、建号编排
 internal/service/upstream_provider_runner.go   30 分钟定时同步
 internal/repository/upstream_provider_repo.go  持久化（含加解密边界）
 internal/handler/dto/upstream_provider.go      响应 DTO
@@ -165,11 +170,12 @@ internal/handler/admin/upstream_provider_handler.go
 | 上游开了验证码（sub2api） | `UPSTREAM_PROVIDER_CAPTCHA_REQUIRED` | 自动登录彻底不可行，需手动 token |
 | 上游开了 2FA 但本地没存密钥（sub2api） | `UPSTREAM_PROVIDER_TOTP_REQUIRED` | 补个 TOTP 密钥即可 |
 | 密码错（sub2api） | `UPSTREAM_PROVIDER_UNAUTHORIZED` | 重填密码 |
-| NewAPI 个人 API token 无效/被撤销 | `UPSTREAM_PROVIDER_UNAUTHORIZED` | 在 NewAPI 后台重新生成个人 API token 并替换；不尝试账号密码登录或 refresh |
+| NewAPI `nap_...` PAT 无效或缺少 `profile:read` | `UPSTREAM_PROVIDER_UNAUTHORIZED` | 在 NewAPI 后台生成带 `profile:read` 的 PAT 并替换 |
+| NewAPI PAT 建号缺少 API key scopes | 上游权限错误 | 为 PAT 补充 `api_key:read`、`api_key:write`、`api_key:reveal`，或改用已有 relay API key |
+| NewAPI relay API key 无效/被撤销 | `UPSTREAM_PROVIDER_UNAUTHORIZED` | 在 NewAPI 后台重新生成 relay API key 并替换 |
 | refresh token 失效（sub2api） | 上游认证错误 | 有密码时自动回退登录；无密码时需重新粘贴 token |
 
-access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token 失效时，有密码的 sub2api 上游
-自动回退密码登录并覆盖旧会话；NewAPI 个人 API token 不解析为 JWT，也没有登录/refresh 续期流程。
+access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token 失效时，有密码的 sub2api 上游自动回退密码登录并覆盖旧会话；NewAPI PAT/relay key 不解析为 JWT，也没有登录/refresh 续期流程。
 失败原因落 `last_sync_error`，前端直接展示。
 
 其他：
@@ -183,9 +189,9 @@ access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token �
 
 - [x] Ent schema + `go generate ./ent`
 - [x] SQL 迁移 221 + 246（NewAPI provider type、token-only 凭据和命名分组）
-- [x] 上游 HTTP 客户端（sub2api 登录/refresh/4 个管理接口 + 2FA；NewAPI token quota/分组接口）
+- [x] 上游 HTTP 客户端（sub2api 登录/refresh/4 个管理接口 + 2FA；NewAPI PAT/relay token 的 profile、分组和 relay key 接口）
 - [x] 仓储层（含加解密、本地成本聚合、倍率区间）
-- [x] 服务层（sub2api 登录/refresh token 续期；NewAPI token-only 同步/建号）
+- [x] 服务层（sub2api 登录/refresh token 续期；NewAPI PAT/relay-token 同步与建号）
 - [x] DTO + 管理端 Handler + 路由
 - [x] Wire DI 全链路（`cmd/server/wire_gen.go:226-228`）
 - [x] 30 分钟定时同步 runner（leader lock 防重）
@@ -195,7 +201,7 @@ access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token �
 - [ ] runner 注册进 Wire 的 cleanup 链（`Stop()` 优雅退出）
 - [x] 前端上游管理页（列表/新增/编辑/测试/同步/勾选建号）+ i18n + TS 类型
 - [x] 上游登录/refresh/手工 token 单元测试
-- [x] NewAPI token quota、用量回退、分组同步客户端测试
+- [x] NewAPI PAT `/api/user/self`、PAT 分组、relay token quota 和分组同步客户端测试
 - [ ] `go test -tags=unit ./...` 与 `golangci-lint run ./...`
 
 ## 8. 环境注意

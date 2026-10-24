@@ -300,7 +300,7 @@ func TestUpstreamProviderHasValidToken(t *testing.T) {
 		provider UpstreamProvider
 		want     bool
 	}{
-		{"newapi personal API token", UpstreamProvider{ProviderType: UpstreamProviderTypeNewAPI, Token: "sk-personal"}, true},
+		{"newapi relay API key", UpstreamProvider{ProviderType: UpstreamProviderTypeNewAPI, Token: "sk-personal"}, true},
 		{"no token", UpstreamProvider{TokenExpiresAt: &future}, false},
 		{"no expiry", UpstreamProvider{Token: "t"}, false},
 		{"valid", UpstreamProvider{Token: "t", TokenExpiresAt: &future}, true},
@@ -396,9 +396,77 @@ func TestUpstreamClientListNewAPIGroupsPreservesNamesAndOmitsAuto(t *testing.T) 
 	}))
 	defer server.Close()
 
-	groups, err := NewUpstreamProviderClient().ListNewAPIGroups(context.Background(), server.URL)
+	groups, err := NewUpstreamProviderClient().ListNewAPIGroups(context.Background(), server.URL, "sk-ordinary")
 	require.NoError(t, err)
 	require.Len(t, groups, 1)
 	require.Equal(t, "vip", groups[0].Name)
 	require.Equal(t, 1.5, groups[0].Ratio)
+}
+
+func TestUpstreamClientListNewAPIGroupsUsesDashboardPAT(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/user/self/groups", r.URL.Path)
+		require.Equal(t, "Bearer nap-test-token", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"vip":{"ratio":0.75,"desc":"VIP"}}}`))
+	}))
+	defer server.Close()
+
+	groups, err := NewUpstreamProviderClient().ListNewAPIGroups(context.Background(), server.URL, "nap-test-token")
+	require.NoError(t, err)
+	require.Len(t, groups, 1)
+	require.Equal(t, "vip", groups[0].Name)
+	require.Equal(t, 0.75, groups[0].Ratio)
+}
+
+func TestUpstreamClientGetNewAPIProfileUsesDashboardPAT(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		require.Equal(t, "Bearer nap-test-token", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"message":"","data":{"id":42,"username":"alice","email":"alice@example.com","quota":1500000,"status":1}}`))
+	}))
+	defer server.Close()
+
+	profile, err := NewUpstreamProviderClient().GetNewAPIProfile(context.Background(), server.URL, "nap-test-token")
+	require.NoError(t, err)
+	require.Equal(t, "/api/user/self", gotPath)
+	require.Equal(t, int64(42), profile.UserID)
+	require.Equal(t, "alice@example.com", profile.Email)
+	require.Equal(t, 3.0, profile.Balance)
+	require.True(t, profile.BalanceKnown)
+}
+
+func TestUpstreamClientCreateNewAPIRelayKey(t *testing.T) {
+	var createdName string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "Bearer nap-test-token", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/token/":
+			var payload struct {
+				Name  string `json:"name"`
+				Group string `json:"group"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+			require.Equal(t, "vip", payload.Group)
+			createdName = payload.Name
+			_, _ = w.Write([]byte(`{"success":true,"message":""}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/token/":
+			_, _ = w.Write([]byte(`{"success":true,"message":"","data":{"items":[{"id":7,"name":"` + createdName + `"}]}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/token/7/key":
+			_, _ = w.Write([]byte(`{"success":true,"message":"","data":{"key":"sk-created-relay-key"}}`))
+		default:
+			t.Fatalf("unexpected NewAPI request: %s %s", r.Method, r.URL.RequestURI())
+		}
+	}))
+	defer server.Close()
+
+	created, err := NewUpstreamProviderClient().CreateNewAPIRelayKey(
+		context.Background(), server.URL, "nap-test-token", "provider-vip", "vip",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "sk-created-relay-key", created.Key)
+	require.Equal(t, "vip", created.Group)
 }

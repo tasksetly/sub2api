@@ -9,13 +9,13 @@ import (
 
 // UpstreamProvider 是一个上游 sub2api / NewAPI 供应商。
 //
-// sub2api 密码/TOTP/access token/refresh token，以及 NewAPI 个人 API token，
+// sub2api 密码/TOTP/access token/refresh token，以及 NewAPI 的 dashboard PAT 或 relay API key，
 // 在仓储层用 AES-256-GCM 加解密；这里的字段是明文，但绝不能进入 DTO 响应——
 // 见 dto.UpstreamProviderFromService。
 const (
 	// UpstreamProviderTypeSub2API 使用 sub2api 自有 JWT 管理接口。
 	UpstreamProviderTypeSub2API = "sub2api"
-	// UpstreamProviderTypeNewAPI 使用用户在 NewAPI 后台生成的个人 API token。
+	// UpstreamProviderTypeNewAPI 使用 NewAPI dashboard PAT（nap_）或 relay API key。
 	UpstreamProviderTypeNewAPI = "newapi"
 )
 
