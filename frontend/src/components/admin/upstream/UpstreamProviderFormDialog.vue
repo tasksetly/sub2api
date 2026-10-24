@@ -6,6 +6,12 @@
   >
     <form class="space-y-4" @submit.prevent="handleSubmit">
       <div>
+        <label class="input-label">{{ t('admin.upstreamProviders.formProviderType') }}</label>
+        <Select v-model="form.provider_type" :options="providerTypeOptions" />
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.upstreamProviders.formProviderTypeHelp') }}</p>
+      </div>
+
+      <div>
         <label class="input-label">{{ t('admin.upstreamProviders.formName') }}</label>
         <input v-model="form.name" type="text" class="input" required />
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.upstreamProviders.formNameHelp') }}</p>
@@ -23,12 +29,12 @@
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.upstreamProviders.formBaseURLHelp') }}</p>
       </div>
 
-      <div>
+      <div v-if="form.provider_type === 'sub2api'">
         <label class="input-label">{{ t('admin.upstreamProviders.formUsername') }}</label>
-        <input v-model="form.username" type="email" class="input" required />
+        <input v-model="form.username" type="email" class="input" :required="form.provider_type === 'sub2api'" />
       </div>
 
-      <div>
+      <div v-if="form.provider_type === 'sub2api'">
         <label class="input-label">{{ t('admin.upstreamProviders.formPassword') }}</label>
         <input
           v-model="form.password"
@@ -47,7 +53,13 @@
       </div>
 
       <div>
-        <label class="input-label">{{ t('admin.upstreamProviders.formToken') }}</label>
+        <label class="input-label">
+          {{
+            form.provider_type === 'newapi'
+              ? t('admin.upstreamProviders.formNewAPIToken')
+              : t('admin.upstreamProviders.formToken')
+          }}
+        </label>
         <textarea
           v-model="form.token"
           rows="3"
@@ -55,16 +67,20 @@
           autocomplete="off"
           spellcheck="false"
           :placeholder="
-            editing && editing.has_token
-              ? t('admin.upstreamProviders.formPasswordPlaceholderEdit')
-              : t('admin.upstreamProviders.formTokenPlaceholder')
+            form.provider_type === 'newapi'
+              ? t('admin.upstreamProviders.formNewAPITokenPlaceholder')
+              : editing && editing.has_token
+                ? t('admin.upstreamProviders.formPasswordPlaceholderEdit')
+                : t('admin.upstreamProviders.formTokenPlaceholder')
           "
         ></textarea>
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
           {{
-            editing
-              ? t('admin.upstreamProviders.formTokenHelpEdit')
-              : t('admin.upstreamProviders.formTokenHelp')
+            form.provider_type === 'newapi'
+              ? t('admin.upstreamProviders.formNewAPITokenHelp')
+              : editing
+                ? t('admin.upstreamProviders.formTokenHelpEdit')
+                : t('admin.upstreamProviders.formTokenHelp')
           }}
         </p>
         <!-- 只有 token 没有密码的上游过期后无法自愈，把到期时间摆在管理员眼前 -->
@@ -73,7 +89,7 @@
         </p>
       </div>
 
-      <div>
+      <div v-if="form.provider_type === 'sub2api'">
         <label class="input-label">{{ t('admin.upstreamProviders.formRefreshToken') }}</label>
         <textarea
           v-model="form.refresh_token"
@@ -96,12 +112,16 @@
         </p>
       </div>
 
-      <!-- 新增时密码、access token、refresh token 至少填写一个，浏览器的 required 管不了这种跨字段约束 -->
+      <!-- 新增或切换协议时的凭据约束，浏览器的 required 管不了这种跨字段约束 -->
       <p v-if="credentialsError" class="text-xs text-red-600 dark:text-red-400">
-        {{ t('admin.upstreamProviders.formTokenRequired') }}
+        {{
+          form.provider_type === 'newapi'
+            ? t('admin.upstreamProviders.formNewAPITokenRequired')
+            : t('admin.upstreamProviders.formTokenRequired')
+        }}
       </p>
 
-      <div>
+      <div v-if="form.provider_type === 'sub2api'">
         <label class="input-label">{{ t('admin.upstreamProviders.formTotpSecret') }}</label>
         <input
           v-model="form.totp_secret"
@@ -194,6 +214,7 @@ const { t } = useI18n()
 
 function emptyForm() {
   return {
+    provider_type: 'sub2api' as 'sub2api' | 'newapi',
     name: '',
     base_url: '',
     username: '',
@@ -219,6 +240,12 @@ function normalizedRateCorrection(): number {
 }
 
 const form = ref(emptyForm())
+
+const providerTypeOptions = computed(() => [
+  { value: 'sub2api', label: t('admin.upstreamProviders.providerTypeSub2API') },
+  { value: 'newapi', label: t('admin.upstreamProviders.providerTypeNewAPI') }
+])
+
 const credentialsError = ref(false)
 
 const statusOptions = computed(() => [
@@ -230,7 +257,7 @@ const statusOptions = computed(() => [
 // 没有自动续期手段，得管理员再贴一个，所以这里额外点明。
 const tokenExpiryHint = computed(() => {
   const provider = props.editing
-  if (!provider?.has_token || !provider.token_expires_at) return ''
+  if (!provider?.has_token || !provider.token_expires_at || provider.provider_type === 'newapi') return ''
 
   const expiresAt = new Date(provider.token_expires_at)
   if (Number.isNaN(expiresAt.getTime())) return ''
@@ -263,9 +290,10 @@ watch(
     credentialsError.value = false
     if (editing) {
       form.value = {
+        provider_type: editing.provider_type ?? 'sub2api',
         name: editing.name,
         base_url: editing.base_url,
-        username: editing.username,
+        username: editing.username ?? '',
         password: '',
         token: '',
         refresh_token: '',
@@ -286,9 +314,18 @@ function handleSubmit() {
   const token = form.value.token.trim()
   const refreshToken = form.value.refresh_token.trim()
 
-  // 新增时至少提供一种凭据：密码、access token 或 refresh token。
-  // 编辑时都可留空（表示不修改），已有凭据不该被这条挡住。
-  if (!props.editing && form.value.password === '' && token === '' && refreshToken === '') {
+  // 新增或切换协议时至少提供一种可用凭据；同类型编辑留空表示不修改。
+  const missingNewAPIToken =
+    form.value.provider_type === 'newapi' &&
+    (!props.editing || props.editing.provider_type !== 'newapi') &&
+    token === ''
+  const missingSub2APICredential =
+    form.value.provider_type === 'sub2api' &&
+    (!props.editing || props.editing.provider_type !== 'sub2api') &&
+    form.value.password === '' &&
+    token === '' &&
+    refreshToken === ''
+  if (missingNewAPIToken || missingSub2APICredential) {
     credentialsError.value = true
     return
   }
@@ -296,6 +333,7 @@ function handleSubmit() {
 
   const notes = form.value.notes.trim()
   const base = {
+    provider_type: form.value.provider_type,
     name: form.value.name.trim(),
     base_url: form.value.base_url.trim(),
     username: form.value.username.trim(),

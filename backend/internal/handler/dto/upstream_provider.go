@@ -12,10 +12,11 @@ import (
 // 只能重新填一次，不提供回显——回显等于给任何拿到管理端会话的人一份明文凭据。
 // HasPassword/HasTotpSecret 只告诉前端「有没有配」，用于渲染占位提示。
 type UpstreamProvider struct {
-	ID      int64   `json:"id"`
-	Name    string  `json:"name"`
-	BaseURL string  `json:"base_url"`
-	Notes   *string `json:"notes"`
+	ID           int64   `json:"id"`
+	ProviderType string  `json:"provider_type"`
+	Name         string  `json:"name"`
+	BaseURL      string  `json:"base_url"`
+	Notes        *string `json:"notes"`
 
 	Username      string `json:"username"`
 	HasPassword   bool   `json:"has_password"`
@@ -62,6 +63,7 @@ type UpstreamGroup struct {
 	ID                 int64  `json:"id"`
 	UpstreamProviderID int64  `json:"upstream_provider_id"`
 	RemoteGroupID      int64  `json:"remote_group_id"`
+	RemoteGroupName    string `json:"remote_group_name,omitempty"`
 	Name               string `json:"name"`
 	Platform           string `json:"platform"`
 	SubscriptionType   string `json:"subscription_type"`
@@ -116,6 +118,7 @@ func UpstreamProviderFromService(p *service.UpstreamProvider) *UpstreamProvider 
 	}
 	return &UpstreamProvider{
 		ID:                  p.ID,
+		ProviderType:        p.ProviderType,
 		Name:                p.Name,
 		BaseURL:             p.BaseURL,
 		Notes:               p.Notes,
@@ -166,6 +169,7 @@ func UpstreamGroupFromService(g *service.UpstreamGroup) *UpstreamGroup {
 		ID:                      g.ID,
 		UpstreamProviderID:      g.UpstreamProviderID,
 		RemoteGroupID:           g.RemoteGroupID,
+		RemoteGroupName:         g.RemoteGroupName,
 		Name:                    g.Name,
 		Platform:                g.Platform,
 		SubscriptionType:        g.SubscriptionType,

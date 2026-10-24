@@ -34,6 +34,13 @@
 
             <td class="px-3 py-3">
               <div class="font-medium text-gray-900 dark:text-white">{{ provider.name }}</div>
+              <span class="badge badge-gray">
+                {{
+                  provider.provider_type === 'newapi'
+                    ? t('admin.upstreamProviders.providerTypeNewAPI')
+                    : t('admin.upstreamProviders.providerTypeSub2API')
+                }}
+              </span>
               <div class="max-w-[220px] truncate text-xs text-gray-500 dark:text-gray-400">
                 {{ provider.base_url }}
               </div>
@@ -54,7 +61,12 @@
                 <!-- 只有 token 的上游（被 CF 挡住、登不上去）是正常配置，
                      不该报「未配置密码」；没有 refresh token 时到期后无法自动续期。 -->
                 <span
-                  v-if="!provider.has_password && provider.has_token && !provider.has_refresh_token"
+                  v-if="
+                    provider.provider_type !== 'newapi' &&
+                    !provider.has_password &&
+                    provider.has_token &&
+                    !provider.has_refresh_token
+                  "
                   class="badge"
                   :class="isTokenExpired(provider) ? 'badge-warning' : 'badge-primary'"
                   :title="tokenBadgeTitle(provider)"
@@ -65,7 +77,10 @@
                       : t('admin.upstreamProviders.tokenAuth')
                   }}
                 </span>
-                <span v-else-if="!provider.has_password && !provider.has_refresh_token" class="badge badge-warning">
+                <span
+                  v-else-if="provider.provider_type !== 'newapi' && !provider.has_password && !provider.has_refresh_token"
+                  class="badge badge-warning"
+                >
                   {{ t('admin.upstreamProviders.noPassword') }}
                 </span>
               </div>

@@ -66,6 +66,20 @@ func (_c *UpstreamProviderCreate) SetNillableDeletedAt(v *time.Time) *UpstreamPr
 	return _c
 }
 
+// SetProviderType sets the "provider_type" field.
+func (_c *UpstreamProviderCreate) SetProviderType(v string) *UpstreamProviderCreate {
+	_c.mutation.SetProviderType(v)
+	return _c
+}
+
+// SetNillableProviderType sets the "provider_type" field if the given value is not nil.
+func (_c *UpstreamProviderCreate) SetNillableProviderType(v *string) *UpstreamProviderCreate {
+	if v != nil {
+		_c.SetProviderType(*v)
+	}
+	return _c
+}
+
 // SetName sets the "name" field.
 func (_c *UpstreamProviderCreate) SetName(v string) *UpstreamProviderCreate {
 	_c.mutation.SetName(v)
@@ -95,6 +109,14 @@ func (_c *UpstreamProviderCreate) SetNillableNotes(v *string) *UpstreamProviderC
 // SetUsername sets the "username" field.
 func (_c *UpstreamProviderCreate) SetUsername(v string) *UpstreamProviderCreate {
 	_c.mutation.SetUsername(v)
+	return _c
+}
+
+// SetNillableUsername sets the "username" field if the given value is not nil.
+func (_c *UpstreamProviderCreate) SetNillableUsername(v *string) *UpstreamProviderCreate {
+	if v != nil {
+		_c.SetUsername(*v)
+	}
 	return _c
 }
 
@@ -367,6 +389,10 @@ func (_c *UpstreamProviderCreate) defaults() error {
 		v := upstreamprovider.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.ProviderType(); !ok {
+		v := upstreamprovider.DefaultProviderType
+		_c.mutation.SetProviderType(v)
+	}
 	if _, ok := _c.mutation.RateCorrection(); !ok {
 		v := upstreamprovider.DefaultRateCorrection
 		_c.mutation.SetRateCorrection(v)
@@ -390,6 +416,14 @@ func (_c *UpstreamProviderCreate) check() error {
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "UpstreamProvider.updated_at"`)}
 	}
+	if _, ok := _c.mutation.ProviderType(); !ok {
+		return &ValidationError{Name: "provider_type", err: errors.New(`ent: missing required field "UpstreamProvider.provider_type"`)}
+	}
+	if v, ok := _c.mutation.ProviderType(); ok {
+		if err := upstreamprovider.ProviderTypeValidator(v); err != nil {
+			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`ent: validator failed for field "UpstreamProvider.provider_type": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "UpstreamProvider.name"`)}
 	}
@@ -405,9 +439,6 @@ func (_c *UpstreamProviderCreate) check() error {
 		if err := upstreamprovider.BaseURLValidator(v); err != nil {
 			return &ValidationError{Name: "base_url", err: fmt.Errorf(`ent: validator failed for field "UpstreamProvider.base_url": %w`, err)}
 		}
-	}
-	if _, ok := _c.mutation.Username(); !ok {
-		return &ValidationError{Name: "username", err: errors.New(`ent: missing required field "UpstreamProvider.username"`)}
 	}
 	if v, ok := _c.mutation.Username(); ok {
 		if err := upstreamprovider.UsernameValidator(v); err != nil {
@@ -474,6 +505,10 @@ func (_c *UpstreamProviderCreate) createSpec() (*UpstreamProvider, *sqlgraph.Cre
 	if value, ok := _c.mutation.DeletedAt(); ok {
 		_spec.SetField(upstreamprovider.FieldDeletedAt, field.TypeTime, value)
 		_node.DeletedAt = &value
+	}
+	if value, ok := _c.mutation.ProviderType(); ok {
+		_spec.SetField(upstreamprovider.FieldProviderType, field.TypeString, value)
+		_node.ProviderType = value
 	}
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(upstreamprovider.FieldName, field.TypeString, value)
@@ -661,6 +696,18 @@ func (u *UpstreamProviderUpsert) ClearDeletedAt() *UpstreamProviderUpsert {
 	return u
 }
 
+// SetProviderType sets the "provider_type" field.
+func (u *UpstreamProviderUpsert) SetProviderType(v string) *UpstreamProviderUpsert {
+	u.Set(upstreamprovider.FieldProviderType, v)
+	return u
+}
+
+// UpdateProviderType sets the "provider_type" field to the value that was provided on create.
+func (u *UpstreamProviderUpsert) UpdateProviderType() *UpstreamProviderUpsert {
+	u.SetExcluded(upstreamprovider.FieldProviderType)
+	return u
+}
+
 // SetName sets the "name" field.
 func (u *UpstreamProviderUpsert) SetName(v string) *UpstreamProviderUpsert {
 	u.Set(upstreamprovider.FieldName, v)
@@ -712,6 +759,12 @@ func (u *UpstreamProviderUpsert) SetUsername(v string) *UpstreamProviderUpsert {
 // UpdateUsername sets the "username" field to the value that was provided on create.
 func (u *UpstreamProviderUpsert) UpdateUsername() *UpstreamProviderUpsert {
 	u.SetExcluded(upstreamprovider.FieldUsername)
+	return u
+}
+
+// ClearUsername clears the value of the "username" field.
+func (u *UpstreamProviderUpsert) ClearUsername() *UpstreamProviderUpsert {
+	u.SetNull(upstreamprovider.FieldUsername)
 	return u
 }
 
@@ -1047,6 +1100,20 @@ func (u *UpstreamProviderUpsertOne) ClearDeletedAt() *UpstreamProviderUpsertOne 
 	})
 }
 
+// SetProviderType sets the "provider_type" field.
+func (u *UpstreamProviderUpsertOne) SetProviderType(v string) *UpstreamProviderUpsertOne {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.SetProviderType(v)
+	})
+}
+
+// UpdateProviderType sets the "provider_type" field to the value that was provided on create.
+func (u *UpstreamProviderUpsertOne) UpdateProviderType() *UpstreamProviderUpsertOne {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.UpdateProviderType()
+	})
+}
+
 // SetName sets the "name" field.
 func (u *UpstreamProviderUpsertOne) SetName(v string) *UpstreamProviderUpsertOne {
 	return u.Update(func(s *UpstreamProviderUpsert) {
@@ -1107,6 +1174,13 @@ func (u *UpstreamProviderUpsertOne) SetUsername(v string) *UpstreamProviderUpser
 func (u *UpstreamProviderUpsertOne) UpdateUsername() *UpstreamProviderUpsertOne {
 	return u.Update(func(s *UpstreamProviderUpsert) {
 		s.UpdateUsername()
+	})
+}
+
+// ClearUsername clears the value of the "username" field.
+func (u *UpstreamProviderUpsertOne) ClearUsername() *UpstreamProviderUpsertOne {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.ClearUsername()
 	})
 }
 
@@ -1650,6 +1724,20 @@ func (u *UpstreamProviderUpsertBulk) ClearDeletedAt() *UpstreamProviderUpsertBul
 	})
 }
 
+// SetProviderType sets the "provider_type" field.
+func (u *UpstreamProviderUpsertBulk) SetProviderType(v string) *UpstreamProviderUpsertBulk {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.SetProviderType(v)
+	})
+}
+
+// UpdateProviderType sets the "provider_type" field to the value that was provided on create.
+func (u *UpstreamProviderUpsertBulk) UpdateProviderType() *UpstreamProviderUpsertBulk {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.UpdateProviderType()
+	})
+}
+
 // SetName sets the "name" field.
 func (u *UpstreamProviderUpsertBulk) SetName(v string) *UpstreamProviderUpsertBulk {
 	return u.Update(func(s *UpstreamProviderUpsert) {
@@ -1710,6 +1798,13 @@ func (u *UpstreamProviderUpsertBulk) SetUsername(v string) *UpstreamProviderUpse
 func (u *UpstreamProviderUpsertBulk) UpdateUsername() *UpstreamProviderUpsertBulk {
 	return u.Update(func(s *UpstreamProviderUpsert) {
 		s.UpdateUsername()
+	})
+}
+
+// ClearUsername clears the value of the "username" field.
+func (u *UpstreamProviderUpsertBulk) ClearUsername() *UpstreamProviderUpsertBulk {
+	return u.Update(func(s *UpstreamProviderUpsert) {
+		s.ClearUsername()
 	})
 }
 

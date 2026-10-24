@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,11 +16,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// 上游 sub2api 实例的管理客户端。
-//
-// 与 upstream_billing_probe.go 的区别：那里用「账号自带的 API Key」探
-// /v1/sub2api/billing，只能看到该 Key 已绑定分组的倍率。这里用「后台登录
-// 账号密码」拿 JWT，因此能看到余额、并发、全部可用分组，并能创建新 Key。
+// 上游 sub2api / NewAPI 管理客户端。
+// NewAPI 使用用户自己生成的 API token（通常是 sk-）作为 Bearer token；
+// 该 token 不是 JWT，也不支持账号密码登录或 refresh。
 const (
 	upstreamProviderRequestTimeout = 15 * time.Second
 	upstreamProviderMaxBodyBytes   = 512 * 1024
@@ -56,7 +56,8 @@ var (
 // upstreamEnvelope 对应上游 response.Success 的统一包装：
 // {"code":0,"message":"success","data":{...}}
 type upstreamEnvelope struct {
-	Code    int             `json:"code"`
+	Code    json.RawMessage `json:"code"`
+	Success *bool           `json:"success"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data"`
 }
@@ -71,16 +72,31 @@ type UpstreamLoginResult struct {
 	TempToken   string
 }
 
-// UpstreamProfile 是上游 GET /user/profile 的关键字段。
+// UpstreamProfile 是上游账户/额度查询返回的关键字段。
 type UpstreamProfile struct {
-	UserID        int64   `json:"id"`
-	Email         string  `json:"email"`
-	Username      string  `json:"username"`
-	Balance       float64 `json:"balance"`
-	FrozenBalance float64 `json:"frozen_balance"`
-	Concurrency   int     `json:"concurrency"`
-	Status        string  `json:"status"`
+	UserID           int64   `json:"id"`
+	Email            string  `json:"email"`
+	Username         string  `json:"username"`
+	Balance          float64 `json:"balance"`
+	FrozenBalance    float64 `json:"frozen_balance"`
+	Concurrency      int     `json:"concurrency"`
+	ConcurrencyKnown bool    `json:"-"`
+	BalanceKnown     bool    `json:"-"`
+	Status           string  `json:"status"`
 }
+
+// NewAPIGroupInfo 是 NewAPI 按名称返回的可用分组。NewAPI 没有 sub2api
+// 那样的数字分组 ID，因此 Name 是真实的远程键。
+type NewAPIGroupInfo struct {
+	Name  string
+	Ratio float64
+	Desc  string
+}
+
+// NewAPI 的个人 API token 不是 JWT 登录会话，也不是 dashboard credential。
+// NewAPIQuotaPerUnit 是 NewAPI 默认的额度单位：500000 quota = $1。
+// 这是 NewAPI 的内部单位，不影响本地账号计费。
+const NewAPIQuotaPerUnit = 500000.0
 
 // UpstreamGroupInfo 是上游 GET /groups/available 的单个分组。
 // 字段名与上游 dto.Group 对齐，多余字段忽略。
@@ -100,16 +116,18 @@ type UpstreamGroupInfo struct {
 	Status             string   `json:"status"`
 }
 
-// UpstreamCreatedKey 是在上游创建 API Key 后返回的结果。
+// UpstreamCreatedKey 是本地账号要使用的上游 API Key；sub2api 会现场创建，
+// NewAPI 则直接复用用户提供的个人 API token。
 type UpstreamCreatedKey struct {
 	ID      int64  `json:"id"`
 	Key     string `json:"key"`
 	Name    string `json:"name"`
 	GroupID *int64 `json:"group_id"`
+	Group   string `json:"group"`
 }
 
-// UpstreamProviderClient 封装对单个上游 sub2api 站点的 HTTP 调用。
-// 无状态：access/refresh token 由调用方（UpstreamProviderService）缓存与传入。
+// UpstreamProviderClient 封装对单个 sub2api / NewAPI 上游站点的 HTTP 调用。
+// 无状态：sub2api access/refresh token 和 NewAPI API token 由调用方传入。
 type UpstreamProviderClient struct {
 	httpClient *http.Client
 }
@@ -208,7 +226,86 @@ func (c *UpstreamProviderClient) Login2FA(ctx context.Context, baseURL, tempToke
 	}, nil
 }
 
-// GetProfile 取上游账户的余额与并发限制。
+// GetNewAPIProfile reads the quota available to the supplied personal API token.
+// NewAPI API tokens are relay credentials, not dashboard sessions, so the
+// token-usage endpoint is the authoritative profile/quota endpoint.
+func (c *UpstreamProviderClient) GetNewAPIProfile(ctx context.Context, baseURL, token string) (*UpstreamProfile, error) {
+	body, err := c.do(ctx, baseURL, http.MethodGet, "/api/usage/token/", token, nil)
+	if err != nil {
+		return nil, err
+	}
+	var usage map[string]any
+	if err := json.Unmarshal(body, &usage); err != nil {
+		return nil, fmt.Errorf("parse NewAPI token usage: %w", err)
+	}
+	var available any
+	availableKnown := false
+	if userQuota, ok := usage["user_quota"].(map[string]any); ok {
+		available, availableKnown = userQuota["total_available"]
+	}
+	if !availableKnown {
+		available, availableKnown = usage["total_available"]
+	}
+	availableNumber := jsonNumber(available)
+	return &UpstreamProfile{
+		Balance:          availableNumber / NewAPIQuotaPerUnit,
+		FrozenBalance:    0,
+		Status:           "active",
+		BalanceKnown:     availableKnown,
+		ConcurrencyKnown: false,
+	}, nil
+}
+
+// ListNewAPIGroups reads NewAPI's public named-group map. The special "auto" group
+// is intentionally omitted because it cannot be used as a concrete token group.
+// Personal API tokens cannot authenticate dashboard group endpoints, so no
+// dashboard credential is used.
+func (c *UpstreamProviderClient) ListNewAPIGroups(ctx context.Context, baseURL string) ([]NewAPIGroupInfo, error) {
+	body, err := c.do(ctx, baseURL, http.MethodGet, "/api/user/groups", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("parse NewAPI groups: %w", err)
+	}
+	groups := make([]NewAPIGroupInfo, 0, len(raw))
+	names := make([]string, 0, len(raw))
+	for name := range raw {
+		if strings.TrimSpace(name) != "" && name != "auto" {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		item := raw[name]
+		groups = append(groups, NewAPIGroupInfo{Name: name, Ratio: jsonNumber(item["ratio"]), Desc: newAPIStringValue(item["desc"])})
+	}
+	return groups, nil
+}
+
+func jsonNumber(value any) float64 {
+	switch v := value.(type) {
+	case float64:
+		return v
+	case json.Number:
+		f, _ := v.Float64()
+		return f
+	case string:
+		f, _ := strconv.ParseFloat(v, 64)
+		return f
+	default:
+		return 0
+	}
+}
+
+func newAPIStringValue(value any) string {
+	if value == nil {
+		return ""
+	}
+	return fmt.Sprint(value)
+}
+
 func (c *UpstreamProviderClient) GetProfile(ctx context.Context, baseURL, token string) (*UpstreamProfile, error) {
 	body, err := c.do(ctx, baseURL, http.MethodGet, "/api/v1/user/profile", token, nil)
 	if err != nil {
@@ -218,6 +315,8 @@ func (c *UpstreamProviderClient) GetProfile(ctx context.Context, baseURL, token 
 	if err := json.Unmarshal(body, &profile); err != nil {
 		return nil, fmt.Errorf("parse upstream profile: %w", err)
 	}
+	profile.ConcurrencyKnown = true
+	profile.BalanceKnown = true
 	return &profile, nil
 }
 
@@ -336,8 +435,18 @@ func (c *UpstreamProviderClient) do(
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return nil, fmt.Errorf("parse upstream envelope: %w", err)
 	}
-	if envelope.Code != 0 {
+	if envelope.Success != nil && !*envelope.Success {
 		return nil, classifyUpstreamAuthFailure(body)
+	}
+	if len(envelope.Code) > 0 && string(envelope.Code) != "null" {
+		var code int
+		if err := json.Unmarshal(envelope.Code, &code); err == nil && code != 0 {
+			return nil, classifyUpstreamAuthFailure(body)
+		}
+		var ok bool
+		if err := json.Unmarshal(envelope.Code, &ok); err == nil && !ok {
+			return nil, classifyUpstreamAuthFailure(body)
+		}
 	}
 	return envelope.Data, nil
 }

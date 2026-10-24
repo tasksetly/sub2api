@@ -56,6 +56,20 @@ func (_u *UpstreamProviderUpdate) ClearDeletedAt() *UpstreamProviderUpdate {
 	return _u
 }
 
+// SetProviderType sets the "provider_type" field.
+func (_u *UpstreamProviderUpdate) SetProviderType(v string) *UpstreamProviderUpdate {
+	_u.mutation.SetProviderType(v)
+	return _u
+}
+
+// SetNillableProviderType sets the "provider_type" field if the given value is not nil.
+func (_u *UpstreamProviderUpdate) SetNillableProviderType(v *string) *UpstreamProviderUpdate {
+	if v != nil {
+		_u.SetProviderType(*v)
+	}
+	return _u
+}
+
 // SetName sets the "name" field.
 func (_u *UpstreamProviderUpdate) SetName(v string) *UpstreamProviderUpdate {
 	_u.mutation.SetName(v)
@@ -115,6 +129,12 @@ func (_u *UpstreamProviderUpdate) SetNillableUsername(v *string) *UpstreamProvid
 	if v != nil {
 		_u.SetUsername(*v)
 	}
+	return _u
+}
+
+// ClearUsername clears the value of the "username" field.
+func (_u *UpstreamProviderUpdate) ClearUsername() *UpstreamProviderUpdate {
+	_u.mutation.ClearUsername()
 	return _u
 }
 
@@ -523,6 +543,11 @@ func (_u *UpstreamProviderUpdate) defaults() error {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *UpstreamProviderUpdate) check() error {
+	if v, ok := _u.mutation.ProviderType(); ok {
+		if err := upstreamprovider.ProviderTypeValidator(v); err != nil {
+			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`ent: validator failed for field "UpstreamProvider.provider_type": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := upstreamprovider.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "UpstreamProvider.name": %w`, err)}
@@ -572,6 +597,9 @@ func (_u *UpstreamProviderUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if _u.mutation.DeletedAtCleared() {
 		_spec.ClearField(upstreamprovider.FieldDeletedAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.ProviderType(); ok {
+		_spec.SetField(upstreamprovider.FieldProviderType, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(upstreamprovider.FieldName, field.TypeString, value)
 	}
@@ -586,6 +614,9 @@ func (_u *UpstreamProviderUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.Username(); ok {
 		_spec.SetField(upstreamprovider.FieldUsername, field.TypeString, value)
+	}
+	if _u.mutation.UsernameCleared() {
+		_spec.ClearField(upstreamprovider.FieldUsername, field.TypeString)
 	}
 	if value, ok := _u.mutation.PasswordEncrypted(); ok {
 		_spec.SetField(upstreamprovider.FieldPasswordEncrypted, field.TypeString, value)
@@ -807,6 +838,20 @@ func (_u *UpstreamProviderUpdateOne) ClearDeletedAt() *UpstreamProviderUpdateOne
 	return _u
 }
 
+// SetProviderType sets the "provider_type" field.
+func (_u *UpstreamProviderUpdateOne) SetProviderType(v string) *UpstreamProviderUpdateOne {
+	_u.mutation.SetProviderType(v)
+	return _u
+}
+
+// SetNillableProviderType sets the "provider_type" field if the given value is not nil.
+func (_u *UpstreamProviderUpdateOne) SetNillableProviderType(v *string) *UpstreamProviderUpdateOne {
+	if v != nil {
+		_u.SetProviderType(*v)
+	}
+	return _u
+}
+
 // SetName sets the "name" field.
 func (_u *UpstreamProviderUpdateOne) SetName(v string) *UpstreamProviderUpdateOne {
 	_u.mutation.SetName(v)
@@ -866,6 +911,12 @@ func (_u *UpstreamProviderUpdateOne) SetNillableUsername(v *string) *UpstreamPro
 	if v != nil {
 		_u.SetUsername(*v)
 	}
+	return _u
+}
+
+// ClearUsername clears the value of the "username" field.
+func (_u *UpstreamProviderUpdateOne) ClearUsername() *UpstreamProviderUpdateOne {
+	_u.mutation.ClearUsername()
 	return _u
 }
 
@@ -1287,6 +1338,11 @@ func (_u *UpstreamProviderUpdateOne) defaults() error {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *UpstreamProviderUpdateOne) check() error {
+	if v, ok := _u.mutation.ProviderType(); ok {
+		if err := upstreamprovider.ProviderTypeValidator(v); err != nil {
+			return &ValidationError{Name: "provider_type", err: fmt.Errorf(`ent: validator failed for field "UpstreamProvider.provider_type": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := upstreamprovider.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "UpstreamProvider.name": %w`, err)}
@@ -1353,6 +1409,9 @@ func (_u *UpstreamProviderUpdateOne) sqlSave(ctx context.Context) (_node *Upstre
 	if _u.mutation.DeletedAtCleared() {
 		_spec.ClearField(upstreamprovider.FieldDeletedAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.ProviderType(); ok {
+		_spec.SetField(upstreamprovider.FieldProviderType, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(upstreamprovider.FieldName, field.TypeString, value)
 	}
@@ -1367,6 +1426,9 @@ func (_u *UpstreamProviderUpdateOne) sqlSave(ctx context.Context) (_node *Upstre
 	}
 	if value, ok := _u.mutation.Username(); ok {
 		_spec.SetField(upstreamprovider.FieldUsername, field.TypeString, value)
+	}
+	if _u.mutation.UsernameCleared() {
+		_spec.ClearField(upstreamprovider.FieldUsername, field.TypeString)
 	}
 	if value, ok := _u.mutation.PasswordEncrypted(); ok {
 		_spec.SetField(upstreamprovider.FieldPasswordEncrypted, field.TypeString, value)

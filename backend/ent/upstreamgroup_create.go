@@ -63,6 +63,20 @@ func (_c *UpstreamGroupCreate) SetRemoteGroupID(v int64) *UpstreamGroupCreate {
 	return _c
 }
 
+// SetRemoteGroupName sets the "remote_group_name" field.
+func (_c *UpstreamGroupCreate) SetRemoteGroupName(v string) *UpstreamGroupCreate {
+	_c.mutation.SetRemoteGroupName(v)
+	return _c
+}
+
+// SetNillableRemoteGroupName sets the "remote_group_name" field if the given value is not nil.
+func (_c *UpstreamGroupCreate) SetNillableRemoteGroupName(v *string) *UpstreamGroupCreate {
+	if v != nil {
+		_c.SetRemoteGroupName(*v)
+	}
+	return _c
+}
+
 // SetName sets the "name" field.
 func (_c *UpstreamGroupCreate) SetName(v string) *UpstreamGroupCreate {
 	_c.mutation.SetName(v)
@@ -283,6 +297,10 @@ func (_c *UpstreamGroupCreate) defaults() {
 		v := upstreamgroup.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.RemoteGroupName(); !ok {
+		v := upstreamgroup.DefaultRemoteGroupName
+		_c.mutation.SetRemoteGroupName(v)
+	}
 	if _, ok := _c.mutation.Platform(); !ok {
 		v := upstreamgroup.DefaultPlatform
 		_c.mutation.SetPlatform(v)
@@ -322,6 +340,14 @@ func (_c *UpstreamGroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RemoteGroupID(); !ok {
 		return &ValidationError{Name: "remote_group_id", err: errors.New(`ent: missing required field "UpstreamGroup.remote_group_id"`)}
+	}
+	if _, ok := _c.mutation.RemoteGroupName(); !ok {
+		return &ValidationError{Name: "remote_group_name", err: errors.New(`ent: missing required field "UpstreamGroup.remote_group_name"`)}
+	}
+	if v, ok := _c.mutation.RemoteGroupName(); ok {
+		if err := upstreamgroup.RemoteGroupNameValidator(v); err != nil {
+			return &ValidationError{Name: "remote_group_name", err: fmt.Errorf(`ent: validator failed for field "UpstreamGroup.remote_group_name": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "UpstreamGroup.name"`)}
@@ -413,6 +439,10 @@ func (_c *UpstreamGroupCreate) createSpec() (*UpstreamGroup, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.RemoteGroupID(); ok {
 		_spec.SetField(upstreamgroup.FieldRemoteGroupID, field.TypeInt64, value)
 		_node.RemoteGroupID = value
+	}
+	if value, ok := _c.mutation.RemoteGroupName(); ok {
+		_spec.SetField(upstreamgroup.FieldRemoteGroupName, field.TypeString, value)
+		_node.RemoteGroupName = value
 	}
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(upstreamgroup.FieldName, field.TypeString, value)
@@ -574,6 +604,18 @@ func (u *UpstreamGroupUpsert) UpdateRemoteGroupID() *UpstreamGroupUpsert {
 // AddRemoteGroupID adds v to the "remote_group_id" field.
 func (u *UpstreamGroupUpsert) AddRemoteGroupID(v int64) *UpstreamGroupUpsert {
 	u.Add(upstreamgroup.FieldRemoteGroupID, v)
+	return u
+}
+
+// SetRemoteGroupName sets the "remote_group_name" field.
+func (u *UpstreamGroupUpsert) SetRemoteGroupName(v string) *UpstreamGroupUpsert {
+	u.Set(upstreamgroup.FieldRemoteGroupName, v)
+	return u
+}
+
+// UpdateRemoteGroupName sets the "remote_group_name" field to the value that was provided on create.
+func (u *UpstreamGroupUpsert) UpdateRemoteGroupName() *UpstreamGroupUpsert {
+	u.SetExcluded(upstreamgroup.FieldRemoteGroupName)
 	return u
 }
 
@@ -890,6 +932,20 @@ func (u *UpstreamGroupUpsertOne) AddRemoteGroupID(v int64) *UpstreamGroupUpsertO
 func (u *UpstreamGroupUpsertOne) UpdateRemoteGroupID() *UpstreamGroupUpsertOne {
 	return u.Update(func(s *UpstreamGroupUpsert) {
 		s.UpdateRemoteGroupID()
+	})
+}
+
+// SetRemoteGroupName sets the "remote_group_name" field.
+func (u *UpstreamGroupUpsertOne) SetRemoteGroupName(v string) *UpstreamGroupUpsertOne {
+	return u.Update(func(s *UpstreamGroupUpsert) {
+		s.SetRemoteGroupName(v)
+	})
+}
+
+// UpdateRemoteGroupName sets the "remote_group_name" field to the value that was provided on create.
+func (u *UpstreamGroupUpsertOne) UpdateRemoteGroupName() *UpstreamGroupUpsertOne {
+	return u.Update(func(s *UpstreamGroupUpsert) {
+		s.UpdateRemoteGroupName()
 	})
 }
 
@@ -1409,6 +1465,20 @@ func (u *UpstreamGroupUpsertBulk) AddRemoteGroupID(v int64) *UpstreamGroupUpsert
 func (u *UpstreamGroupUpsertBulk) UpdateRemoteGroupID() *UpstreamGroupUpsertBulk {
 	return u.Update(func(s *UpstreamGroupUpsert) {
 		s.UpdateRemoteGroupID()
+	})
+}
+
+// SetRemoteGroupName sets the "remote_group_name" field.
+func (u *UpstreamGroupUpsertBulk) SetRemoteGroupName(v string) *UpstreamGroupUpsertBulk {
+	return u.Update(func(s *UpstreamGroupUpsert) {
+		s.SetRemoteGroupName(v)
+	})
+}
+
+// UpdateRemoteGroupName sets the "remote_group_name" field to the value that was provided on create.
+func (u *UpstreamGroupUpsertBulk) UpdateRemoteGroupName() *UpstreamGroupUpsertBulk {
+	return u.Update(func(s *UpstreamGroupUpsert) {
+		s.UpdateRemoteGroupName()
 	})
 }
 

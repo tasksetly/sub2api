@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -72,39 +73,53 @@ func NewUpstreamProviderService(
 	}
 }
 
+func normalizeUpstreamProviderBaseURL(baseURL, providerType string) string {
+	if providerType != UpstreamProviderTypeNewAPI {
+		return baseURL
+	}
+	trimmed := strings.TrimRight(baseURL, "/")
+	if strings.HasSuffix(strings.ToLower(trimmed), "/v1") {
+		return trimmed[:len(trimmed)-len("/v1")]
+	}
+	return trimmed
+}
+
 // CreateUpstreamProviderInput 是新增上游的入参。
 type CreateUpstreamProviderInput struct {
-	Name     string
-	BaseURL  string
-	Username string
-	Password string
+	ProviderType string
+	Name         string
+	BaseURL      string
+	Username     string
+	Password     string
 	// RateCorrection 是充值比例修正系数；0/缺省按「不修正」处理（1.0）。
 	RateCorrection float64
 	TotpSecret     string
 	Notes          *string
 	SyncEnabled    bool
-	// Token 是管理员手填的上游 access JWT。有效期从 JWT 的 exp 解析。
+	// Token 是手填的上游凭据：sub2api 为 access JWT，NewAPI 为个人 API token。
+	// 只有 sub2api 会从 JWT 的 exp 解析有效期。
 	Token string
-	// RefreshToken 是与手填 access JWT 配对的上游 refresh token，可单独提供。
+	// RefreshToken 是与 sub2api access JWT 配对的 refresh token，可单独提供。
 	RefreshToken string
 }
 
 // UpdateUpstreamProviderInput 是编辑上游的入参。
 // Password/TotpSecret/Token/RefreshToken 为空表示不修改。
 type UpdateUpstreamProviderInput struct {
-	Name     string
-	BaseURL  string
-	Username string
-	Password string
+	ProviderType string
+	Name         string
+	BaseURL      string
+	Username     string
+	Password     string
 	// RateCorrection 是充值比例修正系数；nil 表示不修改。
 	RateCorrection *float64
 	TotpSecret     string
 	Notes          *string
 	Status         string
 	SyncEnabled    bool
-	// Token 为空表示不修改；非空表示用这个手填 access JWT 顶掉缓存的会话。
+	// Token 为空表示不修改；非空时替换当前凭据。sub2api 这里是 access JWT，NewAPI 是个人 API token。
 	Token string
-	// RefreshToken 为空表示不修改；非空表示更新缓存的 refresh token，可单独补填。
+	// RefreshToken 为空表示不修改；非空时更新 sub2api 的 refresh token，可单独补填。
 	RefreshToken string
 }
 
@@ -115,6 +130,14 @@ func (s *UpstreamProviderService) Create(
 	if err != nil {
 		return nil, err
 	}
+	providerType := strings.ToLower(strings.TrimSpace(input.ProviderType))
+	if providerType == "" {
+		providerType = UpstreamProviderTypeSub2API
+	}
+	if providerType != UpstreamProviderTypeSub2API && providerType != UpstreamProviderTypeNewAPI {
+		return nil, infraerrors.BadRequest("UPSTREAM_PROVIDER_TYPE_INVALID", "provider_type must be sub2api or newapi")
+	}
+	normalizedURL = normalizeUpstreamProviderBaseURL(normalizedURL, providerType)
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
 		return nil, infraerrors.BadRequest("UPSTREAM_PROVIDER_NAME_REQUIRED", "name is required")
@@ -123,6 +146,9 @@ func (s *UpstreamProviderService) Create(
 	token := strings.TrimSpace(input.Token)
 	refreshToken := strings.TrimSpace(input.RefreshToken)
 	if strings.TrimSpace(input.Password) == "" && token == "" && refreshToken == "" {
+		return nil, ErrUpstreamProviderCredentialsRequired
+	}
+	if providerType == UpstreamProviderTypeNewAPI && token == "" {
 		return nil, ErrUpstreamProviderCredentialsRequired
 	}
 
@@ -135,6 +161,7 @@ func (s *UpstreamProviderService) Create(
 	}
 
 	provider := &UpstreamProvider{
+		ProviderType:   providerType,
 		Name:           name,
 		BaseURL:        normalizedURL,
 		Username:       strings.TrimSpace(input.Username),
@@ -145,12 +172,25 @@ func (s *UpstreamProviderService) Create(
 		Status:         StatusActive,
 		SyncEnabled:    input.SyncEnabled,
 	}
-	if token != "" {
-		expiresAt := upstreamTokenExpiry(token)
-		provider.Token = token
-		provider.TokenExpiresAt = &expiresAt
+	if provider.ProviderType == UpstreamProviderTypeNewAPI {
+		provider.Username = ""
+		provider.Password = ""
+		provider.TotpSecret = ""
+		provider.RefreshToken = ""
 	}
-	provider.RefreshToken = refreshToken
+	if provider.ProviderType == UpstreamProviderTypeSub2API && provider.Username == "" {
+		return nil, infraerrors.BadRequest("UPSTREAM_PROVIDER_USERNAME_REQUIRED", "username is required for sub2api providers")
+	}
+	if token != "" {
+		provider.Token = token
+		if provider.ProviderType == UpstreamProviderTypeSub2API {
+			expiresAt := upstreamTokenExpiry(token)
+			provider.TokenExpiresAt = &expiresAt
+		}
+	}
+	if provider.ProviderType == UpstreamProviderTypeSub2API {
+		provider.RefreshToken = refreshToken
+	}
 	if err := s.repo.Create(ctx, provider); err != nil {
 		return nil, fmt.Errorf("create upstream provider: %w", err)
 	}
@@ -164,11 +204,22 @@ func (s *UpstreamProviderService) Update(
 	if err != nil {
 		return nil, err
 	}
-
 	normalizedURL, err := s.validateBaseURL(input.BaseURL)
 	if err != nil {
 		return nil, err
 	}
+
+	providerType := strings.ToLower(strings.TrimSpace(input.ProviderType))
+	if providerType == "" {
+		providerType = provider.ProviderType
+	}
+	if providerType == "" {
+		providerType = UpstreamProviderTypeSub2API
+	}
+	if providerType != UpstreamProviderTypeSub2API && providerType != UpstreamProviderTypeNewAPI {
+		return nil, infraerrors.BadRequest("UPSTREAM_PROVIDER_TYPE_INVALID", "provider_type must be sub2api or newapi")
+	}
+	normalizedURL = normalizeUpstreamProviderBaseURL(normalizedURL, providerType)
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
 		return nil, infraerrors.BadRequest("UPSTREAM_PROVIDER_NAME_REQUIRED", "name is required")
@@ -181,6 +232,22 @@ func (s *UpstreamProviderService) Update(
 		return nil, ErrUpstreamProviderNameExists
 	}
 
+	oldProviderType := provider.ProviderType
+	if oldProviderType == "" {
+		oldProviderType = UpstreamProviderTypeSub2API
+	}
+	providerTypeChanged := oldProviderType != providerType
+	if providerType == UpstreamProviderTypeSub2API && strings.TrimSpace(input.Username) == "" {
+		return nil, infraerrors.BadRequest("UPSTREAM_PROVIDER_USERNAME_REQUIRED", "username is required for sub2api providers")
+	}
+	if providerTypeChanged && providerType == UpstreamProviderTypeNewAPI && strings.TrimSpace(input.Token) == "" {
+		return nil, ErrUpstreamProviderCredentialsRequired
+	}
+	if providerTypeChanged && providerType == UpstreamProviderTypeSub2API &&
+		strings.TrimSpace(input.Password) == "" && strings.TrimSpace(input.Token) == "" && strings.TrimSpace(input.RefreshToken) == "" {
+		return nil, ErrUpstreamProviderCredentialsRequired
+	}
+	provider.ProviderType = providerType
 	provider.Name = name
 	provider.BaseURL = normalizedURL
 	provider.Username = strings.TrimSpace(input.Username)
@@ -197,10 +264,21 @@ func (s *UpstreamProviderService) Update(
 	provider.Password = input.Password
 	provider.TotpSecret = strings.TrimSpace(input.TotpSecret)
 
+	if provider.ProviderType == UpstreamProviderTypeNewAPI {
+		provider.Username = ""
+		provider.Password = ""
+		provider.TotpSecret = ""
+		provider.RefreshToken = ""
+	}
+
 	// 仓储层靠空 Token 判断「不改会话」，所以这里先按「不改」清空，
 	// 存量会话留一份用于回填响应——provider 会直接被序列化成 DTO，
 	// 不回填的话 has_token/has_refresh_token 会假报成 false。
 	existingToken, existingRefreshToken, existingExpiry := provider.Token, provider.RefreshToken, provider.TokenExpiresAt
+	if providerType == UpstreamProviderTypeNewAPI {
+		existingRefreshToken = ""
+		existingExpiry = nil
+	}
 	provider.Token = ""
 	provider.RefreshToken = ""
 	provider.TokenExpiresAt = nil
@@ -210,11 +288,13 @@ func (s *UpstreamProviderService) Update(
 	token := strings.TrimSpace(input.Token)
 	refreshToken := strings.TrimSpace(input.RefreshToken)
 	if token != "" {
-		expiresAt := upstreamTokenExpiry(token)
 		provider.Token = token
-		provider.TokenExpiresAt = &expiresAt
+		if provider.ProviderType == UpstreamProviderTypeSub2API {
+			expiresAt := upstreamTokenExpiry(token)
+			provider.TokenExpiresAt = &expiresAt
+		}
 	}
-	if refreshToken != "" {
+	if refreshToken != "" && provider.ProviderType == UpstreamProviderTypeSub2API {
 		provider.RefreshToken = refreshToken
 	}
 
@@ -224,10 +304,11 @@ func (s *UpstreamProviderService) Update(
 	// 没有替换 access token、也没改密码时，保留存量 access token。
 	// 没有显式更新 refresh token 时，再保留存量 refresh token；改密码或替换
 	// access token 时仓储层会清理旧会话，保持清空才是真实状态。
-	if token == "" && input.Password == "" {
+	effectivePasswordChanged := input.Password != "" && providerType != UpstreamProviderTypeNewAPI
+	if token == "" && !effectivePasswordChanged && !providerTypeChanged {
 		provider.Token = existingToken
 		provider.TokenExpiresAt = existingExpiry
-		if refreshToken == "" {
+		if refreshToken == "" && providerType != UpstreamProviderTypeNewAPI {
 			provider.RefreshToken = existingRefreshToken
 		}
 	}
@@ -270,7 +351,7 @@ func (s *UpstreamProviderService) CompareGroups(
 	return s.repo.ListAllGroupsForComparison(ctx, strings.TrimSpace(platform), params)
 }
 
-// TestConnection 只验证能否登录，不落任何快照。用于新增/编辑时的「测试连接」。
+// TestConnection 只验证上游凭据是否可用，不落任何快照。用于新增/编辑时的「测试连接」。
 func (s *UpstreamProviderService) TestConnection(ctx context.Context, id int64) (*UpstreamProfile, error) {
 	provider, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -279,6 +360,13 @@ func (s *UpstreamProviderService) TestConnection(ctx context.Context, id int64) 
 	token, err := s.ensureToken(ctx, provider)
 	if err != nil {
 		return nil, err
+	}
+	if provider.ProviderType == UpstreamProviderTypeNewAPI {
+		profile, err := s.client.GetNewAPIProfile(ctx, provider.BaseURL, token)
+		if err != nil {
+			return nil, err
+		}
+		return profile, nil
 	}
 	profile, err := s.client.GetProfile(ctx, provider.BaseURL, token)
 	if err != nil {
@@ -297,7 +385,7 @@ func (s *UpstreamProviderService) Sync(ctx context.Context, id int64) (*Upstream
 		return nil, err
 	}
 	if err := s.syncProvider(ctx, provider); err != nil {
-		// 失败原因落库，前端能直接看到「验证码/2FA/密码错误」
+		// 失败原因落库，前端能直接看到「凭据无效」或 sub2api 的验证码/2FA 提示
 		if markErr := s.repo.MarkSyncFailed(ctx, id, err.Error(), time.Now()); markErr != nil {
 			slog.Warn("upstream_provider_mark_sync_failed", "provider_id", id, "error", markErr)
 		}
@@ -336,29 +424,62 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 		return err
 	}
 
-	profile, err := s.client.GetProfile(ctx, provider.BaseURL, token)
+	var profile *UpstreamProfile
+	if provider.ProviderType == UpstreamProviderTypeNewAPI {
+		profile, err = s.client.GetNewAPIProfile(ctx, provider.BaseURL, token)
+	} else {
+		profile, err = s.client.GetProfile(ctx, provider.BaseURL, token)
+	}
 	if err != nil {
 		return fmt.Errorf("fetch upstream profile: %w", err)
 	}
 
 	now := time.Now()
-	snapshot := UpstreamSyncSnapshot{
-		Balance:             &profile.Balance,
-		FrozenBalance:       &profile.FrozenBalance,
-		UpstreamConcurrency: &profile.Concurrency,
-		SyncedAt:            now,
+	snapshot := UpstreamSyncSnapshot{SyncedAt: now}
+	if profile.BalanceKnown {
+		snapshot.Balance = &profile.Balance
+		snapshot.FrozenBalance = &profile.FrozenBalance
+	}
+	if profile.ConcurrencyKnown {
+		snapshot.UpstreamConcurrency = &profile.Concurrency
 	}
 	if profile.UserID > 0 {
 		snapshot.UpstreamUserID = strconv.FormatInt(profile.UserID, 10)
 	}
 
-	groups, err := s.client.ListGroups(ctx, provider.BaseURL, token)
+	var groups []UpstreamGroupInfo
+	var rates map[int64]float64
+	if provider.ProviderType == UpstreamProviderTypeNewAPI {
+		newGroups, groupErr := s.client.ListNewAPIGroups(ctx, provider.BaseURL)
+		if groupErr != nil {
+			return fmt.Errorf("fetch NewAPI groups: %w", groupErr)
+		}
+		now := time.Now()
+		snapshotGroups := make([]UpstreamGroup, 0, len(newGroups))
+		for _, group := range newGroups {
+			snapshotGroups = append(snapshotGroups, UpstreamGroup{
+				UpstreamProviderID: provider.ID, RemoteGroupID: stableNewAPIGroupID(group.Name),
+				RemoteGroupName: group.Name, Name: group.Name, Platform: PlatformOpenAI,
+				SubscriptionType: group.Desc, RateMultiplier: group.Ratio, SyncedAt: now,
+			})
+		}
+		if err := s.repo.ReplaceGroups(ctx, provider.ID, snapshotGroups); err != nil {
+			return fmt.Errorf("store NewAPI groups: %w", err)
+		}
+		newSnapshot := snapshot
+		if err := s.repo.UpdateSyncSnapshot(ctx, provider.ID, newSnapshot); err != nil {
+			return fmt.Errorf("store upstream snapshot: %w", err)
+		}
+		return nil
+	}
+
+	groups, err = s.client.ListGroups(ctx, provider.BaseURL, token)
 	if err != nil {
 		return fmt.Errorf("fetch upstream groups: %w", err)
 	}
 
 	// 专属倍率是可选能力：老版本上游没有这个接口，拿不到就回退基础倍率。
-	rates, err := s.client.GetGroupRates(ctx, provider.BaseURL, token)
+	rates, err = s.client.GetGroupRates(ctx, provider.BaseURL, token)
 	if err != nil {
 		slog.Warn("upstream_provider_group_rates_failed",
 			"provider_id", provider.ID, "error", err)
@@ -400,6 +521,16 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 		return fmt.Errorf("store upstream snapshot: %w", err)
 	}
 	return nil
+}
+
+func stableNewAPIGroupID(name string) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(name))
+	id := int64(h.Sum64() & 0x001fffffffffffff) // keep JSON/JavaScript IDs exact (< 2^53)
+	if id == 0 {
+		return 1
+	}
+	return id
 }
 
 // ProvisionAccountInput 描述「在上游建 Key 并落地成本地账号」的一次操作。
@@ -466,7 +597,14 @@ func (s *UpstreamProviderService) ProvisionAccounts(
 		result.GroupName = group.Name
 
 		accountName := s.buildAccountName(input.KeyNamePrefix, provider.Name, group.Name)
-		created, err := s.client.CreateAPIKey(ctx, provider.BaseURL, token, accountName, remoteGroupID)
+		var created *UpstreamCreatedKey
+		if provider.ProviderType == UpstreamProviderTypeNewAPI {
+			// NewAPI 的 API token 是用户在后台自行生成的个人 token，
+			// 不能也不需要通过 dashboard 接口再次创建；直接复用即可。
+			created = &UpstreamCreatedKey{Key: token}
+		} else {
+			created, err = s.client.CreateAPIKey(ctx, provider.BaseURL, token, accountName, remoteGroupID)
+		}
 		if err != nil {
 			result.Error = err.Error()
 			results = append(results, result)
@@ -504,6 +642,9 @@ func (s *UpstreamProviderService) createLocalAccount(
 	if platform == "" {
 		platform = PlatformAnthropic
 	}
+	if provider.ProviderType == UpstreamProviderTypeNewAPI {
+		platform = PlatformOpenAI
+	}
 
 	concurrency := input.Concurrency
 	if concurrency <= 0 {
@@ -515,9 +656,13 @@ func (s *UpstreamProviderService) createLocalAccount(
 	// 自动同步倍率：使用上游分组的倍率（优先专属倍率）× 充值比例修正系数
 	correctedRate := group.ComparableRate() * NormalizeRateCorrection(provider.RateCorrection)
 
+	baseURL := strings.TrimRight(provider.BaseURL, "/")
+	if provider.ProviderType == UpstreamProviderTypeNewAPI && !strings.HasSuffix(baseURL, "/v1") {
+		baseURL += "/v1"
+	}
 	credentials := map[string]any{
 		"api_key":  created.Key,
-		"base_url": provider.BaseURL,
+		"base_url": baseURL,
 	}
 
 	// 自动同步模型：从上游获取支持的模型列表并设置到 model_mapping
@@ -665,9 +810,15 @@ func (s *UpstreamProviderService) syncUpstreamModels(
 	return nil
 }
 
-// ensureToken 返回可用的上游 token：缓存有效就直接用，否则优先使用 refresh token
-// 续期；refresh 失败时再用密码重新登录并回写完整会话。
+// ensureToken 返回可用的上游凭据：sub2api 缓存有效就直接用，否则优先使用 refresh token
+// 续期；refresh 失败时再用密码重新登录。NewAPI 只返回用户提供的个人 API token。
 func (s *UpstreamProviderService) ensureToken(ctx context.Context, provider *UpstreamProvider) (string, error) {
+	if provider.ProviderType == UpstreamProviderTypeNewAPI {
+		if strings.TrimSpace(provider.Token) == "" {
+			return "", ErrUpstreamProviderCredentialsRequired
+		}
+		return provider.Token, nil
+	}
 	if provider.HasValidToken(time.Now()) {
 		return provider.Token, nil
 	}

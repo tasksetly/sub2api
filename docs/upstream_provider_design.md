@@ -1,4 +1,13 @@
-# 上游 sub2api 供应商管理 — 设计文档
+# 上游管理（sub2api / NewAPI）— 设计文档
+
+本功能同时支持两种协议，`upstream_providers.provider_type` 区分：
+
+- `sub2api`：后台账号密码或 sub2api JWT，使用 `/api/v1/*` 管理接口。
+- `newapi`：使用用户在 NewAPI 后台自行生成的个人 API token（通常为 `sk-`）作为 Bearer token。它不是 JWT，也不需要账号、密码、TOTP 或 refresh token；该 token 可查询自身额度并直接作为本地账号凭据。
+
+NewAPI 的分组是字符串名称而不是数字 ID，名称保存在 `upstream_groups.remote_group_name`，`remote_group_id` 使用名称的稳定哈希以兼容现有建号接口和前端选择模型。NewAPI API token 不访问 dashboard，分组从公开的 `/api/user/groups` 读取，余额来自 `/api/usage/token/`，按 NewAPI 默认的 `500000 quota = $1` 转换。
+
+NewAPI 管理地址统一按站点根地址保存；如果输入地址以 `/v1` 结尾，服务层会去掉该后缀，避免管理接口变成 `/v1/api/...`。只有落地本地 OpenAI 账号时才在凭据 `base_url` 末尾追加 `/v1`。
 
 ## 1. 背景与目标
 
@@ -7,10 +16,10 @@
 
 目标：在本地管理端集中管理所有上游，做到
 
-1. 存上游后台凭据，自动登录拿 access/refresh token
-2. access JWT 到期前优先用 refresh token 换发新 token，失败再用密码重新登录
+1. sub2api 使用后台账号密码或已有 JWT；NewAPI 直接使用用户自己生成的个人 API token
+2. sub2api access JWT 到期前优先用 refresh token 换发新 token；NewAPI 不进行登录或 refresh
 3. 拉取上游的分组（含倍率、限额）、账户余额、并发限制
-4. 直接在上游创建 API Key，并落地成本地账户，无需去上游页面
+4. sub2api 可直接在上游创建 API Key；NewAPI 复用用户提供的个人 API token 作为本地账号凭据
 5. 一张表横向比价：分组倍率 + 限额、余额 + 并发、本地实际用量成本
 
 ## 2. 关键设计决策
@@ -22,12 +31,12 @@
 
 | | upstream_billing_probe（已有） | 本功能（新增） |
 |---|---|---|
-| 凭据 | 账号的 API Key | 后台账号密码或 access/refresh token |
+| 凭据 | 账号的 API Key | sub2api 后台账号密码/JWT；NewAPI 用户个人 API token |
 | 能看到 | 该 Key 已绑定分组的倍率 | 全部可用分组 + 余额 + 并发 |
-| 能否建 Key | 否 | 是 |
-| 前提 | 账号已存在 | 账号还不存在 |
+| 能否建 Key | 否 | sub2api 可以；NewAPI 直接复用用户提供的 API token |
+| 前提 | 账号已存在 | sub2api 账号还不存在；NewAPI token 已由用户在后台生成 |
 
-所以本功能沿用它的约定（超时、响应体上限、错误分类口径），但独立实现。
+所以本功能沿用它的约定（超时、响应体上限、错误分类口径），但独立实现。NewAPI 只使用用户手工生成的个人 API token，不尝试用账号密码登录，也不把它解析或当作 JWT 使用。
 
 ### 2.2 上游接口来源
 
@@ -43,15 +52,23 @@
 | 专属倍率覆盖 | `GET /api/v1/groups/rates` | `internal/server/routes/user.go:89` |
 | 创建 API Key | `POST /api/v1/keys` | `internal/server/routes/user.go:80` |
 
-### 2.3 会话凭据必须可逆加密
+NewAPI 使用用户个人 API token，不经过 sub2api 的 JWT 登录流程，也不调用 token 管理端点：
 
-access JWT 不能在本地重新签名：签名密钥属于上游。正确的续期方式是调用上游
-`/api/v1/auth/refresh`，用 refresh token 换发新的 access/refresh token；只有 refresh
-失败时才用原密码重新登录。因此 password、access token、refresh token 都需要可逆加密。
+| 用途 | 接口 | 说明 |
+|---|---|---|
+| token 用量/余额 | `GET /api/usage/token/` | API token 的权威额度接口，按 `quota / 500000` 转换 |
+| 可用分组 | `GET /api/user/groups` | 公开分组名称和倍率，不需要 dashboard 登录 |
+| 本地账号凭据 | 用户提供的 `sk-` token | NewAPI API token 直接复用，不在本地或远程再次创建 |
+
+NewAPI 的 token usage envelope 返回 `success` 或布尔 `code`；客户端同时兼容这些格式和 sub2api 的数字 `code` envelope。
+
+### 2.3 凭据必须可逆加密
+
+sub2api 的 access JWT 不能在本地重新签名... 因此 sub2api 的 password、access token、refresh token 都需要可逆加密。
+NewAPI 不登录、不 refresh，只保存用户在其后台生成的个人 API token；该 token 同样按 AES-256-GCM 加密存储。
 复用已有的 `internal/repository/aes_encryptor.go`（AES-256-GCM，实现
 `service.SecretEncryptor`，密钥取自 `cfg.Totp.EncryptionKey`）。加解密边界收在仓储层：
-service 层拿到的凭据始终是明文，DTO 层则完全不回传。refresh token 轮转时必须保存
-上游返回的新值；旧 refresh token 不应继续使用。
+service 层拿到的凭据始终是明文，DTO 层则完全不回传。
 
 ### 2.4 accounts 加外键，而不是靠 supplier 字符串匹配
 
@@ -75,19 +92,19 @@ service 层拿到的凭据始终是明文，DTO 层则完全不回传。refresh 
 
 ### upstream_providers
 
-存能登录上游后台的账号。密码/TOTP/access token/refresh token 均为 AES-256-GCM 密文。
+新增 `provider_type`，历史记录默认 `sub2api`；NewAPI 可不填 `username`，token 仍按 AES-256-GCM 加密存储。
 
 关键字段：`base_url`、`username`、`password_encrypted`、`totp_secret_encrypted`、
 `token_encrypted`、`refresh_token_encrypted` + `token_expires_at`（会话缓存）、`balance`、
 `frozen_balance`、`upstream_concurrency`（同步快照）、`last_sync_at`、`last_sync_error`、
-`sync_enabled`。新增字段迁移为 `backend/migrations/224_upstream_provider_refresh_token.sql`。
+`sync_enabled`。新增字段迁移为 `backend/migrations/246_newapi_upstream_providers.sql`。
 
 ### upstream_groups
 
-上游分组的只读镜像，每次同步整体覆盖。按 `(provider_id, remote_group_id)` upsert
+新增 `remote_group_name` 保存 NewAPI 的真实字符串分组键。上游分组的只读镜像，每次同步整体覆盖。按 `(provider_id, remote_group_id)` upsert
 而非先删后插 —— 直接 delete-then-insert 会让 id 每轮同步都变，前端勾选状态失效。
 
-关键字段：`remote_group_id`（建 Key 时要回传给上游）、`rate_multiplier`、
+关键字段：`remote_group_id`（兼容现有选择/存储模型；NewAPI 使用稳定哈希）、`remote_group_name`、`rate_multiplier`、
 `effective_rate_multiplier`（叠加专属倍率后的实际值，**这才是该用来比价的**）、
 日/周/月限额。
 
@@ -95,8 +112,7 @@ service 层拿到的凭据始终是明文，DTO 层则完全不回传。refresh 
 
 新增可空 `upstream_provider_id` + 索引。
 
-迁移：`backend/migrations/221_upstream_providers.sql`
-
+迁移：`backend/migrations/221_upstream_providers.sql`、`backend/migrations/246_newapi_upstream_providers.sql`
 ## 4. 分层实现
 
 ```
@@ -104,10 +120,11 @@ ent/schema/upstream_provider.go      实体定义
 ent/schema/upstream_group.go
 migrations/221_upstream_providers.sql
 migrations/224_upstream_provider_refresh_token.sql
+migrations/246_newapi_upstream_providers.sql
 
 internal/service/upstream_provider.go          领域模型 + 仓储接口
 internal/service/upstream_provider_client.go   上游 HTTP 客户端
-internal/service/upstream_provider_service.go  登录/同步/建号编排
+internal/service/upstream_provider_service.go  sub2api 登录/refresh 与 NewAPI token-only 同步/建号编排
 internal/service/upstream_provider_runner.go   30 分钟定时同步
 internal/repository/upstream_provider_repo.go  持久化（含加解密边界）
 internal/handler/dto/upstream_provider.go      响应 DTO
@@ -145,13 +162,14 @@ internal/handler/admin/upstream_provider_handler.go
 
 | 情况 | 错误码 | 可操作性 |
 |---|---|---|
-| 上游开了验证码 | `UPSTREAM_PROVIDER_CAPTCHA_REQUIRED` | 自动登录彻底不可行，需手动 token |
-| 上游开了 2FA 但本地没存密钥 | `UPSTREAM_PROVIDER_TOTP_REQUIRED` | 补个 TOTP 密钥即可 |
-| 密码错 | `UPSTREAM_PROVIDER_UNAUTHORIZED` | 重填密码 |
-| refresh token 失效 | 上游认证错误 | 有密码时自动回退登录；无密码时需重新粘贴 token |
+| 上游开了验证码（sub2api） | `UPSTREAM_PROVIDER_CAPTCHA_REQUIRED` | 自动登录彻底不可行，需手动 token |
+| 上游开了 2FA 但本地没存密钥（sub2api） | `UPSTREAM_PROVIDER_TOTP_REQUIRED` | 补个 TOTP 密钥即可 |
+| 密码错（sub2api） | `UPSTREAM_PROVIDER_UNAUTHORIZED` | 重填密码 |
+| NewAPI 个人 API token 无效/被撤销 | `UPSTREAM_PROVIDER_UNAUTHORIZED` | 在 NewAPI 后台重新生成个人 API token 并替换；不尝试账号密码登录或 refresh |
+| refresh token 失效（sub2api） | 上游认证错误 | 有密码时自动回退登录；无密码时需重新粘贴 token |
 
-access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token 失效时，有密码的上游
-自动回退密码登录并覆盖旧会话；只有手工 token 的上游没有可用的续期凭据，只能重新粘贴。
+access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token 失效时，有密码的 sub2api 上游
+自动回退密码登录并覆盖旧会话；NewAPI 个人 API token 不解析为 JWT，也没有登录/refresh 续期流程。
 失败原因落 `last_sync_error`，前端直接展示。
 
 其他：
@@ -161,13 +179,13 @@ access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token �
 
 ## 7. 当前状态
 
-已完成并通过 `go build ./...`：
+当前实现状态（按约束未执行构建、自动化测试或 lint）：
 
 - [x] Ent schema + `go generate ./ent`
-- [x] SQL 迁移 221 + 224（refresh token）
-- [x] 上游 HTTP 客户端（登录/refresh/4 个管理接口 + 2FA + 错误分类）
+- [x] SQL 迁移 221 + 246（NewAPI provider type、token-only 凭据和命名分组）
+- [x] 上游 HTTP 客户端（sub2api 登录/refresh/4 个管理接口 + 2FA；NewAPI token quota/分组接口）
 - [x] 仓储层（含加解密、本地成本聚合、倍率区间）
-- [x] 服务层（登录/refresh token 续期/token 缓存/同步/建号）
+- [x] 服务层（sub2api 登录/refresh token 续期；NewAPI token-only 同步/建号）
 - [x] DTO + 管理端 Handler + 路由
 - [x] Wire DI 全链路（`cmd/server/wire_gen.go:226-228`）
 - [x] 30 分钟定时同步 runner（leader lock 防重）
@@ -177,10 +195,9 @@ access JWT 临近过期时优先调用 `/api/v1/auth/refresh`。refresh token �
 - [ ] runner 注册进 Wire 的 cleanup 链（`Stop()` 优雅退出）
 - [x] 前端上游管理页（列表/新增/编辑/测试/同步/勾选建号）+ i18n + TS 类型
 - [x] 上游登录/refresh/手工 token 单元测试
+- [x] NewAPI token quota、用量回退、分组同步客户端测试
 - [ ] `go test -tags=unit ./...` 与 `golangci-lint run ./...`
 
 ## 8. 环境注意
 
-`go.mod` 要求 Go 1.26.5，但系统装的是 1.25.9 且 `GOTOOLCHAIN=local`。
-本次开发用 `GOTOOLCHAIN=go1.26.5` 前缀执行命令（自动下载工具链到模块缓存，
-不动系统安装）。DEV_GUIDE.md 里写的 1.25.7 已过时。
+本次仅进行了代码阅读、静态逻辑检查、格式化和 diff 检查，未执行构建、自动化测试或 lint。

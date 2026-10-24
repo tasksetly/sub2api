@@ -70,6 +70,20 @@ func (_u *UpstreamGroupUpdate) AddRemoteGroupID(v int64) *UpstreamGroupUpdate {
 	return _u
 }
 
+// SetRemoteGroupName sets the "remote_group_name" field.
+func (_u *UpstreamGroupUpdate) SetRemoteGroupName(v string) *UpstreamGroupUpdate {
+	_u.mutation.SetRemoteGroupName(v)
+	return _u
+}
+
+// SetNillableRemoteGroupName sets the "remote_group_name" field if the given value is not nil.
+func (_u *UpstreamGroupUpdate) SetNillableRemoteGroupName(v *string) *UpstreamGroupUpdate {
+	if v != nil {
+		_u.SetRemoteGroupName(*v)
+	}
+	return _u
+}
+
 // SetName sets the "name" field.
 func (_u *UpstreamGroupUpdate) SetName(v string) *UpstreamGroupUpdate {
 	_u.mutation.SetName(v)
@@ -384,6 +398,11 @@ func (_u *UpstreamGroupUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *UpstreamGroupUpdate) check() error {
+	if v, ok := _u.mutation.RemoteGroupName(); ok {
+		if err := upstreamgroup.RemoteGroupNameValidator(v); err != nil {
+			return &ValidationError{Name: "remote_group_name", err: fmt.Errorf(`ent: validator failed for field "UpstreamGroup.remote_group_name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := upstreamgroup.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "UpstreamGroup.name": %w`, err)}
@@ -435,6 +454,9 @@ func (_u *UpstreamGroupUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.AddedRemoteGroupID(); ok {
 		_spec.AddField(upstreamgroup.FieldRemoteGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.RemoteGroupName(); ok {
+		_spec.SetField(upstreamgroup.FieldRemoteGroupName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(upstreamgroup.FieldName, field.TypeString, value)
@@ -595,6 +617,20 @@ func (_u *UpstreamGroupUpdateOne) SetNillableRemoteGroupID(v *int64) *UpstreamGr
 // AddRemoteGroupID adds value to the "remote_group_id" field.
 func (_u *UpstreamGroupUpdateOne) AddRemoteGroupID(v int64) *UpstreamGroupUpdateOne {
 	_u.mutation.AddRemoteGroupID(v)
+	return _u
+}
+
+// SetRemoteGroupName sets the "remote_group_name" field.
+func (_u *UpstreamGroupUpdateOne) SetRemoteGroupName(v string) *UpstreamGroupUpdateOne {
+	_u.mutation.SetRemoteGroupName(v)
+	return _u
+}
+
+// SetNillableRemoteGroupName sets the "remote_group_name" field if the given value is not nil.
+func (_u *UpstreamGroupUpdateOne) SetNillableRemoteGroupName(v *string) *UpstreamGroupUpdateOne {
+	if v != nil {
+		_u.SetRemoteGroupName(*v)
+	}
 	return _u
 }
 
@@ -925,6 +961,11 @@ func (_u *UpstreamGroupUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *UpstreamGroupUpdateOne) check() error {
+	if v, ok := _u.mutation.RemoteGroupName(); ok {
+		if err := upstreamgroup.RemoteGroupNameValidator(v); err != nil {
+			return &ValidationError{Name: "remote_group_name", err: fmt.Errorf(`ent: validator failed for field "UpstreamGroup.remote_group_name": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := upstreamgroup.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "UpstreamGroup.name": %w`, err)}
@@ -993,6 +1034,9 @@ func (_u *UpstreamGroupUpdateOne) sqlSave(ctx context.Context) (_node *UpstreamG
 	}
 	if value, ok := _u.mutation.AddedRemoteGroupID(); ok {
 		_spec.AddField(upstreamgroup.FieldRemoteGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.RemoteGroupName(); ok {
+		_spec.SetField(upstreamgroup.FieldRemoteGroupName, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(upstreamgroup.FieldName, field.TypeString, value)

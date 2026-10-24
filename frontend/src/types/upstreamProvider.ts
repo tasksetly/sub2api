@@ -7,11 +7,13 @@
 
 export interface UpstreamProvider {
   id: number
+  provider_type: 'sub2api' | 'newapi'
   name: string
   base_url: string
   notes: string | null
 
-  username: string
+  /** NewAPI token-only providers have no login username. */
+  username?: string
   has_password: boolean
   has_totp_secret: boolean
   /** 是否存了上游 access JWT（手填的或自动登录缓存的） */
@@ -62,6 +64,7 @@ export interface UpstreamGroup {
   upstream_provider_id: number
   /** 分组在上游的主键，创建 API Key 时要回传给上游 */
   remote_group_id: number
+  remote_group_name?: string
   name: string
   platform: string
   subscription_type: string
@@ -116,9 +119,10 @@ export interface UpstreamProfile {
 
 /** password、access token、refresh token 至少提供一个；refresh token 可单独续期 access JWT */
 export interface CreateUpstreamProviderRequest {
+  provider_type?: 'sub2api' | 'newapi'
   name: string
   base_url: string
-  username: string
+  username?: string
   password?: string
   /** 手填的上游 access JWT，直接写入会话缓存；有效期从它的 exp 解析 */
   token?: string
@@ -133,9 +137,10 @@ export interface CreateUpstreamProviderRequest {
 
 /** password/totp_secret/token/refresh_token 留空表示不修改 */
 export interface UpdateUpstreamProviderRequest {
+  provider_type?: 'sub2api' | 'newapi'
   name: string
   base_url: string
-  username: string
+  username?: string
   password?: string
   /** 非空时顶掉缓存的 access 会话；与 password 同时填时以它为准 */
   token?: string

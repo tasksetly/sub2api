@@ -7,15 +7,24 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
-// UpstreamProvider 是一个上游 sub2api 供应商（能登录其后台的账号）。
+// UpstreamProvider 是一个上游 sub2api / NewAPI 供应商。
 //
-// 密码/TOTP/access token/refresh token 在仓储层用 AES-256-GCM 加解密，这里的字段是明文，
-// 但绝不能进入 DTO 响应——见 dto.UpstreamProviderFromService。
+// sub2api 密码/TOTP/access token/refresh token，以及 NewAPI 个人 API token，
+// 在仓储层用 AES-256-GCM 加解密；这里的字段是明文，但绝不能进入 DTO 响应——
+// 见 dto.UpstreamProviderFromService。
+const (
+	// UpstreamProviderTypeSub2API 使用 sub2api 自有 JWT 管理接口。
+	UpstreamProviderTypeSub2API = "sub2api"
+	// UpstreamProviderTypeNewAPI 使用用户在 NewAPI 后台生成的个人 API token。
+	UpstreamProviderTypeNewAPI = "newapi"
+)
+
 type UpstreamProvider struct {
-	ID      int64
-	Name    string
-	BaseURL string
-	Notes   *string
+	ID           int64
+	ProviderType string
+	Name         string
+	BaseURL      string
+	Notes        *string
 
 	Username   string
 	Password   string
@@ -53,6 +62,11 @@ func (p *UpstreamProvider) IsActive() bool {
 
 // HasValidToken 报告缓存的 token 是否还能用（留了提前过期的安全边界）。
 func (p *UpstreamProvider) HasValidToken(now time.Time) bool {
+	if p.ProviderType == UpstreamProviderTypeNewAPI && p.Token != "" {
+		// NewAPI tokens are opaque and ordinary API tokens do not expose an
+		// expiry claim. Let the upstream decide whether a revoked token works.
+		return true
+	}
 	if p.Token == "" || p.TokenExpiresAt == nil {
 		return false
 	}
@@ -63,10 +77,13 @@ func (p *UpstreamProvider) HasValidToken(now time.Time) bool {
 type UpstreamGroup struct {
 	ID                 int64
 	UpstreamProviderID int64
-	RemoteGroupID      int64
-	Name               string
-	Platform           string
-	SubscriptionType   string
+	// RemoteGroupID 是用于兼容旧 sub2api 数字分组 ID 的稳定本地标识。
+	// NewAPI 的真实分组键保存在 RemoteGroupName 中。
+	RemoteGroupID    int64
+	RemoteGroupName  string
+	Name             string
+	Platform         string
+	SubscriptionType string
 
 	RateMultiplier float64
 	// EffectiveRateMultiplier 叠加了专属倍率后的实际倍率，nil 表示无覆盖

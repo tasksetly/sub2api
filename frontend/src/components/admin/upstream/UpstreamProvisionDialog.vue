@@ -7,7 +7,11 @@
   >
     <div class="space-y-4">
       <p class="text-sm text-gray-600 dark:text-gray-300">
-        {{ t('admin.upstreamProviders.provisionHint') }}
+        {{
+          provider?.provider_type === 'newapi'
+            ? t('admin.upstreamProviders.provisionHintNewAPI')
+            : t('admin.upstreamProviders.provisionHint')
+        }}
       </p>
 
       <!-- 建号结果：有结果就优先展示，逐个分组独立成败 -->
@@ -158,7 +162,7 @@
           </div>
         </div>
 
-        <div>
+        <div v-if="provider?.provider_type !== 'newapi'">
           <label class="input-label">{{ t('admin.upstreamProviders.provisionKeyPrefix') }}</label>
           <input v-model="form.key_name_prefix" type="text" class="input" :placeholder="provider?.name ?? ''" />
           <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">

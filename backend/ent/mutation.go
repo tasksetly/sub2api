@@ -45517,6 +45517,7 @@ type UpstreamGroupMutation struct {
 	updated_at                   *time.Time
 	remote_group_id              *int64
 	addremote_group_id           *int64
+	remote_group_name            *string
 	name                         *string
 	platform                     *string
 	subscription_type            *string
@@ -45804,6 +45805,42 @@ func (m *UpstreamGroupMutation) AddedRemoteGroupID() (r int64, exists bool) {
 func (m *UpstreamGroupMutation) ResetRemoteGroupID() {
 	m.remote_group_id = nil
 	m.addremote_group_id = nil
+}
+
+// SetRemoteGroupName sets the "remote_group_name" field.
+func (m *UpstreamGroupMutation) SetRemoteGroupName(s string) {
+	m.remote_group_name = &s
+}
+
+// RemoteGroupName returns the value of the "remote_group_name" field in the mutation.
+func (m *UpstreamGroupMutation) RemoteGroupName() (r string, exists bool) {
+	v := m.remote_group_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRemoteGroupName returns the old "remote_group_name" field's value of the UpstreamGroup entity.
+// If the UpstreamGroup object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UpstreamGroupMutation) OldRemoteGroupName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRemoteGroupName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRemoteGroupName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRemoteGroupName: %w", err)
+	}
+	return oldValue.RemoteGroupName, nil
+}
+
+// ResetRemoteGroupName resets all changes to the "remote_group_name" field.
+func (m *UpstreamGroupMutation) ResetRemoteGroupName() {
+	m.remote_group_name = nil
 }
 
 // SetName sets the "name" field.
@@ -46538,7 +46575,7 @@ func (m *UpstreamGroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UpstreamGroupMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 18)
 	if m.created_at != nil {
 		fields = append(fields, upstreamgroup.FieldCreatedAt)
 	}
@@ -46550,6 +46587,9 @@ func (m *UpstreamGroupMutation) Fields() []string {
 	}
 	if m.remote_group_id != nil {
 		fields = append(fields, upstreamgroup.FieldRemoteGroupID)
+	}
+	if m.remote_group_name != nil {
+		fields = append(fields, upstreamgroup.FieldRemoteGroupName)
 	}
 	if m.name != nil {
 		fields = append(fields, upstreamgroup.FieldName)
@@ -46606,6 +46646,8 @@ func (m *UpstreamGroupMutation) Field(name string) (ent.Value, bool) {
 		return m.UpstreamProviderID()
 	case upstreamgroup.FieldRemoteGroupID:
 		return m.RemoteGroupID()
+	case upstreamgroup.FieldRemoteGroupName:
+		return m.RemoteGroupName()
 	case upstreamgroup.FieldName:
 		return m.Name()
 	case upstreamgroup.FieldPlatform:
@@ -46649,6 +46691,8 @@ func (m *UpstreamGroupMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldUpstreamProviderID(ctx)
 	case upstreamgroup.FieldRemoteGroupID:
 		return m.OldRemoteGroupID(ctx)
+	case upstreamgroup.FieldRemoteGroupName:
+		return m.OldRemoteGroupName(ctx)
 	case upstreamgroup.FieldName:
 		return m.OldName(ctx)
 	case upstreamgroup.FieldPlatform:
@@ -46711,6 +46755,13 @@ func (m *UpstreamGroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRemoteGroupID(v)
+		return nil
+	case upstreamgroup.FieldRemoteGroupName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRemoteGroupName(v)
 		return nil
 	case upstreamgroup.FieldName:
 		v, ok := value.(string)
@@ -46984,6 +47035,9 @@ func (m *UpstreamGroupMutation) ResetField(name string) error {
 	case upstreamgroup.FieldRemoteGroupID:
 		m.ResetRemoteGroupID()
 		return nil
+	case upstreamgroup.FieldRemoteGroupName:
+		m.ResetRemoteGroupName()
+		return nil
 	case upstreamgroup.FieldName:
 		m.ResetName()
 		return nil
@@ -47110,6 +47164,7 @@ type UpstreamProviderMutation struct {
 	created_at              *time.Time
 	updated_at              *time.Time
 	deleted_at              *time.Time
+	provider_type           *string
 	name                    *string
 	base_url                *string
 	notes                   *string
@@ -47363,6 +47418,42 @@ func (m *UpstreamProviderMutation) ResetDeletedAt() {
 	delete(m.clearedFields, upstreamprovider.FieldDeletedAt)
 }
 
+// SetProviderType sets the "provider_type" field.
+func (m *UpstreamProviderMutation) SetProviderType(s string) {
+	m.provider_type = &s
+}
+
+// ProviderType returns the value of the "provider_type" field in the mutation.
+func (m *UpstreamProviderMutation) ProviderType() (r string, exists bool) {
+	v := m.provider_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderType returns the old "provider_type" field's value of the UpstreamProvider entity.
+// If the UpstreamProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UpstreamProviderMutation) OldProviderType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderType: %w", err)
+	}
+	return oldValue.ProviderType, nil
+}
+
+// ResetProviderType resets all changes to the "provider_type" field.
+func (m *UpstreamProviderMutation) ResetProviderType() {
+	m.provider_type = nil
+}
+
 // SetName sets the "name" field.
 func (m *UpstreamProviderMutation) SetName(s string) {
 	m.name = &s
@@ -47515,9 +47606,22 @@ func (m *UpstreamProviderMutation) OldUsername(ctx context.Context) (v string, e
 	return oldValue.Username, nil
 }
 
+// ClearUsername clears the value of the "username" field.
+func (m *UpstreamProviderMutation) ClearUsername() {
+	m.username = nil
+	m.clearedFields[upstreamprovider.FieldUsername] = struct{}{}
+}
+
+// UsernameCleared returns if the "username" field was cleared in this mutation.
+func (m *UpstreamProviderMutation) UsernameCleared() bool {
+	_, ok := m.clearedFields[upstreamprovider.FieldUsername]
+	return ok
+}
+
 // ResetUsername resets all changes to the "username" field.
 func (m *UpstreamProviderMutation) ResetUsername() {
 	m.username = nil
+	delete(m.clearedFields, upstreamprovider.FieldUsername)
 }
 
 // SetPasswordEncrypted sets the "password_encrypted" field.
@@ -48379,7 +48483,7 @@ func (m *UpstreamProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UpstreamProviderMutation) Fields() []string {
-	fields := make([]string, 0, 21)
+	fields := make([]string, 0, 22)
 	if m.created_at != nil {
 		fields = append(fields, upstreamprovider.FieldCreatedAt)
 	}
@@ -48388,6 +48492,9 @@ func (m *UpstreamProviderMutation) Fields() []string {
 	}
 	if m.deleted_at != nil {
 		fields = append(fields, upstreamprovider.FieldDeletedAt)
+	}
+	if m.provider_type != nil {
+		fields = append(fields, upstreamprovider.FieldProviderType)
 	}
 	if m.name != nil {
 		fields = append(fields, upstreamprovider.FieldName)
@@ -48457,6 +48564,8 @@ func (m *UpstreamProviderMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdatedAt()
 	case upstreamprovider.FieldDeletedAt:
 		return m.DeletedAt()
+	case upstreamprovider.FieldProviderType:
+		return m.ProviderType()
 	case upstreamprovider.FieldName:
 		return m.Name()
 	case upstreamprovider.FieldBaseURL:
@@ -48508,6 +48617,8 @@ func (m *UpstreamProviderMutation) OldField(ctx context.Context, name string) (e
 		return m.OldUpdatedAt(ctx)
 	case upstreamprovider.FieldDeletedAt:
 		return m.OldDeletedAt(ctx)
+	case upstreamprovider.FieldProviderType:
+		return m.OldProviderType(ctx)
 	case upstreamprovider.FieldName:
 		return m.OldName(ctx)
 	case upstreamprovider.FieldBaseURL:
@@ -48573,6 +48684,13 @@ func (m *UpstreamProviderMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDeletedAt(v)
+		return nil
+	case upstreamprovider.FieldProviderType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderType(v)
 		return nil
 	case upstreamprovider.FieldName:
 		v, ok := value.(string)
@@ -48787,6 +48905,9 @@ func (m *UpstreamProviderMutation) ClearedFields() []string {
 	if m.FieldCleared(upstreamprovider.FieldNotes) {
 		fields = append(fields, upstreamprovider.FieldNotes)
 	}
+	if m.FieldCleared(upstreamprovider.FieldUsername) {
+		fields = append(fields, upstreamprovider.FieldUsername)
+	}
 	if m.FieldCleared(upstreamprovider.FieldTotpSecretEncrypted) {
 		fields = append(fields, upstreamprovider.FieldTotpSecretEncrypted)
 	}
@@ -48837,6 +48958,9 @@ func (m *UpstreamProviderMutation) ClearField(name string) error {
 	case upstreamprovider.FieldNotes:
 		m.ClearNotes()
 		return nil
+	case upstreamprovider.FieldUsername:
+		m.ClearUsername()
+		return nil
 	case upstreamprovider.FieldTotpSecretEncrypted:
 		m.ClearTotpSecretEncrypted()
 		return nil
@@ -48883,6 +49007,9 @@ func (m *UpstreamProviderMutation) ResetField(name string) error {
 		return nil
 	case upstreamprovider.FieldDeletedAt:
 		m.ResetDeletedAt()
+		return nil
+	case upstreamprovider.FieldProviderType:
+		m.ResetProviderType()
 		return nil
 	case upstreamprovider.FieldName:
 		m.ResetName()

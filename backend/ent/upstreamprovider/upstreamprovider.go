@@ -21,6 +21,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// FieldDeletedAt holds the string denoting the deleted_at field in the database.
 	FieldDeletedAt = "deleted_at"
+	// FieldProviderType holds the string denoting the provider_type field in the database.
+	FieldProviderType = "provider_type"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldBaseURL holds the string denoting the base_url field in the database.
@@ -85,6 +87,7 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldUpdatedAt,
 	FieldDeletedAt,
+	FieldProviderType,
 	FieldName,
 	FieldBaseURL,
 	FieldNotes,
@@ -129,6 +132,10 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultProviderType holds the default value on creation for the "provider_type" field.
+	DefaultProviderType string
+	// ProviderTypeValidator is a validator for the "provider_type" field. It is called by the builders before save.
+	ProviderTypeValidator func(string) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// BaseURLValidator is a validator for the "base_url" field. It is called by the builders before save.
@@ -168,6 +175,11 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByDeletedAt orders the results by the deleted_at field.
 func ByDeletedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDeletedAt, opts...).ToFunc()
+}
+
+// ByProviderType orders the results by the provider_type field.
+func ByProviderType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProviderType, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.

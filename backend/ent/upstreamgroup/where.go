@@ -75,6 +75,11 @@ func RemoteGroupID(v int64) predicate.UpstreamGroup {
 	return predicate.UpstreamGroup(sql.FieldEQ(FieldRemoteGroupID, v))
 }
 
+// RemoteGroupName applies equality check predicate on the "remote_group_name" field. It's identical to RemoteGroupNameEQ.
+func RemoteGroupName(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldEQ(FieldRemoteGroupName, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.UpstreamGroup {
 	return predicate.UpstreamGroup(sql.FieldEQ(FieldName, v))
@@ -278,6 +283,71 @@ func RemoteGroupIDLT(v int64) predicate.UpstreamGroup {
 // RemoteGroupIDLTE applies the LTE predicate on the "remote_group_id" field.
 func RemoteGroupIDLTE(v int64) predicate.UpstreamGroup {
 	return predicate.UpstreamGroup(sql.FieldLTE(FieldRemoteGroupID, v))
+}
+
+// RemoteGroupNameEQ applies the EQ predicate on the "remote_group_name" field.
+func RemoteGroupNameEQ(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldEQ(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameNEQ applies the NEQ predicate on the "remote_group_name" field.
+func RemoteGroupNameNEQ(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldNEQ(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameIn applies the In predicate on the "remote_group_name" field.
+func RemoteGroupNameIn(vs ...string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldIn(FieldRemoteGroupName, vs...))
+}
+
+// RemoteGroupNameNotIn applies the NotIn predicate on the "remote_group_name" field.
+func RemoteGroupNameNotIn(vs ...string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldNotIn(FieldRemoteGroupName, vs...))
+}
+
+// RemoteGroupNameGT applies the GT predicate on the "remote_group_name" field.
+func RemoteGroupNameGT(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldGT(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameGTE applies the GTE predicate on the "remote_group_name" field.
+func RemoteGroupNameGTE(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldGTE(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameLT applies the LT predicate on the "remote_group_name" field.
+func RemoteGroupNameLT(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldLT(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameLTE applies the LTE predicate on the "remote_group_name" field.
+func RemoteGroupNameLTE(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldLTE(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameContains applies the Contains predicate on the "remote_group_name" field.
+func RemoteGroupNameContains(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldContains(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameHasPrefix applies the HasPrefix predicate on the "remote_group_name" field.
+func RemoteGroupNameHasPrefix(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldHasPrefix(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameHasSuffix applies the HasSuffix predicate on the "remote_group_name" field.
+func RemoteGroupNameHasSuffix(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldHasSuffix(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameEqualFold applies the EqualFold predicate on the "remote_group_name" field.
+func RemoteGroupNameEqualFold(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldEqualFold(FieldRemoteGroupName, v))
+}
+
+// RemoteGroupNameContainsFold applies the ContainsFold predicate on the "remote_group_name" field.
+func RemoteGroupNameContainsFold(v string) predicate.UpstreamGroup {
+	return predicate.UpstreamGroup(sql.FieldContainsFold(FieldRemoteGroupName, v))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.

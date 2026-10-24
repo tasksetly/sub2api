@@ -22,6 +22,8 @@ const (
 	FieldUpstreamProviderID = "upstream_provider_id"
 	// FieldRemoteGroupID holds the string denoting the remote_group_id field in the database.
 	FieldRemoteGroupID = "remote_group_id"
+	// FieldRemoteGroupName holds the string denoting the remote_group_name field in the database.
+	FieldRemoteGroupName = "remote_group_name"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldPlatform holds the string denoting the platform field in the database.
@@ -68,6 +70,7 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldUpstreamProviderID,
 	FieldRemoteGroupID,
+	FieldRemoteGroupName,
 	FieldName,
 	FieldPlatform,
 	FieldSubscriptionType,
@@ -100,6 +103,10 @@ var (
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// DefaultRemoteGroupName holds the default value on creation for the "remote_group_name" field.
+	DefaultRemoteGroupName string
+	// RemoteGroupNameValidator is a validator for the "remote_group_name" field. It is called by the builders before save.
+	RemoteGroupNameValidator func(string) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// DefaultPlatform holds the default value on creation for the "platform" field.
@@ -150,6 +157,11 @@ func ByUpstreamProviderID(opts ...sql.OrderTermOption) OrderOption {
 // ByRemoteGroupID orders the results by the remote_group_id field.
 func ByRemoteGroupID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRemoteGroupID, opts...).ToFunc()
+}
+
+// ByRemoteGroupName orders the results by the remote_group_name field.
+func ByRemoteGroupName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRemoteGroupName, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.

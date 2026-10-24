@@ -32,6 +32,13 @@ func NewUpstreamProviderRepository(
 	return &upstreamProviderRepository{client: client, sql: sqlDB, encryptor: encryptor}
 }
 
+func providerTypeOrDefault(value string) string {
+	if value == "" {
+		return service.UpstreamProviderTypeSub2API
+	}
+	return value
+}
+
 func (r *upstreamProviderRepository) Create(ctx context.Context, provider *service.UpstreamProvider) error {
 	encryptedPassword, err := r.encryptor.Encrypt(provider.Password)
 	if err != nil {
@@ -39,6 +46,7 @@ func (r *upstreamProviderRepository) Create(ctx context.Context, provider *servi
 	}
 
 	builder := r.client.UpstreamProvider.Create().
+		SetProviderType(providerTypeOrDefault(provider.ProviderType)).
 		SetName(provider.Name).
 		SetBaseURL(provider.BaseURL).
 		SetUsername(provider.Username).
@@ -97,7 +105,17 @@ func (r *upstreamProviderRepository) GetByID(ctx context.Context, id int64) (*se
 }
 
 func (r *upstreamProviderRepository) Update(ctx context.Context, provider *service.UpstreamProvider) error {
+	current, err := r.client.UpstreamProvider.Get(ctx, provider.ID)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return service.ErrUpstreamProviderNotFound
+		}
+		return err
+	}
+	typeChanged := providerTypeOrDefault(current.ProviderType) != providerTypeOrDefault(provider.ProviderType)
+
 	builder := r.client.UpstreamProvider.UpdateOneID(provider.ID).
+		SetProviderType(providerTypeOrDefault(provider.ProviderType)).
 		SetName(provider.Name).
 		SetBaseURL(provider.BaseURL).
 		SetUsername(provider.Username).
@@ -111,9 +129,22 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 		builder.ClearNotes()
 	}
 
+	if typeChanged {
+		// Access/refresh tokens are protocol-specific. Never reuse a sub2api JWT
+		// as a NewAPI Bearer token (or the reverse) after changing the type.
+		builder.ClearTokenEncrypted().ClearRefreshTokenEncrypted().ClearTokenExpiresAt()
+	}
+
+	if providerTypeOrDefault(provider.ProviderType) == service.UpstreamProviderTypeNewAPI {
+		// NewAPI is token-only: never retain sub2api login credentials or a
+		// refresh token that the NewAPI flow cannot use.
+		builder.SetPasswordEncrypted("").ClearTotpSecretEncrypted().ClearRefreshTokenEncrypted().ClearTokenExpiresAt()
+	}
+
 	passwordChanged := provider.Password != ""
 	tokenProvided := provider.Token != ""
-	refreshTokenProvided := provider.RefreshToken != ""
+	refreshTokenProvided := provider.RefreshToken != "" &&
+		providerTypeOrDefault(provider.ProviderType) != service.UpstreamProviderTypeNewAPI
 
 	// 密码为空表示「不修改」，避免编辑其他字段时把密码清掉。
 	if passwordChanged {
@@ -480,6 +511,7 @@ func (r *upstreamProviderRepository) ReplaceGroups(
 		switch {
 		case findErr == nil:
 			update := tx.UpstreamGroup.UpdateOneID(existing.ID).
+				SetRemoteGroupName(group.RemoteGroupName).
 				SetName(group.Name).
 				SetPlatform(group.Platform).
 				SetSubscriptionType(group.SubscriptionType).
@@ -496,6 +528,7 @@ func (r *upstreamProviderRepository) ReplaceGroups(
 			create := tx.UpstreamGroup.Create().
 				SetUpstreamProviderID(providerID).
 				SetRemoteGroupID(group.RemoteGroupID).
+				SetRemoteGroupName(group.RemoteGroupName).
 				SetName(group.Name).
 				SetPlatform(group.Platform).
 				SetSubscriptionType(group.SubscriptionType).
@@ -735,6 +768,7 @@ func (r *upstreamProviderRepository) entityToService(entity *dbent.UpstreamProvi
 		return nil
 	}
 	provider := &service.UpstreamProvider{
+		ProviderType:        providerTypeOrDefault(entity.ProviderType),
 		ID:                  entity.ID,
 		Name:                entity.Name,
 		BaseURL:             entity.BaseURL,
@@ -797,6 +831,7 @@ func upstreamGroupEntityToService(entity *dbent.UpstreamGroup) *service.Upstream
 		ID:                      entity.ID,
 		UpstreamProviderID:      entity.UpstreamProviderID,
 		RemoteGroupID:           entity.RemoteGroupID,
+		RemoteGroupName:         entity.RemoteGroupName,
 		Name:                    entity.Name,
 		Platform:                entity.Platform,
 		SubscriptionType:        entity.SubscriptionType,

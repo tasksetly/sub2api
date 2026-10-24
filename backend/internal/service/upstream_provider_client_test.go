@@ -300,6 +300,7 @@ func TestUpstreamProviderHasValidToken(t *testing.T) {
 		provider UpstreamProvider
 		want     bool
 	}{
+		{"newapi personal API token", UpstreamProvider{ProviderType: UpstreamProviderTypeNewAPI, Token: "sk-personal"}, true},
 		{"no token", UpstreamProvider{TokenExpiresAt: &future}, false},
 		{"no expiry", UpstreamProvider{Token: "t"}, false},
 		{"valid", UpstreamProvider{Token: "t", TokenExpiresAt: &future}, true},
@@ -359,4 +360,45 @@ func TestUpstreamTokenExpiry(t *testing.T) {
 		got := upstreamTokenExpiry("not-a-jwt-at-all")
 		require.WithinDuration(t, time.Now().Add(upstreamProviderManualTokenTTL), got, time.Minute)
 	})
+}
+
+func TestStableNewAPIGroupIDIsDeterministicAndJavaScriptSafe(t *testing.T) {
+	first := stableNewAPIGroupID("claude-sonnet")
+	require.Positive(t, first)
+	require.Less(t, first, int64(1<<53))
+	require.Equal(t, first, stableNewAPIGroupID("claude-sonnet"))
+	require.NotEqual(t, first, stableNewAPIGroupID("gpt-4o"))
+}
+
+func TestUpstreamClientGetNewAPIProfileUsesTokenUsage(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		require.Equal(t, "Bearer sk-ordinary", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":true,"message":"ok","data":{"total_available":1000000,"user_quota":{"total_available":3000000}}}`))
+	}))
+	defer server.Close()
+
+	profile, err := NewUpstreamProviderClient().GetNewAPIProfile(context.Background(), server.URL, "sk-ordinary")
+	require.NoError(t, err)
+	require.Equal(t, 6.0, profile.Balance)
+	require.True(t, profile.BalanceKnown)
+	require.Equal(t, []string{"/api/usage/token/"}, paths)
+}
+
+func TestUpstreamClientListNewAPIGroupsPreservesNamesAndOmitsAuto(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/user/groups", r.URL.Path)
+		require.Empty(t, r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"data":{"auto":{"ratio":"auto","desc":"automatic"},"vip":{"ratio":1.5,"desc":"VIP"}}}`))
+	}))
+	defer server.Close()
+
+	groups, err := NewUpstreamProviderClient().ListNewAPIGroups(context.Background(), server.URL)
+	require.NoError(t, err)
+	require.Len(t, groups, 1)
+	require.Equal(t, "vip", groups[0].Name)
+	require.Equal(t, 1.5, groups[0].Ratio)
 }

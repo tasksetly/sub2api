@@ -23,13 +23,15 @@ type UpstreamProvider struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// DeletedAt holds the value of the "deleted_at" field.
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	// Upstream management API type: sub2api or newapi.
+	ProviderType string `json:"provider_type,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Upstream sub2api site root URL, no trailing slash.
 	BaseURL string `json:"base_url,omitempty"`
 	// Notes holds the value of the "notes" field.
 	Notes *string `json:"notes,omitempty"`
-	// Login email/username on the upstream site.
+	// Login email/username on the upstream site; empty for token-only NewAPI providers.
 	Username string `json:"username,omitempty"`
 	// AES-256-GCM encrypted login password; reversible because token refresh needs it.
 	PasswordEncrypted string `json:"password_encrypted,omitempty"`
@@ -105,7 +107,7 @@ func (*UpstreamProvider) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case upstreamprovider.FieldID, upstreamprovider.FieldUpstreamConcurrency:
 			values[i] = new(sql.NullInt64)
-		case upstreamprovider.FieldName, upstreamprovider.FieldBaseURL, upstreamprovider.FieldNotes, upstreamprovider.FieldUsername, upstreamprovider.FieldPasswordEncrypted, upstreamprovider.FieldTotpSecretEncrypted, upstreamprovider.FieldTokenEncrypted, upstreamprovider.FieldRefreshTokenEncrypted, upstreamprovider.FieldUpstreamUserID, upstreamprovider.FieldStatus, upstreamprovider.FieldLastSyncError:
+		case upstreamprovider.FieldProviderType, upstreamprovider.FieldName, upstreamprovider.FieldBaseURL, upstreamprovider.FieldNotes, upstreamprovider.FieldUsername, upstreamprovider.FieldPasswordEncrypted, upstreamprovider.FieldTotpSecretEncrypted, upstreamprovider.FieldTokenEncrypted, upstreamprovider.FieldRefreshTokenEncrypted, upstreamprovider.FieldUpstreamUserID, upstreamprovider.FieldStatus, upstreamprovider.FieldLastSyncError:
 			values[i] = new(sql.NullString)
 		case upstreamprovider.FieldCreatedAt, upstreamprovider.FieldUpdatedAt, upstreamprovider.FieldDeletedAt, upstreamprovider.FieldTokenExpiresAt, upstreamprovider.FieldLastSyncAt:
 			values[i] = new(sql.NullTime)
@@ -148,6 +150,12 @@ func (_m *UpstreamProvider) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.DeletedAt = new(time.Time)
 				*_m.DeletedAt = value.Time
+			}
+		case upstreamprovider.FieldProviderType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field provider_type", values[i])
+			} else if value.Valid {
+				_m.ProviderType = value.String
 			}
 		case upstreamprovider.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -324,6 +332,9 @@ func (_m *UpstreamProvider) String() string {
 		builder.WriteString("deleted_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("provider_type=")
+	builder.WriteString(_m.ProviderType)
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

@@ -23,10 +23,11 @@ func NewUpstreamProviderHandler(svc *service.UpstreamProviderService) *UpstreamP
 
 // CreateUpstreamProviderRequest 新增上游。
 type CreateUpstreamProviderRequest struct {
-	Name    string `json:"name" binding:"required"`
-	BaseURL string `json:"base_url" binding:"required"`
-	// Username 仍必填：即使只用 token，列表页也要有个标识看是哪个上游账号。
-	Username string `json:"username" binding:"required"`
+	ProviderType string `json:"provider_type" binding:"omitempty,oneof=sub2api newapi"`
+	Name         string `json:"name" binding:"required"`
+	BaseURL      string `json:"base_url" binding:"required"`
+	// NewAPI 使用 token-only 凭据，不需要用户名。
+	Username string `json:"username"`
 	// Password、Token、RefreshToken 至少提供一个，由 service 校验：上游做了 CF 校验时可直接粘贴 token 对。
 	Password string `json:"password"`
 	// Token 是管理员从浏览器里拿到的上游 access JWT，直接写入会话缓存。
@@ -43,10 +44,11 @@ type CreateUpstreamProviderRequest struct {
 // UpdateUpstreamProviderRequest 编辑上游。
 // Password/TotpSecret/Token/RefreshToken 留空表示不修改。
 type UpdateUpstreamProviderRequest struct {
-	Name     string `json:"name" binding:"required"`
-	BaseURL  string `json:"base_url" binding:"required"`
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password"`
+	ProviderType string `json:"provider_type" binding:"omitempty,oneof=sub2api newapi"`
+	Name         string `json:"name" binding:"required"`
+	BaseURL      string `json:"base_url" binding:"required"`
+	Username     string `json:"username"`
+	Password     string `json:"password"`
 	// Token 非空时顶掉缓存的 access 会话；与 Password 同时填时以 Token 为准。
 	Token string `json:"token"`
 	// RefreshToken 非空时更新缓存的 refresh token，可单独补填。
@@ -132,6 +134,7 @@ func (h *UpstreamProviderHandler) Create(c *gin.Context) {
 	}
 
 	provider, err := h.svc.Create(c.Request.Context(), service.CreateUpstreamProviderInput{
+		ProviderType:   req.ProviderType,
 		Name:           req.Name,
 		BaseURL:        req.BaseURL,
 		Username:       req.Username,
@@ -169,6 +172,7 @@ func (h *UpstreamProviderHandler) Update(c *gin.Context) {
 	}
 
 	provider, err := h.svc.Update(c.Request.Context(), id, service.UpdateUpstreamProviderInput{
+		ProviderType:   req.ProviderType,
 		Name:           req.Name,
 		BaseURL:        req.BaseURL,
 		Username:       req.Username,

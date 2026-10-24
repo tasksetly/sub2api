@@ -1713,6 +1713,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "remote_group_id", Type: field.TypeInt64},
+		{Name: "remote_group_name", Type: field.TypeString, Size: 150, Default: ""},
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "platform", Type: field.TypeString, Size: 50, Default: ""},
 		{Name: "subscription_type", Type: field.TypeString, Size: 20, Default: ""},
@@ -1736,7 +1737,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "upstream_groups_upstream_providers_groups",
-				Columns:    []*schema.Column{UpstreamGroupsColumns[17]},
+				Columns:    []*schema.Column{UpstreamGroupsColumns[18]},
 				RefColumns: []*schema.Column{UpstreamProvidersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1745,12 +1746,12 @@ var (
 			{
 				Name:    "upstreamgroup_upstream_provider_id",
 				Unique:  false,
-				Columns: []*schema.Column{UpstreamGroupsColumns[17]},
+				Columns: []*schema.Column{UpstreamGroupsColumns[18]},
 			},
 			{
 				Name:    "upstreamgroup_upstream_provider_id_remote_group_id",
 				Unique:  true,
-				Columns: []*schema.Column{UpstreamGroupsColumns[17], UpstreamGroupsColumns[3]},
+				Columns: []*schema.Column{UpstreamGroupsColumns[18], UpstreamGroupsColumns[3]},
 			},
 		},
 	}
@@ -1760,10 +1761,11 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "provider_type", Type: field.TypeString, Size: 20, Default: "sub2api"},
 		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "base_url", Type: field.TypeString, Size: 255},
 		{Name: "notes", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
-		{Name: "username", Type: field.TypeString, Size: 255},
+		{Name: "username", Type: field.TypeString, Nullable: true, Size: 255},
 		{Name: "password_encrypted", Type: field.TypeString, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "totp_secret_encrypted", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "token_encrypted", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
@@ -1788,7 +1790,7 @@ var (
 			{
 				Name:    "upstreamprovider_status",
 				Unique:  false,
-				Columns: []*schema.Column{UpstreamProvidersColumns[18]},
+				Columns: []*schema.Column{UpstreamProvidersColumns[19]},
 			},
 			{
 				Name:    "upstreamprovider_deleted_at",
@@ -1798,7 +1800,7 @@ var (
 			{
 				Name:    "upstreamprovider_sync_enabled",
 				Unique:  false,
-				Columns: []*schema.Column{UpstreamProvidersColumns[21]},
+				Columns: []*schema.Column{UpstreamProvidersColumns[22]},
 			},
 		},
 	}

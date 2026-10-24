@@ -40,6 +40,12 @@ func (UpstreamProvider) Mixin() []ent.Mixin {
 
 func (UpstreamProvider) Fields() []ent.Field {
 	return []ent.Field{
+		// provider_type 区分管理 API 协议。历史数据默认为 sub2api。
+		field.String("provider_type").
+			MaxLen(20).
+			Default("sub2api").
+			Comment("Upstream management API type: sub2api or newapi."),
+
 		// name: 上游显示名称，同时写入所建账户的 accounts.supplier 用于成本归集
 		field.String("name").
 			MaxLen(100).
@@ -57,8 +63,8 @@ func (UpstreamProvider) Fields() []ent.Field {
 		// ========== 登录凭据 ==========
 		field.String("username").
 			MaxLen(255).
-			NotEmpty().
-			Comment("Login email/username on the upstream site."),
+			Optional().
+			Comment("Login email/username on the upstream site; empty for token-only NewAPI providers."),
 		// password_encrypted: AES-256-GCM 密文，绝不出现在任何 DTO 响应中
 		field.String("password_encrypted").
 			SchemaType(map[string]string{dialect.Postgres: "text"}).

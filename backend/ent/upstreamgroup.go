@@ -26,6 +26,8 @@ type UpstreamGroup struct {
 	UpstreamProviderID int64 `json:"upstream_provider_id,omitempty"`
 	// RemoteGroupID holds the value of the "remote_group_id" field.
 	RemoteGroupID int64 `json:"remote_group_id,omitempty"`
+	// RemoteGroupName holds the value of the "remote_group_name" field.
+	RemoteGroupName string `json:"remote_group_name,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// Platform holds the value of the "platform" field.
@@ -89,7 +91,7 @@ func (*UpstreamGroup) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case upstreamgroup.FieldID, upstreamgroup.FieldUpstreamProviderID, upstreamgroup.FieldRemoteGroupID:
 			values[i] = new(sql.NullInt64)
-		case upstreamgroup.FieldName, upstreamgroup.FieldPlatform, upstreamgroup.FieldSubscriptionType, upstreamgroup.FieldPeakStart, upstreamgroup.FieldPeakEnd:
+		case upstreamgroup.FieldRemoteGroupName, upstreamgroup.FieldName, upstreamgroup.FieldPlatform, upstreamgroup.FieldSubscriptionType, upstreamgroup.FieldPeakStart, upstreamgroup.FieldPeakEnd:
 			values[i] = new(sql.NullString)
 		case upstreamgroup.FieldCreatedAt, upstreamgroup.FieldUpdatedAt, upstreamgroup.FieldSyncedAt:
 			values[i] = new(sql.NullTime)
@@ -137,6 +139,12 @@ func (_m *UpstreamGroup) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field remote_group_id", values[i])
 			} else if value.Valid {
 				_m.RemoteGroupID = value.Int64
+			}
+		case upstreamgroup.FieldRemoteGroupName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field remote_group_name", values[i])
+			} else if value.Valid {
+				_m.RemoteGroupName = value.String
 			}
 		case upstreamgroup.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -273,6 +281,9 @@ func (_m *UpstreamGroup) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("remote_group_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RemoteGroupID))
+	builder.WriteString(", ")
+	builder.WriteString("remote_group_name=")
+	builder.WriteString(_m.RemoteGroupName)
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

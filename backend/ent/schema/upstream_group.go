@@ -37,6 +37,10 @@ func (UpstreamGroup) Fields() []ent.Field {
 		field.Int64("upstream_provider_id"),
 		// remote_group_id: 分组在上游的主键，创建 API Key 时要回传给上游
 		field.Int64("remote_group_id"),
+		// NewAPI 使用分组名称作为远程键；sub2api 该字段为空。
+		field.String("remote_group_name").
+			MaxLen(150).
+			Default(""),
 		field.String("name").
 			MaxLen(100).
 			NotEmpty(),
