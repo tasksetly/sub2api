@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -470,6 +471,9 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 		if err := s.repo.ReplaceGroups(ctx, provider.ID, snapshotGroups); err != nil {
 			return fmt.Errorf("store NewAPI groups: %w", err)
 		}
+		if err := s.syncNewAPIAccountRates(ctx, provider.ID, provider.RateCorrection, snapshotGroups); err != nil {
+			slog.Warn("newapi_account_rate_sync_failed", "provider_id", provider.ID, "error", err)
+		}
 		newSnapshot := snapshot
 		if err := s.repo.UpdateSyncSnapshot(ctx, provider.ID, newSnapshot); err != nil {
 			return fmt.Errorf("store upstream snapshot: %w", err)
@@ -525,6 +529,123 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 		return fmt.Errorf("store upstream snapshot: %w", err)
 	}
 	return nil
+}
+
+func (s *UpstreamProviderService) EnrichNewAPIUpstreamBillingSnapshots(ctx context.Context, accounts []Account) {
+	if s == nil || s.repo == nil || len(accounts) == 0 {
+		return
+	}
+	providers := make(map[int64]*UpstreamProvider)
+	groupsByProvider := make(map[int64]map[int64]*UpstreamGroup)
+	for i := range accounts {
+		account := &accounts[i]
+		if account.Type != AccountTypeAPIKey || account.UpstreamProviderID == nil || account.UpstreamRemoteGroupID == nil {
+			continue
+		}
+		providerID := *account.UpstreamProviderID
+		provider, ok := providers[providerID]
+		if !ok {
+			loaded, err := s.repo.GetByID(ctx, providerID)
+			if err != nil {
+				continue
+			}
+			providers[providerID] = loaded
+			provider = loaded
+		}
+		if provider == nil || provider.ProviderType != UpstreamProviderTypeNewAPI {
+			continue
+		}
+		groups, ok := groupsByProvider[providerID]
+		if !ok {
+			loaded, err := s.repo.ListGroups(ctx, providerID)
+			if err != nil {
+				groupsByProvider[providerID] = map[int64]*UpstreamGroup{}
+				continue
+			}
+			groups = make(map[int64]*UpstreamGroup, len(loaded))
+			for i := range loaded {
+				groups[loaded[i].RemoteGroupID] = &loaded[i]
+			}
+			groupsByProvider[providerID] = groups
+		}
+		group := groups[*account.UpstreamRemoteGroupID]
+		if group == nil {
+			continue
+		}
+		snapshot := newAPIUpstreamBillingSnapshot(group)
+		if account.Extra == nil {
+			account.Extra = make(map[string]any)
+		}
+		account.Extra[UpstreamBillingProbeExtraKey] = snapshot
+	}
+}
+
+func newAPIUpstreamBillingSnapshot(group *UpstreamGroup) *UpstreamBillingProbeSnapshot {
+	syncedAt := group.SyncedAt.UTC()
+	if syncedAt.IsZero() {
+		syncedAt = time.Now().UTC()
+	}
+	rate := group.ComparableRate()
+	return &UpstreamBillingProbeSnapshot{
+		Status:        UpstreamBillingProbeStatusOK,
+		Data: map[string]any{
+			"object":                    "newapi.upstream_group_billing",
+			"schema_version":            1,
+			"billing_scope":              "token",
+			"group_rate_multiplier":      group.RateMultiplier,
+			"resolved_rate_multiplier":   rate,
+			"effective_rate_multiplier":  rate,
+			"peak_rate_enabled":          false,
+			"timezone":                   "UTC",
+			"observed_at":                syncedAt.Format(time.RFC3339Nano),
+		},
+		ReceivedAt: &syncedAt,
+		FreshUntil: func() *time.Time {
+			freshUntil := syncedAt.Add(2 * upstreamProviderSyncInterval)
+			return &freshUntil
+		}(),
+		LastAttemptAt: syncedAt,
+		NextProbeAt:   syncedAt.Add(upstreamProviderSyncInterval),
+	}
+}
+
+func (s *UpstreamProviderService) syncNewAPIAccountRates(ctx context.Context, providerID int64, rateCorrection float64, groups []UpstreamGroup) error {
+	if s.adminService == nil || len(groups) == 0 {
+		return nil
+	}
+	groupByID := make(map[int64]UpstreamGroup, len(groups))
+	for _, group := range groups {
+		groupByID[group.RemoteGroupID] = group
+	}
+	for page := 1; ; page++ {
+		accounts, total, err := s.adminService.ListAccounts(ctx, page, 1000, "", AccountTypeAPIKey, "", "", 0, "", "name", "asc", providerID)
+		if err != nil {
+			return err
+		}
+		for i := range accounts {
+			account := &accounts[i]
+			if account.UpstreamRemoteGroupID == nil || !upstreamBillingRateSyncEnabled(account) {
+				continue
+			}
+			group, ok := groupByID[*account.UpstreamRemoteGroupID]
+			if !ok {
+				continue
+			}
+			rate := group.ComparableRate() * NormalizeRateCorrection(rateCorrection)
+			if math.IsNaN(rate) || math.IsInf(rate, 0) || rate <= 0 || rate > upstreamBillingRateSyncMaxMultiplier {
+				continue
+			}
+			if account.RateMultiplier != nil && equalBillingMultiplier(*account.RateMultiplier, rate) {
+				continue
+			}
+			if _, err := s.adminService.UpdateAccount(ctx, account.ID, &UpdateAccountInput{RateMultiplier: &rate}); err != nil {
+				return fmt.Errorf("update account %d rate: %w", account.ID, err)
+			}
+		}
+		if int64(page*1000) >= total || len(accounts) == 0 {
+			return nil
+		}
+	}
 }
 
 func stableNewAPIGroupID(name string) int64 {

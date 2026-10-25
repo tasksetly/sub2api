@@ -1209,7 +1209,10 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 		}
 		return []func(*entsql.Selector){func(s *entsql.Selector) {
 			extra := s.C(dbaccount.FieldExtra)
-			expression := upstreamBillingRateSortExpression(extra)
+			providerID := s.C(dbaccount.FieldUpstreamProviderID)
+			remoteGroupID := s.C(dbaccount.FieldUpstreamRemoteGroupID)
+			upstreamGroupRate := "(SELECT COALESCE(g.effective_rate_multiplier, g.rate_multiplier)::numeric FROM upstream_groups g WHERE g.upstream_provider_id = " + providerID + " AND g.remote_group_id = " + remoteGroupID + " LIMIT 1)"
+			expression := "COALESCE(" + upstreamBillingRateSortExpression(extra) + ", " + upstreamGroupRate + ")"
 			s.OrderExpr(entsql.Expr(expression + " " + direction + " NULLS LAST"))
 			s.OrderBy(tieOrder(s.C(dbaccount.FieldID)))
 		}}

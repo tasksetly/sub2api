@@ -737,6 +737,9 @@ func (h *AccountHandler) List(c *gin.Context) {
 				return
 			}
 		}
+		if h.upstreamProviders != nil {
+			h.upstreamProviders.EnrichNewAPIUpstreamBillingSnapshots(c.Request.Context(), accounts)
+		}
 	}
 
 	// Get current concurrency counts for all accounts
@@ -1004,6 +1007,11 @@ func (h *AccountHandler) GetByID(c *gin.Context) {
 			response.ErrorFrom(c, err)
 			return
 		}
+	}
+	if h.upstreamProviders != nil {
+		accountCopy := []service.Account{*account}
+		h.upstreamProviders.EnrichNewAPIUpstreamBillingSnapshots(c.Request.Context(), accountCopy)
+		*account = accountCopy[0]
 	}
 
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))

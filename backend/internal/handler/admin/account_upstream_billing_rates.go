@@ -75,6 +75,9 @@ func (h *AccountHandler) GetUpstreamBillingRates(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if h.upstreamProviders != nil {
+		h.upstreamProviders.EnrichNewAPIUpstreamBillingSnapshots(c.Request.Context(), accounts)
+	}
 
 	payload := upstreamBillingRatesResponse{
 		Items:    service.BuildUpstreamBillingRateSnapshotItems(accounts),

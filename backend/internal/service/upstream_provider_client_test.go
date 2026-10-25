@@ -370,6 +370,21 @@ func TestStableNewAPIGroupIDIsDeterministicAndJavaScriptSafe(t *testing.T) {
 	require.NotEqual(t, first, stableNewAPIGroupID("gpt-4o"))
 }
 
+func TestNewAPIUpstreamBillingSnapshotUsesSyncedGroupRate(t *testing.T) {
+	syncedAt := time.Date(2026, time.October, 25, 12, 0, 0, 0, time.UTC)
+	group := &UpstreamGroup{
+		RemoteGroupID:  123,
+		RateMultiplier: 0.08,
+		SyncedAt:       syncedAt,
+	}
+
+	snapshot := newAPIUpstreamBillingSnapshot(group)
+	require.Equal(t, UpstreamBillingProbeStatusOK, snapshot.Status)
+	require.Equal(t, 0.08, snapshot.Data["resolved_rate_multiplier"])
+	require.Equal(t, 0.08, snapshot.Data["effective_rate_multiplier"])
+	require.Equal(t, syncedAt, *snapshot.ReceivedAt)
+}
+
 func TestUpstreamClientGetNewAPIProfileUsesTokenUsage(t *testing.T) {
 	var paths []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
