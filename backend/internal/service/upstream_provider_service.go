@@ -797,8 +797,21 @@ func (s *UpstreamProviderService) createLocalAccount(
 		baseURL += "/v1"
 	}
 	credentials := map[string]any{
-		"api_key":  created.Key,
-		"base_url": baseURL,
+		"api_key":                    created.Key,
+		"base_url":                   baseURL,
+		// Accounts provisioned from an upstream provider participate in the
+		// shared key pool by default. A short 503 cooldown prevents an
+		// unavailable upstream from being retried continuously.
+		"pool_mode":                  true,
+		"temp_unschedulable_enabled": true,
+		"temp_unschedulable_rules": []any{
+			map[string]any{
+				"error_code":       503,
+				"keywords":         []any{"unavailable", "maintenance", "不可用", "维护"},
+				"duration_minutes": 3,
+				"description":      "上游不可用 - 临时不可调度 3 分钟",
+			},
+		},
 	}
 
 	// 自动同步模型：从上游获取支持的模型列表并设置到 model_mapping
