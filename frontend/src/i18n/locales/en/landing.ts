@@ -11,10 +11,10 @@ export default {
     switchToDark: 'Switch to Dark Mode',
     dashboard: 'Dashboard',
     login: 'Login',
-    getStarted: 'Sign Up for Trial Credit',
+    getStarted: 'Sign Up and Get Started',
     goToDashboard: 'Go to Dashboard',
     // User-focused value proposition
-    heroSubtitle: 'API access for Codex CLI with usage-based billing. Verify your email after signup, then request a USD 3 trial redemption code through an in-app ticket.',
+    heroSubtitle: 'API access for Codex CLI with usage-based billing. Sign up, create an API key, and start calling the API.',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
     tags: {
       subscriptionToApi: 'Codex CLI API Access',
@@ -51,8 +51,8 @@ export default {
     features: {
       unifiedGateway: 'Fast Codex CLI Setup',
       unifiedGatewayDesc: 'Create an API key and copy the dashboard configuration to start calling the API.',
-      multiAccount: 'Request Trial Credit by Ticket',
-      multiAccountDesc: 'After email verification, submit an in-app ticket. A USD 3 redemption code is handled manually within 24 hours.',
+      multiAccount: 'Unified Access and Management',
+      multiAccountDesc: 'Create an API key after signup, manage usage in one place, and use the models you need.',
       balanceQuota: 'Usage-Based Balance Billing',
       balanceQuotaDesc: 'Each CNY 1 recharge becomes USD 1 of balance. Token usage starts at 0.1x the model reference price.'
     },
@@ -105,8 +105,8 @@ export default {
     // CTA section
     cta: {
       title: 'Ready to Get Started?',
-      description: 'Sign up now and get free trial credits to experience seamless AI access',
-      button: 'Sign Up Free'
+      description: 'Sign up, create an API key, and start using seamless AI access with usage-based billing',
+      button: 'Sign Up Now'
     },
     footer: {
       allRightsReserved: 'All rights reserved.'

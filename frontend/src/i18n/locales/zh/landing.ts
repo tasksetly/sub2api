@@ -11,10 +11,10 @@ export default {
     switchToDark: '切换到深色模式',
     dashboard: '控制台',
     login: '登录',
-    getStarted: '注册并申请体验码',
+    getStarted: '注册并开始使用',
     goToDashboard: '进入控制台',
     // 新增：面向用户的价值主张
-    heroSubtitle: 'Codex CLI API 接入，余额按量计费。注册并验证邮箱后，可在站内工单申请 3 美元体验兑换码。',
+    heroSubtitle: 'Codex CLI API 接入，余额按量计费。注册后即可创建 API Key，快速开始调用。',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
     tags: {
       subscriptionToApi: 'Codex CLI API 接入',
@@ -51,8 +51,8 @@ export default {
     features: {
       unifiedGateway: 'Codex CLI 快速接入',
       unifiedGatewayDesc: '创建 API Key 并复制控制台配置，即可开始调用。',
-      multiAccount: '注册后工单领体验码',
-      multiAccountDesc: '完成邮箱验证后提交站内工单，24 小时内人工处理 3 美元兑换码。',
+      multiAccount: '统一管理与调用',
+      multiAccountDesc: '注册后创建 API Key，集中管理用量并按需调用多种 AI 模型。',
       balanceQuota: '余额按量计费',
       balanceQuotaDesc: '充值 1 CNY 折算 1 USD 余额，Token 消耗按模型基准价格 0.1 倍起。'
     },
@@ -105,8 +105,8 @@ export default {
     // CTA 区块
     cta: {
       title: '准备好开始了吗？',
-      description: '注册即可获得免费试用额度，体验一站式 AI 服务',
-      button: '免费注册'
+      description: '注册后即可创建 API Key，按量使用一站式 AI 服务',
+      button: '立即注册'
     },
     footer: {
       allRightsReserved: '保留所有权利。'

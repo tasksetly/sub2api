@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Tasksetly 为 Codex CLI 提供按量计费的 API 接入。注册后可通过站内工单申请 3 美元体验兑换码。">
+    <meta name="description" content="Tasksetly 为 Codex CLI 提供按量计费的 API 接入。注册后即可创建 API Key 并开始调用。">
     <link rel="canonical" href="https://ai.tasksetly.com/go/codex">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Codex CLI API 接入与价格 | Tasksetly">
-    <meta property="og:description" content="余额按量计费，注册后通过站内工单申请 3 美元体验兑换码。">
+    <meta property="og:description" content="余额按量计费，注册后即可创建 API Key 并开始调用。">
     <meta property="og:url" content="https://ai.tasksetly.com/go/codex">
     <meta property="og:image" content="https://ai.tasksetly.com/logo.svg">
     <meta name="twitter:card" content="summary">
@@ -65,9 +65,9 @@
     <main class="container">
       <p class="eyebrow">CODEX CLI API</p>
       <h1>为 Codex CLI 准备的按量计费 API 接入</h1>
-      <p class="lead">使用一个 API Key 完成 Codex CLI 接入。面向中国用户，余额按量计费；注册并验证邮箱后，可在站内工单申请 3 美元体验兑换码。</p>
+      <p class="lead">使用一个 API Key 完成 Codex CLI 接入。面向中国用户，余额按量计费；注册后即可创建 API Key 并开始调用。</p>
       <div class="actions">
-        <a class="button" href="https://ai.tasksetly.com/register">注册并申请体验码</a>
+        <a class="button" href="https://ai.tasksetly.com/register">注册并开始使用</a>
         <a class="button secondary" href="#pricing">查看计费说明</a>
       </div>
       <div class="facts" aria-label="服务摘要">
@@ -81,8 +81,8 @@
         <h2>从注册到首次调用</h2>
         <div class="grid">
           <article class="step"><span class="step-number">01</span><h3>注册并验证邮箱</h3><p>创建账号后完成邮箱验证，进入控制台。</p></article>
-          <article class="step"><span class="step-number">02</span><h3>提交体验工单</h3><p>在站内工单说明用途，24 小时内处理并人工发放 3 美元兑换码。</p></article>
-          <article class="step"><span class="step-number">03</span><h3>创建 Key 并配置 Codex</h3><p>兑换后创建 API Key，按控制台提供的地址和模型名完成配置。</p></article>
+          <article class="step"><span class="step-number">02</span><h3>创建 API Key</h3><p>进入控制台创建 API Key，查看当前可用模型和计费信息。</p></article>
+          <article class="step"><span class="step-number">03</span><h3>配置 Codex 并调用</h3><p>按控制台提供的地址和模型名完成配置，开始按量使用。</p></article>
         </div>
       </div>
     </section>
@@ -93,7 +93,7 @@
           <tbody>
             <tr><th scope="row">充值余额</th><td>充值 1 CNY 折算为 1 USD 余额。</td></tr>
             <tr><th scope="row">Token 消耗</th><td>按模型基准价格的 0.1 倍起计算；不同模型的最终模型名、输入/输出价格与适用条件以控制台当前价格为准。</td></tr>
-            <tr><th scope="row">体验兑换码</th><td>注册并完成邮箱验证后，通过站内工单申请。每个兑换码面额为 3 USD，由人工处理发放。</td></tr>
+            <tr><th scope="row">开始使用</th><td>注册后创建 API Key，按控制台当前显示的模型和价格使用服务。</td></tr>
           </tbody>
         </table>
         <p class="note">价格信息最后核验：2026-07-29。价格或模型变动时，以控制台显示为准。</p>
@@ -113,7 +113,7 @@
     </section>
     <section>
       <div class="container cta">
-        <div><h2>先完成一次真实调用</h2><p>注册、工单申请体验码、创建 Key，再用你的 Codex CLI 工作流验证。</p></div>
+        <div><h2>先完成一次真实调用</h2><p>注册、创建 API Key，再用你的 Codex CLI 工作流验证。</p></div>
         <a class="button" href="https://ai.tasksetly.com/register">开始注册</a>
       </div>
     </section>
