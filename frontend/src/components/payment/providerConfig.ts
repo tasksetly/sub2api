@@ -40,6 +40,7 @@ export interface CallbackPaths {
 /** Maps provider key → available payment types. */
 export const PROVIDER_SUPPORTED_TYPES: Record<string, string[]> = {
   easypay: ['alipay', 'wxpay'],
+  bepusdt: ['bepusdt'],
   alipay: ['alipay'],
   wxpay: ['wxpay'],
   stripe: ['card', 'alipay', 'wxpay', 'link'],
@@ -50,7 +51,7 @@ export const PROVIDER_SUPPORTED_TYPES: Record<string, string[]> = {
 export const EASYPAY_PAYMENT_MODES = ['qrcode', 'popup'] as const
 
 /** Fixed display order for user-facing payment methods */
-export const METHOD_ORDER = ['alipay', 'alipay_direct', 'wxpay', 'wxpay_direct', 'stripe', 'airwallex'] as const
+export const METHOD_ORDER = ['alipay', 'alipay_direct', 'wxpay', 'wxpay_direct', 'stripe', 'airwallex', 'bepusdt'] as const
 
 export function isBuiltInAlipayMethod(type: string): boolean {
   return type === 'alipay' || type === 'alipay_direct'
@@ -108,6 +109,7 @@ export function getPaymentPopupFeatures(): string {
 /** Webhook paths for each provider (relative to origin). */
 export const WEBHOOK_PATHS: Record<string, string> = {
   easypay: '/api/v1/payment/webhook/easypay',
+  bepusdt: '/api/v1/payment/webhook/bepusdt',
   alipay: '/api/v1/payment/webhook/alipay',
   wxpay: '/api/v1/payment/webhook/wxpay',
   stripe: '/api/v1/payment/webhook/stripe',
@@ -119,6 +121,7 @@ export const RETURN_PATH = '/payment/result'
 /** Fixed callback paths per provider — displayed as read-only after base URL. */
 export const PROVIDER_CALLBACK_PATHS: Record<string, CallbackPaths> = {
   easypay: { notifyUrl: WEBHOOK_PATHS.easypay, returnUrl: RETURN_PATH },
+  bepusdt: { notifyUrl: WEBHOOK_PATHS.bepusdt },
   alipay: { notifyUrl: WEBHOOK_PATHS.alipay, returnUrl: RETURN_PATH },
   wxpay: { notifyUrl: WEBHOOK_PATHS.wxpay },
   // stripe: 不需要回调 URL 配置，Webhook 单独配置。
@@ -133,6 +136,22 @@ export const PROVIDER_CONFIG_FIELDS: Record<string, ConfigFieldDef[]> = {
     { key: 'apiBase', label: '', sensitive: false },
     { key: 'cidAlipay', label: '', sensitive: false, optional: true },
     { key: 'cidWxpay', label: '', sensitive: false, optional: true },
+  ],
+  bepusdt: [
+    { key: 'apiBase', label: '', sensitive: false, hintKey: 'admin.settings.payment.field_bepusdtApiBaseHint' },
+    { key: 'token', label: '', sensitive: true },
+    { key: 'tradeType', label: '', sensitive: false, defaultValue: 'usdt.trc20' },
+    {
+      key: 'fiat', label: '', sensitive: false, defaultValue: 'CNY',
+      options: [
+        { value: 'CNY', label: 'CNY' },
+        { value: 'USD', label: 'USD' },
+        { value: 'EUR', label: 'EUR' },
+        { value: 'GBP', label: 'GBP' },
+        { value: 'JPY', label: 'JPY' },
+      ],
+    },
+    { key: 'timeout', label: '', sensitive: false, optional: true, hintKey: 'admin.settings.payment.field_bepusdtTimeoutHint' },
   ],
   alipay: [
     { key: 'appId', label: 'App ID', sensitive: false },

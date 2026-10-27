@@ -290,6 +290,7 @@ export default {
     createOrder: '确认支付',
     methods: {
       easypay: '易支付',
+      bepusdt: 'BEpusdt',
       alipay: '支付宝',
       wxpay: '微信支付',
       stripe: 'Stripe',

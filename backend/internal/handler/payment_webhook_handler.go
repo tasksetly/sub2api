@@ -43,6 +43,12 @@ func (h *PaymentWebhookHandler) EasyPayNotify(c *gin.Context) {
 	h.handleNotify(c, payment.TypeEasyPay)
 }
 
+// BepusdtNotify handles BEpusdt payment notifications.
+// POST /api/v1/payment/webhook/bepusdt
+func (h *PaymentWebhookHandler) BepusdtNotify(c *gin.Context) {
+	h.handleNotify(c, payment.TypeBepusdt)
+}
+
 // AlipayNotify handles Alipay payment notifications.
 // POST /api/v1/payment/webhook/alipay
 func (h *PaymentWebhookHandler) AlipayNotify(c *gin.Context) {
@@ -161,6 +167,13 @@ func extractOutTradeNo(rawBody, providerKey string) string {
 		if err == nil {
 			return values.Get("out_trade_no")
 		}
+	case payment.TypeBepusdt:
+		var payload struct {
+			OrderID string `json:"order_id"`
+		}
+		if err := json.Unmarshal([]byte(rawBody), &payload); err == nil {
+			return strings.TrimSpace(payload.OrderID)
+		}
 	case payment.TypeAirwallex:
 		var payload struct {
 			Data struct {
@@ -221,6 +234,8 @@ func writeSuccessResponse(c *gin.Context, providerKey string) {
 		c.JSON(http.StatusOK, wxpaySuccessResponse{Code: wxpaySuccessCode, Message: wxpaySuccessMessage})
 	case payment.TypeStripe, payment.TypeAirwallex:
 		c.String(http.StatusOK, "")
+	case payment.TypeBepusdt:
+		c.String(http.StatusOK, "ok")
 	default:
 		c.String(http.StatusOK, "success")
 	}

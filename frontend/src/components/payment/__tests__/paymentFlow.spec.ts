@@ -39,6 +39,7 @@ describe('getVisibleMethods', () => {
       wxpay: methodLimit({ single_max: 100 }),
       stripe: methodLimit({ fee_rate: 3 }),
       airwallex: methodLimit({ single_min: 10 }),
+      bepusdt: methodLimit({ single_max: 500 }),
     })
 
     expect(visible).toEqual({
@@ -46,6 +47,7 @@ describe('getVisibleMethods', () => {
       wxpay: methodLimit({ single_max: 100 }),
       stripe: methodLimit({ fee_rate: 3 }),
       airwallex: methodLimit({ single_min: 10 }),
+      bepusdt: methodLimit({ single_max: 500 }),
     })
   })
 
@@ -74,6 +76,21 @@ describe('getVisibleMethods', () => {
 })
 
 describe('decidePaymentLaunch', () => {
+  it('keeps BEpusdt as a native hosted redirect payment', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      pay_url: 'https://bepusdt.example/pay/trade-1',
+      out_trade_no: 'order-1',
+    }), {
+      visibleMethod: 'bepusdt',
+      orderType: 'balance',
+      isMobile: false,
+    })
+
+    expect(decision.kind).toBe('redirect_waiting')
+    expect(decision.paymentState.paymentType).toBe('bepusdt')
+    expect(decision.paymentState.payUrl).toBe('https://bepusdt.example/pay/trade-1')
+  })
+
   it('uses Stripe popup waiting flow for desktop Alipay client secret', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       client_secret: 'cs_test',

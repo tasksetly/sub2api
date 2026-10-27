@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   PAYMENT_CURRENCY_OPTIONS,
+  PROVIDER_CALLBACK_PATHS,
   PROVIDER_CONFIG_FIELDS,
+  PROVIDER_SUPPORTED_TYPES,
+  WEBHOOK_PATHS,
   isBuiltInAlipayMethod,
   isBuiltInWxpayMethod,
   parseEasyPayCustomMethods,
@@ -55,6 +58,18 @@ describe('PROVIDER_CONFIG_FIELDS.stripe', () => {
     expect(currency?.defaultValue).toBe('CNY')
     expect(currency?.hintKey).toBe('admin.settings.payment.field_paymentCurrencyHint')
     expect(currency?.options).toBe(PAYMENT_CURRENCY_OPTIONS)
+  })
+})
+
+describe('PROVIDER_CONFIG_FIELDS.bepusdt', () => {
+  it('exposes the native provider and signed callback configuration', () => {
+    expect(PROVIDER_SUPPORTED_TYPES.bepusdt).toEqual(['bepusdt'])
+    expect(WEBHOOK_PATHS.bepusdt).toBe('/api/v1/payment/webhook/bepusdt')
+    expect(PROVIDER_CALLBACK_PATHS.bepusdt?.notifyUrl).toBe(WEBHOOK_PATHS.bepusdt)
+    expect(findField('bepusdt', 'token')?.sensitive).toBe(true)
+    expect(findField('bepusdt', 'tradeType')?.defaultValue).toBe('usdt.trc20')
+    expect(findField('bepusdt', 'fiat')?.defaultValue).toBe('CNY')
+    expect(findField('bepusdt', 'timeout')?.optional).toBe(true)
   })
 })
 

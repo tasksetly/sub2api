@@ -265,6 +265,7 @@ export default {
     createOrder: 'Confirm Payment',
     methods: {
       easypay: 'EasyPay',
+      bepusdt: 'BEpusdt',
       alipay: 'Alipay',
       wxpay: 'WeChat Pay',
       stripe: 'Stripe',

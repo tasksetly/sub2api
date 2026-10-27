@@ -56,6 +56,17 @@ func TestEnabledVisibleMethodsForEasyPayIncludesCustomSupportedTypes(t *testing.
 	}
 }
 
+func TestEnabledVisibleMethodsForBepusdtDefaultsToItsNativeMethod(t *testing.T) {
+	t.Parallel()
+
+	if got := enabledVisibleMethodsForProvider(payment.TypeBepusdt, ""); len(got) != 1 || got[0] != payment.TypeBepusdt {
+		t.Fatalf("enabledVisibleMethodsForProvider(%q, empty) = %v, want [%q]", payment.TypeBepusdt, got, payment.TypeBepusdt)
+	}
+	if got := enabledVisibleMethodsForProvider(payment.TypeBepusdt, "bepusdt"); len(got) != 1 || got[0] != payment.TypeBepusdt {
+		t.Fatalf("enabledVisibleMethodsForProvider(%q, bepusdt) = %v, want [%q]", payment.TypeBepusdt, got, payment.TypeBepusdt)
+	}
+}
+
 func TestNormalizePaymentSource(t *testing.T) {
 	t.Parallel()
 

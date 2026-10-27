@@ -278,6 +278,11 @@ func TestIsSensitiveProviderConfigField(t *testing.T) {
 		{payment.TypeAirwallex, "accountId", false},
 		{payment.TypeAirwallex, "currency", false},
 
+		// BEpusdt
+		{payment.TypeBepusdt, "token", true},
+		{payment.TypeBepusdt, "apiBase", false},
+		{payment.TypeBepusdt, "fiat", false},
+
 		// Unknown provider: never sensitive
 		{"unknown", "secretKey", false},
 	}
