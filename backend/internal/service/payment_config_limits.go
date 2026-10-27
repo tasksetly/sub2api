@@ -243,7 +243,7 @@ func (s *PaymentConfigService) pcInstanceEasyPayCustomMethodFeeRate(inst *dbent.
 }
 
 func (s *PaymentConfigService) pcInstanceEasyPayCustomMethod(inst *dbent.PaymentProviderInstance, pt string) (easyPayCustomMethodConfig, bool) {
-	if inst == nil || inst.ProviderKey != payment.TypeEasyPay {
+	if inst == nil || (inst.ProviderKey != payment.TypeEasyPay && inst.ProviderKey != payment.TypeBepusdt) {
 		return easyPayCustomMethodConfig{}, false
 	}
 	cfg := map[string]string{}

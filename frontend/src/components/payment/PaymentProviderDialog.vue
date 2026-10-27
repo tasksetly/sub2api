@@ -70,14 +70,14 @@
         </div>
       </div>
 
-      <div v-if="form.provider_key === 'easypay'" class="space-y-3 rounded-lg border border-gray-100 p-3 dark:border-dark-700">
+      <div v-if="customMethodsEnabled" class="space-y-3 rounded-lg border border-gray-100 p-3 dark:border-dark-700">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h5 class="text-sm font-medium text-gray-900 dark:text-white">
-              {{ t('admin.settings.payment.easypayCustomMethods') }}
+              {{ t('admin.settings.payment.customMethodsTitle') }}
             </h5>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.settings.payment.easypayCustomMethodsHint') }}
+              {{ t('admin.settings.payment.customMethodsHint') }}
             </p>
           </div>
           <button type="button" class="btn btn-secondary btn-sm" @click="addEasyPayCustomMethod">
@@ -449,6 +449,8 @@ const callbackPaths = computed(() => PROVIDER_CALLBACK_PATHS[form.provider_key] 
 
 const supportsPaymentMode = computed(() => providerSupportsPaymentMode(form.provider_key))
 
+const customMethodsEnabled = computed(() => form.provider_key === 'easypay' || form.provider_key === 'bepusdt')
+
 const paymentModeOptions = computed(() => {
   if (form.provider_key === 'alipay') {
     // For Alipay official: "" = default (precreate → page.pay fallback);
@@ -466,7 +468,7 @@ const paymentModeOptions = computed(() => {
 
 const availableTypes = computed(() => {
   const base = getAvailableTypes(form.provider_key, props.allPaymentTypes, props.redirectLabel)
-  if (form.provider_key === 'easypay') {
+  if (customMethodsEnabled.value) {
     for (const method of normalizedEasyPayCustomMethods()) {
       if (!base.some(opt => opt.value === method.type)) {
         base.push({
@@ -682,7 +684,7 @@ function handleSave() {
     emitValidationError(t('admin.settings.payment.validationNameRequired'))
     return
   }
-  if (form.provider_key === 'easypay') {
+  if (customMethodsEnabled.value) {
     const validationError = validateEasyPayCustomMethods()
     if (validationError) {
       emitValidationError(validationError)
@@ -719,7 +721,7 @@ function handleSave() {
     }
     filteredConfig[k] = v
   }
-  if (form.provider_key === 'easypay') {
+  if (customMethodsEnabled.value) {
     filteredConfig.customMethods = serializeEasyPayCustomMethods(normalizedEasyPayCustomMethods())
   }
 
@@ -749,8 +751,8 @@ function handleSave() {
 }
 
 function syncEasyPayCustomMethods(): string[] {
-  if (form.provider_key !== 'easypay') return []
-  const baseTypes = new Set(PROVIDER_SUPPORTED_TYPES.easypay || [])
+  if (!customMethodsEnabled.value) return []
+  const baseTypes = new Set(PROVIDER_SUPPORTED_TYPES[form.provider_key] || [])
   const customTypes: string[] = []
   const seen = new Set<string>()
   for (const method of normalizedEasyPayCustomMethods()) {
@@ -776,16 +778,16 @@ function validateEasyPayCustomMethods(): string | null {
     const hasAnyValue = Boolean(method.type || method.upstreamType || method.displayName || method.feeRate !== undefined)
     if (!hasAnyValue) continue
     if (!method.type || !method.upstreamType) {
-      return t('admin.settings.payment.validationEasyPayCustomMethodRequired')
+      return t('admin.settings.payment.validationCustomMethodRequired')
     }
     if (!/^[a-z0-9_-]+$/.test(method.type)) {
-      return t('admin.settings.payment.validationEasyPayCustomMethodTypeInvalid')
+      return t('admin.settings.payment.validationCustomMethodTypeInvalid')
     }
     if (!/^[a-z0-9_.-]+$/.test(method.upstreamType)) {
-      return t('admin.settings.payment.validationEasyPayCustomMethodUpstreamTypeInvalid')
+      return t('admin.settings.payment.validationCustomMethodUpstreamTypeInvalid')
     }
-    if ((PROVIDER_SUPPORTED_TYPES.easypay || []).includes(method.type)) {
-      return t('admin.settings.payment.validationEasyPayCustomMethodReserved')
+    if ((PROVIDER_SUPPORTED_TYPES[form.provider_key] || []).includes(method.type)) {
+      return t('admin.settings.payment.validationCustomMethodReserved')
     }
     if (method.feeRate !== undefined && (
       !Number.isFinite(method.feeRate) ||
@@ -793,13 +795,13 @@ function validateEasyPayCustomMethods(): string | null {
       method.feeRate > 100 ||
       Math.abs(Math.round(method.feeRate * 100) - method.feeRate * 100) >= 1e-9
     )) {
-      return t('admin.settings.payment.validationEasyPayCustomMethodFeeRateInvalid')
+      return t('admin.settings.payment.validationCustomMethodFeeRateInvalid')
     }
-    if (method.type.startsWith('alipay') || method.type.startsWith('wxpay')) {
-      return t('admin.settings.payment.validationEasyPayCustomMethodPrefixReserved')
+    if (method.type.startsWith('alipay') || method.type.startsWith('wxpay') || method.type.startsWith('bepusdt')) {
+      return t('admin.settings.payment.validationCustomMethodPrefixReserved')
     }
     if (seen.has(method.type)) {
-      return t('admin.settings.payment.validationEasyPayCustomMethodDuplicate')
+      return t('admin.settings.payment.validationCustomMethodDuplicate')
     }
     seen.add(method.type)
   }
@@ -847,7 +849,7 @@ function loadProvider(provider: ProviderInstance) {
     for (const [k, v] of Object.entries(provider.config)) {
       // Skip notifyUrl/returnUrl — they are derived from callbackBaseUrl
       if (k === 'notifyUrl' || k === 'returnUrl') continue
-      if (k === 'customMethods' && provider.provider_key === 'easypay') {
+      if (k === 'customMethods' && (provider.provider_key === 'easypay' || provider.provider_key === 'bepusdt')) {
         easyPayCustomMethods.push(...parseEasyPayCustomMethods(v))
         continue
       }

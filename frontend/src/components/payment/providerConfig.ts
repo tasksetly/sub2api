@@ -29,6 +29,9 @@ export interface EasyPayCustomMethod {
   feeRate?: number
 }
 
+/** Custom payment method mapping shared by EasyPay and BEpusdt providers. */
+export type CustomPaymentMethod = EasyPayCustomMethod
+
 /** Callback URL paths for a provider. */
 export interface CallbackPaths {
   notifyUrl?: string
@@ -212,7 +215,7 @@ function optionalEasyPayCustomMethodFeeRate(value: unknown): number | undefined 
   return Number.isFinite(feeRate) ? feeRate : undefined
 }
 
-export function parseEasyPayCustomMethods(raw: string | undefined): EasyPayCustomMethod[] {
+export function parseCustomPaymentMethods(raw: string | undefined): CustomPaymentMethod[] {
   if (!raw || !raw.trim()) return []
   try {
     const parsed = JSON.parse(raw)
@@ -223,7 +226,7 @@ export function parseEasyPayCustomMethods(raw: string | undefined): EasyPayCusto
         return {
           type: String(item?.type || '').trim(),
           upstreamType: String(item?.upstreamType || '').trim(),
-          displayName: String(item?.displayName || '').trim(),
+          displayName: String(item?.displayName || item?.type_name || item?.typeName || '').trim(),
           ...(feeRate !== undefined ? { feeRate } : {}),
         }
       })
@@ -233,7 +236,7 @@ export function parseEasyPayCustomMethods(raw: string | undefined): EasyPayCusto
   }
 }
 
-export function serializeEasyPayCustomMethods(methods: EasyPayCustomMethod[]): string {
+export function serializeCustomPaymentMethods(methods: CustomPaymentMethod[]): string {
   const clean = methods
     .map(method => {
       const feeRate = optionalEasyPayCustomMethodFeeRate(method.feeRate)
@@ -246,6 +249,15 @@ export function serializeEasyPayCustomMethods(methods: EasyPayCustomMethod[]): s
     })
     .filter(method => method.type && method.upstreamType)
   return clean.length ? JSON.stringify(clean) : ''
+}
+
+/** Backward-compatible aliases for callers that only handle EasyPay. */
+export function parseEasyPayCustomMethods(raw: string | undefined): EasyPayCustomMethod[] {
+  return parseCustomPaymentMethods(raw)
+}
+
+export function serializeEasyPayCustomMethods(methods: EasyPayCustomMethod[]): string {
+  return serializeCustomPaymentMethods(methods)
 }
 
 /** Extract base URL from a full callback URL by removing the known path suffix. */

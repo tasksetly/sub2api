@@ -54,9 +54,7 @@ func enabledVisibleMethodsForProvider(providerKey, supportedTypes string) []stri
 			break
 		}
 		for _, supportedType := range splitTypes(supportedTypes) {
-			if strings.EqualFold(strings.TrimSpace(payment.TypeBepusdt), strings.TrimSpace(supportedType)) {
-				addMethod(payment.TypeBepusdt)
-			}
+			addMethod(supportedType)
 		}
 	}
 

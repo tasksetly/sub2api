@@ -126,7 +126,7 @@ var providerSensitiveConfigFields = map[string]map[string]struct{}{
 // webhook/refund verification.
 var providerPendingOrderProtectedConfigFields = map[string]map[string]struct{}{
 	payment.TypeEasyPay:   {"pkey": {}, "pid": {}},
-	payment.TypeBepusdt:   {"token": {}, "apibase": {}, "notifyurl": {}, "tradetype": {}, "fiat": {}, "timeout": {}},
+	payment.TypeBepusdt:   {"token": {}, "apibase": {}, "notifyurl": {}, "tradetype": {}, "fiat": {}, "timeout": {}, "custommethods": {}},
 	payment.TypeAlipay:    {"privatekey": {}, "publickey": {}, "alipaypublickey": {}, "appid": {}},
 	payment.TypeWxpay:     {"privatekey": {}, "apiv3key": {}, "publickey": {}, "appid": {}, "mpappid": {}, "mchid": {}, "publickeyid": {}, "certserial": {}},
 	payment.TypeStripe:    {"secretkey": {}, "webhooksecret": {}, "currency": {}},
@@ -194,6 +194,11 @@ func (s *PaymentConfigService) CreateProviderInstance(ctx context.Context, req C
 			return nil, err
 		}
 	}
+	if req.ProviderKey == payment.TypeBepusdt {
+		if err := validateBepusdtCustomMethods(req.Config, typesStr); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.validateVisibleMethodEnablementConflicts(ctx, 0, req.ProviderKey, typesStr, req.Enabled); err != nil {
 		return nil, err
 	}
@@ -233,6 +238,8 @@ type easyPayCustomMethodConfig struct {
 	Type         string   `json:"type"`
 	UpstreamType string   `json:"upstreamType"`
 	DisplayName  string   `json:"displayName"`
+	TypeName      string   `json:"type_name"`
+	TypeNameCamel string   `json:"typeName"`
 	FeeRate      *float64 `json:"feeRate"`
 }
 
@@ -295,6 +302,17 @@ func parseEasyPayCustomMethodConfigs(config map[string]string) ([]easyPayCustomM
 	if err := json.Unmarshal([]byte(raw), &methods); err != nil {
 		return nil, infraerrors.BadRequest("VALIDATION_ERROR", "customMethods must be a JSON array")
 	}
+	for i := range methods {
+		methods[i].Type = strings.TrimSpace(methods[i].Type)
+		methods[i].UpstreamType = strings.TrimSpace(methods[i].UpstreamType)
+		methods[i].DisplayName = strings.TrimSpace(methods[i].DisplayName)
+		if methods[i].DisplayName == "" {
+			methods[i].DisplayName = strings.TrimSpace(methods[i].TypeName)
+		}
+		if methods[i].DisplayName == "" {
+			methods[i].DisplayName = strings.TrimSpace(methods[i].TypeNameCamel)
+		}
+	}
 	return methods, nil
 }
 
@@ -308,6 +326,56 @@ func isValidEasyPayCustomMethodFeeRate(rate float64) bool {
 
 func easyPayCustomMethodTypeConflictsWithBuiltin(methodType string) bool {
 	return strings.HasPrefix(methodType, payment.TypeAlipay) || strings.HasPrefix(methodType, payment.TypeWxpay)
+}
+
+func bepusdtCustomMethodTypeConflictsWithBuiltin(methodType string) bool {
+	return easyPayCustomMethodTypeConflictsWithBuiltin(methodType) || strings.HasPrefix(methodType, payment.TypeBepusdt)
+}
+
+func validateBepusdtCustomMethods(config map[string]string, supportedTypes string) error {
+	methods, err := parseEasyPayCustomMethodConfigs(config)
+	if err != nil {
+		return err
+	}
+
+	customTypes := make(map[string]struct{}, len(methods))
+	for _, method := range methods {
+		method.Type = strings.TrimSpace(method.Type)
+		method.UpstreamType = strings.TrimSpace(method.UpstreamType)
+		if method.Type == "" || method.UpstreamType == "" {
+			return infraerrors.BadRequest("VALIDATION_ERROR", "customMethods upstreamType is required")
+		}
+		if !easyPayCustomMethodCodePattern.MatchString(method.Type) {
+			return infraerrors.BadRequest("VALIDATION_ERROR", "customMethods type may only contain lowercase letters, digits, underscores, and hyphens")
+		}
+		if !easyPayUpstreamMethodCodePattern.MatchString(method.UpstreamType) {
+			return infraerrors.BadRequest("VALIDATION_ERROR", "customMethods upstreamType may only contain lowercase letters, digits, periods, underscores, and hyphens")
+		}
+		if bepusdtCustomMethodTypeConflictsWithBuiltin(method.Type) {
+			return infraerrors.BadRequest("VALIDATION_ERROR", "customMethods type cannot start with alipay, wxpay, or bepusdt")
+		}
+		if method.FeeRate != nil && !isValidEasyPayCustomMethodFeeRate(*method.FeeRate) {
+			return infraerrors.BadRequest("VALIDATION_ERROR", "customMethods feeRate must be between 0 and 100 with at most 2 decimal places")
+		}
+		if _, exists := customTypes[method.Type]; exists {
+			return infraerrors.BadRequest("VALIDATION_ERROR", "duplicate customMethods type")
+		}
+		customTypes[method.Type] = struct{}{}
+	}
+
+	for _, supportedType := range splitTypes(supportedTypes) {
+		supportedType = strings.TrimSpace(supportedType)
+		if supportedType == "" || supportedType == payment.TypeBepusdt {
+			continue
+		}
+		if !easyPayCustomMethodCodePattern.MatchString(supportedType) {
+			return infraerrors.BadRequest("VALIDATION_ERROR", fmt.Sprintf("supported BEpusdt custom type %s may only contain lowercase letters, digits, underscores, and hyphens", supportedType))
+		}
+		if _, exists := customTypes[supportedType]; !exists {
+			return infraerrors.BadRequest("VALIDATION_ERROR", fmt.Sprintf("supported BEpusdt custom type %s has no customMethods mapping", supportedType))
+		}
+	}
+	return nil
 }
 
 // UpdateProviderInstance updates a provider instance by ID (patch semantics).
@@ -381,6 +449,11 @@ func (s *PaymentConfigService) UpdateProviderInstance(ctx context.Context, id in
 	}
 	if current.ProviderKey == payment.TypeEasyPay {
 		if err := validateEasyPayCustomMethods(configToValidate, nextSupportedTypes); err != nil {
+			return nil, err
+		}
+	}
+	if current.ProviderKey == payment.TypeBepusdt {
+		if err := validateBepusdtCustomMethods(configToValidate, nextSupportedTypes); err != nil {
 			return nil, err
 		}
 	}

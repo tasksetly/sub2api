@@ -42,6 +42,14 @@ type Bepusdt struct {
 	httpClient *http.Client
 }
 
+type bepusdtCustomMethod struct {
+	Type         string `json:"type"`
+	UpstreamType string `json:"upstreamType"`
+	DisplayName  string `json:"displayName"`
+	TypeName      string `json:"type_name"`
+	TypeNameCamel string `json:"typeName"`
+}
+
 // NewBepusdt validates and copies a provider instance's configuration.
 // Required config keys: apiBase, token, notifyUrl. Optional: tradeType, fiat, timeout.
 func NewBepusdt(instanceID string, config map[string]string) (*Bepusdt, error) {
@@ -103,7 +111,58 @@ func normalizeBepusdtAPIBase(raw string) (string, error) {
 func (b *Bepusdt) Name() string        { return "BEpusdt" }
 func (b *Bepusdt) ProviderKey() string { return payment.TypeBepusdt }
 func (b *Bepusdt) SupportedTypes() []payment.PaymentType {
-	return []payment.PaymentType{payment.TypeBepusdt}
+	types := []payment.PaymentType{payment.TypeBepusdt}
+	seen := map[string]struct{}{payment.TypeBepusdt: {}}
+	for _, method := range b.customMethods() {
+		typeName := strings.TrimSpace(method.Type)
+		if typeName == "" {
+			continue
+		}
+		if _, exists := seen[typeName]; exists {
+			continue
+		}
+		seen[typeName] = struct{}{}
+		types = append(types, payment.PaymentType(typeName))
+	}
+	return types
+}
+
+func (b *Bepusdt) customMethods() []bepusdtCustomMethod {
+	if b == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(b.config["customMethods"])
+	if raw == "" {
+		return nil
+	}
+	methods := make([]bepusdtCustomMethod, 0)
+	if err := json.Unmarshal([]byte(raw), &methods); err != nil {
+		return nil
+	}
+	for i := range methods {
+		methods[i].Type = strings.TrimSpace(methods[i].Type)
+		methods[i].UpstreamType = strings.TrimSpace(methods[i].UpstreamType)
+		methods[i].DisplayName = strings.TrimSpace(methods[i].DisplayName)
+		if methods[i].DisplayName == "" {
+			methods[i].DisplayName = strings.TrimSpace(methods[i].TypeName)
+		}
+		if methods[i].DisplayName == "" {
+			methods[i].DisplayName = strings.TrimSpace(methods[i].TypeNameCamel)
+		}
+	}
+	return methods
+}
+
+func (b *Bepusdt) upstreamPaymentType(paymentType string) string {
+	paymentType = strings.TrimSpace(paymentType)
+	if paymentType != "" && paymentType != payment.TypeBepusdt {
+		for _, method := range b.customMethods() {
+			if strings.TrimSpace(method.Type) == paymentType && strings.TrimSpace(method.UpstreamType) != "" {
+				return strings.TrimSpace(method.UpstreamType)
+			}
+		}
+	}
+	return b.config["tradeType"]
 }
 
 func (b *Bepusdt) MerchantIdentityMetadata() map[string]string {
@@ -137,7 +196,7 @@ func (b *Bepusdt) CreatePayment(ctx context.Context, req payment.CreatePaymentRe
 		"amount":      amount,
 		"notify_url":  b.config["notifyUrl"],
 		"redirect_url": redirectURL,
-		"trade_type":  b.config["tradeType"],
+		"trade_type":  b.upstreamPaymentType(req.PaymentType),
 		"fiat":        b.config["fiat"],
 		"name":        name,
 	}
@@ -316,7 +375,7 @@ func (b *Bepusdt) CancelPayment(ctx context.Context, tradeNo string) error {
 		StatusCode int    `json:"status_code"`
 		Message    string `json:"message"`
 	}
-	if err := json.Unmarshal([]byte(responseBody), &result); err != nil {
+	if err := json.Unmarshal(responseBody, &result); err != nil {
 		return fmt.Errorf("bepusdt decode cancellation: %w", err)
 	}
 	if result.StatusCode != http.StatusOK {
