@@ -246,7 +246,7 @@ func (b *Bepusdt) QueryOrder(ctx context.Context, tradeNo string) (*payment.Quer
 		Message    string         `json:"message"`
 		Data       map[string]any `json:"data"`
 	}
-	decoder := json.NewDecoder(strings.NewReader(responseBody))
+	decoder := json.NewDecoder(bytes.NewReader(responseBody))
 	decoder.UseNumber()
 	if err := decoder.Decode(&result); err != nil {
 		return nil, fmt.Errorf("bepusdt decode order query: %w", err)
