@@ -118,11 +118,6 @@
                 <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-gray-400">%</span>
               </div>
             </div>
-            <ToggleSwitch
-              :label="t('admin.settings.payment.customMethodRedirectToPayURL')"
-              :checked="method.redirectToPayURL === true"
-              @toggle="method.redirectToPayURL = !method.redirectToPayURL"
-            />
             <button
               type="button"
               class="rounded-lg border border-red-200 px-2.5 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800/60 dark:text-red-300 dark:hover:bg-red-900/20"
@@ -594,7 +589,6 @@ function normalizedEasyPayCustomMethods(): EasyPayCustomMethod[] {
       upstreamType: normalizeEasyPayCustomMethodCode(method.upstreamType),
       displayName: method.displayName.trim(),
       ...(method.feeRate !== undefined ? { feeRate: method.feeRate } : {}),
-      redirectToPayURL: method.redirectToPayURL === true,
     }))
     .filter(method => method.type || method.upstreamType || method.displayName || method.feeRate !== undefined)
 }
@@ -609,7 +603,7 @@ function setEasyPayCustomMethodFeeRate(method: EasyPayCustomMethod, value: strin
 }
 
 function addEasyPayCustomMethod() {
-  easyPayCustomMethods.push({ type: '', upstreamType: '', displayName: '', redirectToPayURL: false })
+  easyPayCustomMethods.push({ type: '', upstreamType: '', displayName: '' })
 }
 
 function removeEasyPayCustomMethod(index: number) {

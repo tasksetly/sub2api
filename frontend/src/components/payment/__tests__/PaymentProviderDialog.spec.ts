@@ -16,7 +16,6 @@ const messages: Record<string, string> = {
   'admin.settings.payment.customMethodDisplayNamePlaceholder': '信用卡',
   'admin.settings.payment.customMethodFeeRate': 'Fee rate',
   'admin.settings.payment.customMethodFeeRatePlaceholder': 'Global',
-  'admin.settings.payment.customMethodRedirectToPayURL': 'Redirect to pay_url',
   'admin.settings.payment.paymentGuideTrigger': 'View payment guide',
   'admin.settings.payment.alipayGuideSummary': 'Desktop prefers QR precreate and falls back to cashier; mobile prefers WAP checkout.',
   'admin.settings.payment.wxpayGuideSummary': 'Desktop prefers Native QR; mobile routes to JSAPI or H5 based on browser context.',
@@ -232,12 +231,6 @@ describe('PaymentProviderDialog payment guide', () => {
     await upstreamTypeInput.setValue(upstreamType)
     await displayNameInput.setValue('USDT-TRON')
     await feeRateInput.setValue('2.5')
-    const redirectToggle = wrapper
-      .findAll('button[role="switch"]')
-      .find(toggle => toggle.text() === messages['admin.settings.payment.customMethodRedirectToPayURL'])
-    if (!redirectToggle) throw new Error('custom method redirect toggle not found')
-    expect(redirectToggle.attributes('aria-checked')).toBe('false')
-    await redirectToggle.trigger('click')
     await wrapper.find('form').trigger('submit.prevent')
 
     const payload = wrapper.emitted('save')?.[0]?.[0] as {
@@ -249,7 +242,6 @@ describe('PaymentProviderDialog payment guide', () => {
       upstreamType,
       displayName: 'USDT-TRON',
       feeRate: 2.5,
-      redirectToPayURL: true,
     }])
     expect(payload.supported_types).toEqual(['alipay', 'wxpay', 'usdt_tron'])
   })

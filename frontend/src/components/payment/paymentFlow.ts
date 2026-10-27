@@ -24,7 +24,6 @@ export type PaymentLaunchKind =
   | 'qr_waiting'
   | 'alipay_deep_link'
   | 'redirect_waiting'
-  | 'direct_redirect'
   | 'stripe_popup'
   | 'stripe_route'
   | 'airwallex_route'
@@ -48,7 +47,6 @@ export interface PaymentRecoverySnapshot {
   payAmount: number
   orderType: OrderType | ''
   paymentMode: string
-  directRedirect?: boolean
   resumeToken: string
   alipayMobilePrecreateDeepLink?: boolean
   createdAt: number
@@ -169,7 +167,6 @@ export function decidePaymentLaunch(
     payAmount: result.pay_amount,
     orderType: context.orderType,
     paymentMode: (result.payment_mode || '').trim(),
-    directRedirect: result.direct_redirect === true,
     resumeToken: result.resume_token || '',
     alipayMobilePrecreateDeepLink: result.alipay_mobile_precreate_deep_link === true,
   }, context.now)
@@ -218,10 +215,6 @@ export function decidePaymentLaunch(
   }
 
   const normalizedPaymentMode = baseState.paymentMode.trim().toLowerCase()
-
-  if (baseState.directRedirect && baseState.payUrl) {
-    return { kind: 'direct_redirect', paymentState: baseState, recovery: baseState }
-  }
   // When forceQRCode is on for alipay, treat the device as desktop so the mobile-redirect
   // branch is bypassed and we fall through to qr_waiting.
   const effectiveMobile = (context.forceQRCode && !context.mobilePrecreateDeepLink && visibleMethod === 'alipay')
@@ -301,7 +294,6 @@ export function readPaymentRecoverySnapshot(
       || (parsed.paymentEnv != null && typeof parsed.paymentEnv !== 'string')
       || typeof parsed.payAmount !== 'number'
       || typeof parsed.paymentMode !== 'string'
-      || (parsed.directRedirect != null && typeof parsed.directRedirect !== 'boolean')
       || typeof parsed.resumeToken !== 'string'
       || (parsed.alipayMobilePrecreateDeepLink != null && typeof parsed.alipayMobilePrecreateDeepLink !== 'boolean')
       || typeof parsed.createdAt !== 'number'
@@ -334,7 +326,6 @@ export function readPaymentRecoverySnapshot(
       payAmount: parsed.payAmount,
       orderType: parsed.orderType === 'subscription' ? 'subscription' : 'balance',
       paymentMode: parsed.paymentMode,
-      directRedirect: parsed.directRedirect === true,
       resumeToken: parsed.resumeToken,
       alipayMobilePrecreateDeepLink: parsed.alipayMobilePrecreateDeepLink === true,
       createdAt: parsed.createdAt,

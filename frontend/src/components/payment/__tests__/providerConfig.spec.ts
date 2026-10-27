@@ -59,10 +59,6 @@ describe('PROVIDER_CONFIG_FIELDS.stripe', () => {
 })
 
 describe('EasyPay custom methods config', () => {
-  it('documents the Epusdt-compatible API base route', () => {
-    expect(findField('easypay', 'apiBase')?.hintKey).toBe('admin.settings.payment.field_easyPayApiBaseHint')
-  })
-
   it('parses customMethods from the JSON string stored in provider config', () => {
     expect(parseEasyPayCustomMethods(
       '[{"type":"ldc","upstreamType":"epay","displayName":"LDC"},{"type":"usdt_trc20","upstreamType":"usdt","displayName":"USDT-TRC20"}]',
@@ -91,23 +87,6 @@ describe('EasyPay custom methods config', () => {
       { type: 'ldc', upstreamType: 'epay', displayName: 'LDC', feeRate: 2.5 },
       { type: 'usdt', upstreamType: 'usdt', displayName: 'USDT', feeRate: 0 },
     ])).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC","feeRate":2.5},{"type":"usdt","upstreamType":"usdt","displayName":"USDT","feeRate":0}]')
-  })
-
-  it('preserves the redirect flag when enabled while keeping legacy false values omitted', () => {
-    expect(parseEasyPayCustomMethods(
-      '[{"type":"ldc","upstreamType":"epay","displayName":"LDC","redirectToPayURL":true}]',
-    )).toEqual([{
-      type: 'ldc',
-      upstreamType: 'epay',
-      displayName: 'LDC',
-      redirectToPayURL: true,
-    }])
-    expect(serializeEasyPayCustomMethods([{
-      type: 'ldc',
-      upstreamType: 'epay',
-      displayName: 'LDC',
-      redirectToPayURL: true,
-    }])).toBe('[{"type":"ldc","upstreamType":"epay","displayName":"LDC","redirectToPayURL":true}]')
   })
 
   it('returns an empty string for invalid or empty custom methods', () => {

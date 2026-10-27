@@ -22,7 +22,6 @@
             :expires-at="paymentState.expiresAt"
             :payment-type="paymentState.paymentType"
             :pay-url="paymentState.payUrl"
-            :direct-redirect="paymentState.directRedirect"
             :order-type="paymentState.orderType"
             :currency="paymentState.currency || selectedCurrency"
             :out-trade-no="paymentState.outTradeNo"
@@ -937,10 +936,6 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       return
     }
     if (decision.kind === 'airwallex_route') {
-      window.location.href = decision.paymentState.payUrl
-      return
-    }
-    if (decision.kind === 'direct_redirect') {
       window.location.href = decision.paymentState.payUrl
       return
     }

@@ -27,8 +27,6 @@ export interface EasyPayCustomMethod {
   displayName: string
   /** Optional method-specific fee percentage. Empty uses the global payment fee. */
   feeRate?: number
-  /** Open the EasyPay API response's pay_url instead of rendering its QR code. */
-  redirectToPayURL?: boolean
 }
 
 /** Callback URL paths for a provider. */
@@ -132,7 +130,7 @@ export const PROVIDER_CONFIG_FIELDS: Record<string, ConfigFieldDef[]> = {
   easypay: [
     { key: 'pid', label: 'PID', sensitive: false },
     { key: 'pkey', label: 'PKey', sensitive: true },
-    { key: 'apiBase', label: '', sensitive: false, hintKey: 'admin.settings.payment.field_easyPayApiBaseHint' },
+    { key: 'apiBase', label: '', sensitive: false },
     { key: 'cidAlipay', label: '', sensitive: false, optional: true },
     { key: 'cidWxpay', label: '', sensitive: false, optional: true },
   ],
@@ -208,7 +206,6 @@ export function parseEasyPayCustomMethods(raw: string | undefined): EasyPayCusto
           upstreamType: String(item?.upstreamType || '').trim(),
           displayName: String(item?.displayName || '').trim(),
           ...(feeRate !== undefined ? { feeRate } : {}),
-          ...(item?.redirectToPayURL === true ? { redirectToPayURL: true } : {}),
         }
       })
       .filter(item => item.type && item.upstreamType)
@@ -226,7 +223,6 @@ export function serializeEasyPayCustomMethods(methods: EasyPayCustomMethod[]): s
         upstreamType: method.upstreamType.trim(),
         displayName: method.displayName.trim(),
         ...(feeRate !== undefined ? { feeRate } : {}),
-        ...(method.redirectToPayURL === true ? { redirectToPayURL: true } : {}),
       }
     })
     .filter(method => method.type && method.upstreamType)
