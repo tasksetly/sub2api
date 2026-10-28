@@ -5,6 +5,8 @@ export interface IntelligenceTestConfig {
   description?: string
   prompt_name?: string
   prompt_text?: string
+  model_name?: string
+  reasoning_effort?: string
   question_text?: string
   question_id?: string | number
   updated_at?: string
@@ -19,6 +21,7 @@ export interface IntelligenceTestItem {
   group_id?: string | number
   model?: string
   model_id?: string
+  model_name?: string
   effort?: string | null
   status?: string
   ok?: boolean

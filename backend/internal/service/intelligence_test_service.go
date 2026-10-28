@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/xml"
 	"errors"
 	"regexp"
 	"sort"
@@ -18,22 +19,26 @@ var (
 	ErrIntelligenceTestConfigInvalid  = infraerrors.BadRequest("INTELLIGENCE_TEST_CONFIG_INVALID", "name, model, prompt, and API key are required")
 )
 
+const intelligenceTestSVGSystemPrompt = "只输出完整的 SVG 代码，以 <svg> 开始、以 </svg> 结束。不要 Markdown 代码块、解释文字或其他内容。"
+
 type IntelligenceTestConfig struct {
-	ID             int64      `json:"id"`
-	Name           string     `json:"name"`
-	ModelID        string     `json:"model_id"`
-	PromptText     string     `json:"prompt_text"`
-	APIKeyID       int64      `json:"api_key_id"`
-	APIKeyName     string     `json:"api_key_name"`
-	GroupID        *int64     `json:"group_id"`
-	GroupName      string     `json:"group_name"`
-	CronExpression string     `json:"cron_expression"`
-	KeepCount      int        `json:"keep_count"`
-	Enabled        bool       `json:"enabled"`
-	LastRunAt      *time.Time `json:"last_run_at,omitempty"`
-	NextRunAt      *time.Time `json:"next_run_at,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID              int64      `json:"id"`
+	Name            string     `json:"name"`
+	ModelID         string     `json:"model_id"`
+	ModelName       string     `json:"model_name"`
+	ReasoningEffort string     `json:"reasoning_effort"`
+	PromptText      string     `json:"prompt_text"`
+	APIKeyID        int64      `json:"api_key_id"`
+	APIKeyName      string     `json:"api_key_name"`
+	GroupID         *int64     `json:"group_id"`
+	GroupName       string     `json:"group_name"`
+	CronExpression  string     `json:"cron_expression"`
+	KeepCount       int        `json:"keep_count"`
+	Enabled         bool       `json:"enabled"`
+	LastRunAt       *time.Time `json:"last_run_at,omitempty"`
+	NextRunAt       *time.Time `json:"next_run_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 type IntelligenceTestResult struct {
@@ -43,10 +48,11 @@ type IntelligenceTestResult struct {
 	GroupID      *int64     `json:"group_id,omitempty"`
 	GroupName    string     `json:"group_name"`
 	ModelID      string     `json:"model_id"`
+	ModelName    string     `json:"model_name"`
+	ReasoningEffort string  `json:"effort,omitempty"`
 	Status       string     `json:"status"`
 	Check        bool       `json:"check"`
 	SVGContent   string     `json:"svg_content,omitempty"`
-	ResponseText string     `json:"response_text,omitempty"`
 	ErrorMessage string     `json:"error,omitempty"`
 	LatencyMs    int64      `json:"latency_ms"`
 	StartedAt    time.Time  `json:"started_at"`
@@ -75,11 +81,14 @@ type IntelligenceTestRepository interface {
 	InsertResult(context.Context, *IntelligenceTestResult) error
 	PruneResults(context.Context, int64, int) error
 	ListResults(context.Context, int64, int) ([]*IntelligenceTestResult, error)
+	ListSVGResults(context.Context, int64, int) ([]*IntelligenceTestResult, error)
 }
 
 type IntelligenceTestConfigInput struct {
 	Name           string `json:"name"`
 	ModelID        string `json:"model_id"`
+	ModelName      string `json:"model_name"`
+	ReasoningEffort string `json:"reasoning_effort"`
 	PromptText     string `json:"prompt_text"`
 	APIKeyID       int64  `json:"api_key_id"`
 	CronExpression string `json:"cron_expression"`
@@ -93,6 +102,8 @@ type IntelligenceTestPublicConfig struct {
 	PromptName string     `json:"prompt_name"`
 	PromptText string     `json:"prompt_text"`
 	ModelID    string     `json:"model_id"`
+	ModelName  string     `json:"model_name"`
+	ReasoningEffort string `json:"reasoning_effort"`
 	KeepCount  int        `json:"keep_count"`
 	UpdatedAt  *time.Time `json:"updated_at,omitempty"`
 }
@@ -101,6 +112,8 @@ type IntelligenceTestPublicResult struct {
 	ID         int64     `json:"id"`
 	GroupName  string    `json:"group_name"`
 	ModelID    string    `json:"model_id"`
+	ModelName  string    `json:"model_name"`
+	ReasoningEffort string `json:"effort,omitempty"`
 	Status     string    `json:"status"`
 	Check      bool      `json:"check"`
 	SVGContent string    `json:"svg_content,omitempty"`
@@ -164,7 +177,8 @@ func (s *IntelligenceTestService) UpdateConfig(ctx context.Context, id int64, in
 	if err != nil { return nil, err }
 	next, err := s.normalizeConfig(input)
 	if err != nil { return nil, err }
-	c.Name, c.ModelID, c.PromptText, c.APIKeyID = next.Name, next.ModelID, next.PromptText, next.APIKeyID
+	c.Name, c.ModelID, c.ModelName, c.PromptText, c.APIKeyID = next.Name, next.ModelID, next.ModelName, next.PromptText, next.APIKeyID
+	c.ReasoningEffort = next.ReasoningEffort
 	c.CronExpression, c.KeepCount, c.Enabled = next.CronExpression, next.KeepCount, next.Enabled
 	return s.repo.UpdateConfig(ctx, c)
 }
@@ -174,6 +188,12 @@ func (s *IntelligenceTestService) DeleteConfig(ctx context.Context, id int64) er
 func (s *IntelligenceTestService) normalizeConfig(input IntelligenceTestConfigInput) (*IntelligenceTestConfig, error) {
 	name, model, prompt := strings.TrimSpace(input.Name), strings.TrimSpace(input.ModelID), strings.TrimSpace(input.PromptText)
 	if name == "" || model == "" || prompt == "" || input.APIKeyID <= 0 { return nil, ErrIntelligenceTestConfigInvalid }
+	effort := strings.ToLower(strings.TrimSpace(input.ReasoningEffort))
+	switch effort {
+	case "", "low", "medium", "high", "xhigh", "max":
+	default:
+		return nil, infraerrors.BadRequest("INTELLIGENCE_TEST_EFFORT_INVALID", "invalid reasoning effort")
+	}
 	cronExpression := strings.TrimSpace(input.CronExpression)
 	if cronExpression == "" { cronExpression = "0 * * * *" }
 	if _, err := scheduledTestCronParser.Parse(cronExpression); err != nil { return nil, infraerrors.BadRequest("INTELLIGENCE_TEST_CRON_INVALID", "invalid cron expression") }
@@ -184,7 +204,9 @@ func (s *IntelligenceTestService) normalizeConfig(input IntelligenceTestConfigIn
 	if input.Enabled != nil { enabled = *input.Enabled }
 	next := time.Now()
 	if schedule, err := scheduledTestCronParser.Parse(cronExpression); err == nil { next = schedule.Next(next) }
-	return &IntelligenceTestConfig{Name: name, ModelID: model, PromptText: prompt, APIKeyID: input.APIKeyID, CronExpression: cronExpression, KeepCount: keepCount, Enabled: enabled, NextRunAt: &next}, nil
+	modelName := strings.TrimSpace(input.ModelName)
+	if modelName == "" { modelName = model }
+	return &IntelligenceTestConfig{Name: name, ModelID: model, ModelName: modelName, ReasoningEffort: effort, PromptText: prompt, APIKeyID: input.APIKeyID, CronExpression: cronExpression, KeepCount: keepCount, Enabled: enabled, NextRunAt: &next}, nil
 }
 
 func (s *IntelligenceTestService) RunNow(ctx context.Context, id int64) (*IntelligenceTestResult, error) {
@@ -209,23 +231,28 @@ func (s *IntelligenceTestService) runDue() {
 
 func (s *IntelligenceTestService) runConfig(ctx context.Context, c *IntelligenceTestConfig) *IntelligenceTestResult {
 	started := time.Now()
-	result := &IntelligenceTestResult{ConfigID: c.ID, APIKeyID: c.APIKeyID, ModelID: c.ModelID, Status: "failed", StartedAt: started, CreatedAt: started}
+	result := &IntelligenceTestResult{ConfigID: c.ID, APIKeyID: c.APIKeyID, ModelID: c.ModelID, ModelName: c.ModelName, ReasoningEffort: c.ReasoningEffort, Status: "failed", StartedAt: started, CreatedAt: started}
 	key, err := s.apiKeyRepo.GetByID(ctx, c.APIKeyID)
 	if err == nil && key.GroupID != nil {
 		result.GroupID = key.GroupID
 		if key.Group != nil { result.GroupName = key.Group.Name }
 		accounts, accountErr := s.accountRepo.ListSchedulableByGroupID(ctx, *key.GroupID)
 		if accountErr == nil && len(accounts) > 0 {
-			run, runErr := s.accountTest.RunTestBackgroundWithPrompt(ctx, accounts[0].ID, c.ModelID, c.PromptText)
+			run, runErr := s.accountTest.RunTestBackgroundWithOptions(ctx, accounts[0].ID, c.ModelID, c.PromptText, AccountTestOptions{
+				ReasoningEffort: c.ReasoningEffort,
+				SystemPrompt: intelligenceTestSVGSystemPrompt,
+			})
 			if runErr == nil && run != nil {
-				result.Status, result.ResponseText, result.ErrorMessage, result.LatencyMs = run.Status, run.ResponseText, run.ErrorMessage, run.LatencyMs
+				result.LatencyMs = run.LatencyMs
 				result.StartedAt, result.FinishedAt = run.StartedAt, run.FinishedAt
-				result.SVGContent = extractSVG(run.ResponseText)
-				result.Check = result.Status == "success" && result.SVGContent != ""
-				if result.Check { result.Status = "validated" }
-			} else if runErr != nil { result.ErrorMessage = runErr.Error() }
-		} else if accountErr != nil { result.ErrorMessage = accountErr.Error() } else { result.ErrorMessage = "no schedulable account in the API key group" }
-	} else if err != nil { result.ErrorMessage = err.Error() } else { result.ErrorMessage = "API key is not bound to a group" }
+				if run.Status == "success" {
+					result.SVGContent = extractSVG(run.ResponseText)
+					result.Check = result.SVGContent != ""
+					if result.Check { result.Status = "validated" } else { result.ErrorMessage = "svg_missing_or_invalid" }
+				} else { result.ErrorMessage = "upstream test failed" }
+			} else { result.ErrorMessage = "upstream test failed" }
+		} else if accountErr != nil { result.ErrorMessage = "account lookup failed" } else { result.ErrorMessage = "no schedulable account in the API key group" }
+	} else if err != nil { result.ErrorMessage = "API key lookup failed" } else { result.ErrorMessage = "API key is not bound to a group" }
 	if result.FinishedAt.IsZero() { result.FinishedAt = time.Now(); result.LatencyMs = result.FinishedAt.Sub(started).Milliseconds() }
 	if err := s.repo.InsertResult(ctx, result); err == nil {
 		// Keep the public benchmark bounded so a long-running schedule does not
@@ -236,13 +263,31 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 }
 
 func extractSVG(value string) string {
-	clean := strings.TrimSpace(strings.ReplaceAll(value, "```svg", ""))
-	clean = strings.ReplaceAll(clean, "```", "")
-	start := regexp.MustCompile(`(?is)<svg\b`).FindStringIndex(clean)
+	start := regexp.MustCompile(`(?is)<svg\b`).FindStringIndex(value)
 	if start == nil { return "" }
-	end := strings.Index(strings.ToLower(clean[start[0]:]), "</svg>")
-	if end < 0 { return "" }
-	return strings.TrimSpace(clean[start[0] : start[0]+end+len("</svg>")])
+	fragment := value[start[0]:]
+	decoder := xml.NewDecoder(strings.NewReader(fragment))
+	rootSeen, depth := false, 0
+	for {
+		token, err := decoder.Token()
+		if err != nil { return "" }
+		switch element := token.(type) {
+		case xml.StartElement:
+			if depth == 0 {
+				if rootSeen || !strings.EqualFold(element.Name.Local, "svg") { return "" }
+				rootSeen = true
+			}
+			depth++
+		case xml.EndElement:
+			depth--
+			if depth < 0 { return "" }
+			if rootSeen && depth == 0 { return strings.TrimSpace(fragment[:decoder.InputOffset()]) }
+		case xml.CharData:
+			if depth == 0 && strings.TrimSpace(string(element)) != "" { return "" }
+		case xml.Directive, xml.ProcInst:
+			return ""
+		}
+	}
 }
 
 func (s *IntelligenceTestService) Public(ctx context.Context, configID int64) (*IntelligenceTestPublicResponse, error) {
@@ -266,15 +311,15 @@ func (s *IntelligenceTestService) Public(ctx context.Context, configID int64) (*
 
 	first := configs[0]
 	keepCount := first.KeepCount
-	response.Config = &IntelligenceTestPublicConfig{Title: first.Name, Description: "API Key 分组 SVG 生成能力测试", PromptName: first.Name, PromptText: first.PromptText, ModelID: first.ModelID, KeepCount: keepCount, UpdatedAt: &first.UpdatedAt}
+	response.Config = &IntelligenceTestPublicConfig{Title: first.Name, Description: "API Key 分组 SVG 生成能力测试", PromptName: first.Name, PromptText: first.PromptText, ModelID: first.ModelID, ModelName: first.ModelName, ReasoningEffort: first.ReasoningEffort, KeepCount: keepCount, UpdatedAt: &first.UpdatedAt}
 	for _, c := range configs {
 		if c.KeepCount > keepCount { keepCount = c.KeepCount }
-		items, err := s.repo.ListResults(ctx, c.ID, c.KeepCount)
+		items, err := s.repo.ListSVGResults(ctx, c.ID, c.KeepCount)
 		if err != nil { return nil, err }
 		for _, item := range items {
 			response.Items = append(response.Items, &IntelligenceTestPublicResult{
 				ID: item.ID,
-				GroupName: item.GroupName, ModelID: item.ModelID, Status: item.Status,
+				GroupName: item.GroupName, ModelID: item.ModelID, ModelName: item.ModelName, ReasoningEffort: item.ReasoningEffort, Status: item.Status,
 				Check: item.Check, SVGContent: item.SVGContent, LatencyMs: item.LatencyMs,
 				StartedAt: item.StartedAt, FinishedAt: item.FinishedAt, CreatedAt: item.CreatedAt,
 			})

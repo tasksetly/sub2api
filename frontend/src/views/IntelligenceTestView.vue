@@ -122,16 +122,16 @@
               @click="openPreview(item, group.name)"
             >
               <span class="work-preview">
-                <img :src="getAssetUrl(item)" :alt="`${group.name} ${item.model || copy.svgWork}`" loading="lazy" />
+                <img :src="getAssetUrl(item)" :alt="`${group.name} ${item.model_name || item.model || item.model_id || copy.svgWork}`" loading="lazy" />
                 <span v-if="item.check || item.status === 'validated'" class="validated-mark" :title="copy.validated">
                   <Icon name="check" size="xs" />
                 </span>
               </span>
               <span class="work-meta">
-                <span class="work-model">{{ item.model || item.model_id || copy.unknownModel }}</span>
+                <span class="work-model">{{ item.model_name || item.model || item.model_id || copy.unknownModel }}</span>
                 <span class="work-tags">
-                  <span>{{ formatEffort(item.effort) }}</span>
-                  <span>{{ formatLatency(item.latency_ms) }}</span>
+                  <span>{{ copy.reasoning }}：{{ formatEffort(item.effort) }}</span>
+                  <span>{{ copy.elapsed }}：{{ formatLatency(item.latency_ms) || '—' }}</span>
                   <span>{{ formatDate(item) }}</span>
                 </span>
               </span>
@@ -146,7 +146,7 @@
         <header class="preview-header">
           <div>
             <strong>{{ preview.group }}</strong>
-            <span>{{ preview.item.model || preview.item.model_id || copy.unknownModel }}</span>
+            <span>{{ preview.item.model_name || preview.item.model || preview.item.model_id || copy.unknownModel }}</span>
           </div>
           <button type="button" class="icon-button" :aria-label="copy.close" :title="copy.close" @click="closePreview">
             <Icon name="x" size="sm" />
@@ -157,7 +157,8 @@
         </div>
         <footer class="preview-footer">
           <span>{{ formatDate(preview.item) }}</span>
-          <span>{{ formatLatency(preview.item.latency_ms) }}</span>
+          <span>{{ copy.reasoning }}：{{ formatEffort(preview.item.effort) }}</span>
+          <span>{{ copy.elapsed }}：{{ formatLatency(preview.item.latency_ms) || '—' }}</span>
           <span v-if="preview.item.check || preview.item.status === 'validated'" class="validated-label"><Icon name="check" size="xs" /> {{ copy.validated }}</span>
         </footer>
       </section>
@@ -207,9 +208,9 @@ const config = computed(() => ({
 
 const isEnglish = computed(() => String(route.query.lang || '').toLowerCase().startsWith('en'))
 const copy = computed(() => isEnglish.value ? {
-  eyebrow: 'Capability benchmark', title: 'SVG intelligence benchmark', description: 'Compare SVG generation quality across configured API key groups.', refresh: 'Refresh', refreshing: 'Refreshing', currentPrompt: 'Current prompt', promptPlaceholder: 'The prompt configured by your administrator will appear here.', groupCount: 'Groups', workCount: 'Works', filters: 'Result filters', groups: 'Groups', allGroups: 'All groups', statusFilter: 'Status', allStatus: 'All status', validated: 'Validated', recent: 'Last hour', loading: 'Loading recent SVG works…', loadFailed: 'Unable to load results', retry: 'Try again', noResults: 'No works yet', noResultsDescription: 'Configure a prompt and API key group in the admin panel, then results will appear here.', emptyGroup: 'No works match the current filter.', works: 'works', previous: 'Previous', next: 'Next', svgWork: 'SVG work', unknownModel: 'Unknown model', preview: 'SVG preview', close: 'Close',
+  eyebrow: 'Capability benchmark', title: 'SVG intelligence benchmark', description: 'Compare SVG generation quality across configured API key groups.', refresh: 'Refresh', refreshing: 'Refreshing', currentPrompt: 'Current prompt', promptPlaceholder: 'The prompt configured by your administrator will appear here.', groupCount: 'Groups', workCount: 'Works', filters: 'Result filters', groups: 'Groups', allGroups: 'All groups', statusFilter: 'Status', allStatus: 'All status', validated: 'Validated', recent: 'Last hour', loading: 'Loading recent SVG works…', loadFailed: 'Unable to load results', retry: 'Try again', noResults: 'No works yet', noResultsDescription: 'Configure a prompt and API key group in the admin panel, then results will appear here.', emptyGroup: 'No works match the current filter.', works: 'works', previous: 'Previous', next: 'Next', svgWork: 'SVG work', unknownModel: 'Unknown model', preview: 'SVG preview', close: 'Close', reasoning: 'Effort', elapsed: 'Elapsed',
 } : {
-  eyebrow: '能力测试', title: 'SVG 生成能力测试', description: '对比不同 API Key 分组的 SVG 生成质量，观察模型的推理与执行能力。', refresh: '刷新', refreshing: '刷新中', currentPrompt: '当前提示词', promptPlaceholder: '后台配置的提示词会显示在这里。', groupCount: '分组', workCount: '作品', filters: '结果筛选', groups: '分组', allGroups: '全部分组', statusFilter: '状态', allStatus: '全部状态', validated: '已通过校验', recent: '最近 1 小时', loading: '正在加载最近的 SVG 作品…', loadFailed: '结果加载失败', retry: '重新加载', noResults: '还没有测试作品', noResultsDescription: '请先在后台配置提示词和 API Key 分组，生成结果后会显示在这里。', emptyGroup: '当前筛选条件下暂无作品', works: '张作品', previous: '上一组', next: '下一组', svgWork: 'SVG 作品', unknownModel: '未知模型', preview: 'SVG 作品预览', close: '关闭',
+  eyebrow: '能力测试', title: 'SVG 生成能力测试', description: '对比不同 API Key 分组的 SVG 生成质量，观察模型的推理与执行能力。', refresh: '刷新', refreshing: '刷新中', currentPrompt: '当前提示词', promptPlaceholder: '后台配置的提示词会显示在这里。', groupCount: '分组', workCount: '作品', filters: '结果筛选', groups: '分组', allGroups: '全部分组', statusFilter: '状态', allStatus: '全部状态', validated: '已通过校验', recent: '最近 1 小时', loading: '正在加载最近的 SVG 作品…', loadFailed: '结果加载失败', retry: '重新加载', noResults: '还没有测试作品', noResultsDescription: '请先在后台配置提示词和 API Key 分组，生成结果后会显示在这里。', emptyGroup: '当前筛选条件下暂无作品', works: '张作品', previous: '上一组', next: '下一组', svgWork: 'SVG 作品', unknownModel: '未知模型', preview: 'SVG 作品预览', close: '关闭', reasoning: '推理', elapsed: '耗时',
 })
 
 interface DisplayGroup { name: string; items: IntelligenceTestItem[] }
@@ -281,7 +282,7 @@ function getAssetUrl(item: IntelligenceTestItem) {
 
 function formatEffort(value: string | null | undefined) {
   if (!value) return isEnglish.value ? 'default' : '默认强度'
-  const labels: Record<string, string> = isEnglish.value ? { low: 'low', medium: 'medium', high: 'high' } : { low: '低强度', medium: '中强度', high: '高强度' }
+  const labels: Record<string, string> = isEnglish.value ? { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' } : { low: '低', medium: '中', high: '高', xhigh: '极高', max: '最大' }
   return labels[value] || value
 }
 

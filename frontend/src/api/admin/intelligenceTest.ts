@@ -4,6 +4,8 @@ export interface IntelligenceTestConfig {
   id: number
   name: string
   model_id: string
+  model_name: string
+  reasoning_effort: string
   prompt_text: string
   api_key_id: number
   api_key_name?: string
@@ -31,6 +33,8 @@ export interface IntelligenceTestResult {
   config_id: number
   group_name: string
   model_id: string
+  model_name: string
+  effort?: string
   status: string
   check: boolean
   latency_ms: number
@@ -41,6 +45,8 @@ export interface IntelligenceTestResult {
 export interface IntelligenceTestConfigInput {
   name: string
   model_id: string
+  model_name: string
+  reasoning_effort: string
   prompt_text: string
   api_key_id: number
   cron_expression: string

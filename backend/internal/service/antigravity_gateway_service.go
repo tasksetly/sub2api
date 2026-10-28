@@ -368,8 +368,9 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 	return s.TestConnectionWithPrompt(ctx, account, modelID, "")
 }
 
-// TestConnectionWithPrompt 测试 Antigravity 账号连接，支持为图片生成模型指定测试提示词。
-func (s *AntigravityGatewayService) TestConnectionWithPrompt(ctx context.Context, account *Account, modelID string, prompt string) (*TestConnectionResult, error) {
+// TestConnectionWithPrompt 测试 Antigravity 账号连接；可选参数仅用于后台 SVG 基准测试。
+func (s *AntigravityGatewayService) TestConnectionWithPrompt(ctx context.Context, account *Account, modelID string, prompt string, opts ...AccountTestOptions) (*TestConnectionResult, error) {
+	benchmarkOptions := firstAccountTestOptions(opts)
 
 	// 获取 token
 	if s.tokenProvider == nil {
@@ -394,9 +395,9 @@ func (s *AntigravityGatewayService) TestConnectionWithPrompt(ctx context.Context
 	// 构建请求体
 	var requestBody []byte
 	if shouldUseAntigravityGeminiTestRequest(modelID, mappedModel) {
-		requestBody, err = s.buildGeminiTestRequestWithPrompt(projectID, mappedModel, prompt)
+		requestBody, err = s.buildGeminiTestRequestWithPrompt(projectID, mappedModel, prompt, benchmarkOptions)
 	} else {
-		requestBody, err = s.buildClaudeTestRequest(projectID, mappedModel)
+		requestBody, err = s.buildClaudeTestRequestWithPrompt(projectID, mappedModel, prompt, benchmarkOptions)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("构建请求失败: %w", err)
@@ -469,7 +470,16 @@ func testConnectionHandleError(
 
 // buildGeminiTestRequestWithPrompt 构建 Gemini 格式测试请求
 // 文本模型使用最小 token 消耗：输入 "." + maxOutputTokens: 1；图片模型使用图片生成配置
-func (s *AntigravityGatewayService) buildGeminiTestRequestWithPrompt(projectID, model, prompt string) ([]byte, error) {
+func (s *AntigravityGatewayService) buildGeminiTestRequestWithPrompt(projectID, model, prompt string, opts ...AccountTestOptions) ([]byte, error) {
+	benchmarkOptions := firstAccountTestOptions(opts)
+	if effort := benchmarkOptions.ReasoningEffort; effort != "" {
+		if effort == "xhigh" || effort == "max" || geminiThinkingParamForModel(model) == geminiThinkingParamNone {
+			return nil, fmt.Errorf("selected reasoning effort is not supported by this Gemini model")
+		}
+		if geminiThinkingParamForModel(model) == geminiThinkingParamLevel && geminiThinkingLevelFor(model, claudeThinkingIntent{tier: effort}) != effort {
+			return nil, fmt.Errorf("selected reasoning effort is not supported by this Gemini model")
+		}
+	}
 	if isImageGenerationModel(model) {
 		imagePrompt := strings.TrimSpace(prompt)
 		if imagePrompt == "" {
@@ -496,16 +506,20 @@ func (s *AntigravityGatewayService) buildGeminiTestRequestWithPrompt(projectID, 
 				},
 			},
 		}
+		applyGeminiBenchmarkOptions(payload, model, benchmarkOptions)
 		payloadBytes, _ := json.Marshal(payload)
 		return s.wrapV1InternalRequest(projectID, model, payloadBytes)
 	}
 
+	testPrompt := strings.TrimSpace(prompt)
+	maxOutputTokens := 1
+	if testPrompt == "" { testPrompt = "." } else { maxOutputTokens = 8192 }
 	payload := map[string]any{
 		"contents": []map[string]any{
 			{
 				"role": "user",
 				"parts": []map[string]any{
-					{"text": "."},
+					{"text": testPrompt},
 				},
 			},
 		},
@@ -516,7 +530,7 @@ func (s *AntigravityGatewayService) buildGeminiTestRequestWithPrompt(projectID, 
 			},
 		},
 		"generationConfig": map[string]any{
-			"maxOutputTokens": 1,
+			"maxOutputTokens": maxOutputTokens,
 		},
 		"toolConfig": map[string]any{
 			"functionCallingConfig": map[string]any{
@@ -524,23 +538,38 @@ func (s *AntigravityGatewayService) buildGeminiTestRequestWithPrompt(projectID, 
 			},
 		},
 	}
+	applyGeminiBenchmarkOptions(payload, model, benchmarkOptions)
 	payloadBytes, _ := json.Marshal(payload)
 	return s.wrapV1InternalRequest(projectID, model, payloadBytes)
 }
 
-// buildClaudeTestRequest 构建 Claude 格式测试请求并转换为 Gemini 格式
-// 使用最小 token 消耗：输入 "." + MaxTokens: 1
+// buildClaudeTestRequest keeps the minimal connectivity probe unchanged.
 func (s *AntigravityGatewayService) buildClaudeTestRequest(projectID, mappedModel string) ([]byte, error) {
+	return s.buildClaudeTestRequestWithPrompt(projectID, mappedModel, "", AccountTestOptions{})
+}
+
+func (s *AntigravityGatewayService) buildClaudeTestRequestWithPrompt(projectID, mappedModel, prompt string, options AccountTestOptions) ([]byte, error) {
+	testPrompt := strings.TrimSpace(prompt)
+	maxTokens := 1
+	if testPrompt == "" { testPrompt = "." } else { maxTokens = 8192 }
+	content, _ := json.Marshal(testPrompt)
 	claudeReq := &antigravity.ClaudeRequest{
 		Model: mappedModel,
 		Messages: []antigravity.ClaudeMessage{
 			{
 				Role:    "user",
-				Content: json.RawMessage(`"."`),
+				Content: content,
 			},
 		},
-		MaxTokens: 1,
+		MaxTokens: maxTokens,
 		Stream:    false,
+	}
+	if options.SystemPrompt != "" { claudeReq.System, _ = json.Marshal(options.SystemPrompt) }
+	if options.ReasoningEffort != "" {
+		budgets := map[string]int{"low": 1024, "medium": 4096, "high": 8192, "xhigh": 16384, "max": 24576}
+		budget := budgets[options.ReasoningEffort]
+		claudeReq.Thinking = &antigravity.ThinkingConfig{Type: "enabled", BudgetTokens: budget}
+		if claudeReq.MaxTokens < budget+4096 { claudeReq.MaxTokens = budget+4096 }
 	}
 	return antigravity.TransformClaudeToGemini(claudeReq, projectID, mappedModel)
 }

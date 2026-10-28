@@ -66,11 +66,56 @@ type TestEvent struct {
 	Error    string `json:"error,omitempty"`
 }
 
-// AccountTestOptions carries optional media for admin connectivity tests.
-// ImageDataURL / AudioDataURL are full data URLs (data:<mime>;base64,...).
+// AccountTestOptions carries media for manual probes and optional SVG benchmark
+// instructions. ImageDataURL / AudioDataURL are full data URLs.
 type AccountTestOptions struct {
-	ImageDataURL string
-	AudioDataURL string
+	ImageDataURL    string
+	AudioDataURL    string
+	ReasoningEffort string
+	SystemPrompt    string
+}
+
+const accountTestBenchmarkOptionsKey = "account_test_benchmark_options"
+
+func accountTestBenchmarkOptions(c *gin.Context) AccountTestOptions {
+	if value, ok := c.Get(accountTestBenchmarkOptionsKey); ok {
+		if options, ok := value.(AccountTestOptions); ok { return options }
+	}
+	return AccountTestOptions{}
+}
+
+func applyAccountTestAnthropicOptions(c *gin.Context, payload map[string]any) {
+	options := accountTestBenchmarkOptions(c)
+	if options.SystemPrompt != "" {
+		system, _ := payload["system"].([]map[string]any)
+		payload["system"] = append(system, map[string]any{"type": "text", "text": options.SystemPrompt})
+		payload["max_tokens"] = 8192
+		delete(payload, "temperature")
+	}
+	if options.ReasoningEffort != "" {
+		payload["output_config"] = map[string]any{"effort": options.ReasoningEffort}
+	}
+}
+
+func applyAccountTestResponsesOptions(c *gin.Context, payload map[string]any) {
+	options := accountTestBenchmarkOptions(c)
+	if options.SystemPrompt != "" {
+		if instructions, _ := payload["instructions"].(string); instructions != "" {
+			payload["instructions"] = instructions + "\n\n" + options.SystemPrompt
+		} else { payload["instructions"] = options.SystemPrompt }
+	}
+	if options.ReasoningEffort != "" {
+		payload["reasoning"] = map[string]any{"effort": options.ReasoningEffort}
+	}
+}
+
+func applyAccountTestChatOptions(c *gin.Context, payload map[string]any) {
+	options := accountTestBenchmarkOptions(c)
+	if options.SystemPrompt != "" {
+		messages, _ := payload["messages"].([]map[string]any)
+		payload["messages"] = append([]map[string]any{{"role": "system", "content": options.SystemPrompt}}, messages...)
+	}
+	if options.ReasoningEffort != "" { payload["reasoning_effort"] = options.ReasoningEffort }
 }
 
 func firstAccountTestOptions(opts []AccountTestOptions) AccountTestOptions {
@@ -371,6 +416,9 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 	initAccountTestLogger(c, accountID, modelID, mode)
 	ctx := c.Request.Context()
 	testOpts := firstAccountTestOptions(opts)
+	if testOpts.ReasoningEffort != "" || testOpts.SystemPrompt != "" {
+		c.Set(accountTestBenchmarkOptionsKey, testOpts)
+	}
 
 	account, err := s.accountRepo.GetByID(ctx, accountID)
 	if err != nil {
@@ -427,6 +475,9 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 	}
 
 	if account.IsTypeSafe() {
+		if testOpts.ReasoningEffort != "" || testOpts.SystemPrompt != "" {
+			return s.sendErrorAndEnd(c, "SVG benchmark options are not supported by TypeSafe accounts")
+		}
 		return s.testTypeSafeAccountConnection(c, account, prompt)
 	}
 
@@ -574,6 +625,7 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
+	applyAccountTestAnthropicOptions(c, payload)
 	payloadBytes, _ := json.Marshal(payload)
 
 	// Send test_start event
@@ -652,6 +704,7 @@ func (s *AccountTestService) testClaudeVertexServiceAccountConnection(c *gin.Con
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
+	applyAccountTestAnthropicOptions(c, payload)
 	payloadBytes, _ := json.Marshal(payload)
 	vertexBody, err := buildVertexAnthropicRequestBody(payloadBytes)
 	if err != nil {
@@ -740,6 +793,7 @@ func (s *AccountTestService) testBedrockAccountConnection(c *gin.Context, ctx co
 		"max_tokens":  256,
 		"temperature": 1,
 	}
+	applyAccountTestAnthropicOptions(c, bedrockPayload)
 	bedrockBody, _ := json.Marshal(bedrockPayload)
 
 	// Use non-streaming endpoint (response is standard Claude JSON)
@@ -905,6 +959,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		upstreamTestModelID = normalizeOpenAIModelForUpstream(credentialAccount, testModelID)
 	}
 	payload := createOpenAITestPayload(upstreamTestModelID, isOAuth, prompt)
+	applyAccountTestResponsesOptions(c, payload)
 	payloadBytes, _ := json.Marshal(payload)
 
 	// Send test_start event once. A task-invalid Agent Identity response may
@@ -1055,7 +1110,7 @@ func (s *AccountTestService) testGrokAccountConnection(c *gin.Context, account *
 		if mapped := strings.TrimSpace(account.GetMappedModel(testModelID)); mapped != "" {
 			testModelID = mapped
 		}
-		return s.testGrokResponsesConnection(c, ctx, account, authToken, testModelID)
+		return s.testGrokResponsesConnection(c, ctx, account, authToken, testModelID, prompt)
 	}
 
 	// mode == default: infer from model family (legacy UI / API clients).
@@ -1073,7 +1128,7 @@ func (s *AccountTestService) testGrokAccountConnection(c *gin.Context, account *
 	case isGrokVideoGenerationModel(testModelID):
 		return s.testGrokVideoGeneration(c, ctx, account, authToken, testModelID, resolveGrokVideoPrompt(prompt), opts)
 	default:
-		return s.testGrokResponsesConnection(c, ctx, account, authToken, testModelID)
+		return s.testGrokResponsesConnection(c, ctx, account, authToken, testModelID, prompt)
 	}
 }
 
@@ -1259,7 +1314,7 @@ func (s *AccountTestService) observeGrokTestResponse(ctx context.Context, accoun
 	}
 }
 
-func (s *AccountTestService) testGrokResponsesConnection(c *gin.Context, ctx context.Context, account *Account, authToken, testModelID string) error {
+func (s *AccountTestService) testGrokResponsesConnection(c *gin.Context, ctx context.Context, account *Account, authToken, testModelID string, prompts ...string) error {
 	apiURL, err := buildGrokResponsesURL(account, s.cfg, s.settingService)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid Grok base URL: %s", err.Error()))
@@ -1270,6 +1325,12 @@ func (s *AccountTestService) testGrokResponsesConnection(c *gin.Context, ctx con
 	payloadBytes, err := buildGrokQuotaProbeBody(testModelID)
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create Grok test payload")
+	}
+	if len(prompts) > 0 && strings.TrimSpace(prompts[0]) != "" {
+		payload := map[string]any{"model": testModelID, "input": strings.TrimSpace(prompts[0]), "stream": true}
+		applyAccountTestResponsesOptions(c, payload)
+		payloadBytes, err = json.Marshal(payload)
+		if err != nil { return s.sendErrorAndEnd(c, "Failed to create Grok test payload") }
 	}
 
 	if !agentIdentityTaskRecoveryWasTried(ctx) {
@@ -2147,6 +2208,7 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	c.Writer.Flush()
 
 	payload := createOpenAIChatCompletionsTestPayload(testModelID, prompt)
+	applyAccountTestChatOptions(c, payload)
 	payloadBytes, _ := json.Marshal(payload)
 
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
@@ -2424,7 +2486,16 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 	c.Writer.Flush()
 
 	// Create test payload (Gemini format)
-	payload := createGeminiTestPayload(testModelID, prompt)
+	benchmarkOptions := accountTestBenchmarkOptions(c)
+	if effort := benchmarkOptions.ReasoningEffort; effort != "" {
+		if effort == "xhigh" || effort == "max" || geminiThinkingParamForModel(testModelID) == geminiThinkingParamNone {
+			return s.sendErrorAndEnd(c, "Selected reasoning effort is not supported by this Gemini model")
+		}
+		if geminiThinkingParamForModel(testModelID) == geminiThinkingParamLevel && geminiThinkingLevelFor(testModelID, claudeThinkingIntent{tier: effort}) != effort {
+			return s.sendErrorAndEnd(c, "Selected reasoning effort is not supported by this Gemini model")
+		}
+	}
+	payload := createGeminiTestPayload(testModelID, prompt, benchmarkOptions)
 
 	// Build request based on account type
 	var req *http.Request
@@ -2503,7 +2574,7 @@ func (s *AccountTestService) testAntigravityAccountConnection(c *gin.Context, ac
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
 
 	// 调用 AntigravityGatewayService.TestConnectionWithPrompt（复用协议转换逻辑）
-	result, err := s.antigravityGatewayService.TestConnectionWithPrompt(ctx, account, testModelID, prompt)
+	result, err := s.antigravityGatewayService.TestConnectionWithPrompt(ctx, account, testModelID, prompt, accountTestBenchmarkOptions(c))
 	if err != nil {
 		return s.sendErrorAndEnd(c, err.Error())
 	}
@@ -2655,7 +2726,8 @@ func (s *AccountTestService) buildCodeAssistRequest(ctx context.Context, accessT
 
 // createGeminiTestPayload creates a minimal test payload for Gemini API.
 // Image models use the image-generation path so the frontend can preview the returned image.
-func createGeminiTestPayload(modelID string, prompt string) []byte {
+func createGeminiTestPayload(modelID string, prompt string, options ...AccountTestOptions) []byte {
+	benchmarkOptions := firstAccountTestOptions(options)
 	if isImageGenerationModel(modelID) {
 		imagePrompt := strings.TrimSpace(prompt)
 		if imagePrompt == "" {
@@ -2678,6 +2750,7 @@ func createGeminiTestPayload(modelID string, prompt string) []byte {
 				},
 			},
 		}
+		applyGeminiBenchmarkOptions(payload, modelID, benchmarkOptions)
 		bytes, _ := json.Marshal(payload)
 		return bytes
 	}
@@ -2702,8 +2775,34 @@ func createGeminiTestPayload(modelID string, prompt string) []byte {
 			},
 		},
 	}
+	applyGeminiBenchmarkOptions(payload, modelID, benchmarkOptions)
 	bytes, _ := json.Marshal(payload)
 	return bytes
+}
+
+func applyGeminiBenchmarkOptions(payload map[string]any, modelID string, options AccountTestOptions) {
+	if options.SystemPrompt != "" {
+		system, _ := payload["systemInstruction"].(map[string]any)
+		if system == nil { system = make(map[string]any) }
+		parts, _ := system["parts"].([]map[string]any)
+		system["parts"] = append(parts, map[string]any{"text": options.SystemPrompt})
+		payload["systemInstruction"] = system
+		config, ok := payload["generationConfig"].(map[string]any)
+		if !ok { config = make(map[string]any); payload["generationConfig"] = config }
+		config["maxOutputTokens"] = 8192
+	}
+	if options.ReasoningEffort == "" { return }
+	config, ok := payload["generationConfig"].(map[string]any)
+	if !ok { config = make(map[string]any); payload["generationConfig"] = config }
+	intent := claudeThinkingIntent{tier: options.ReasoningEffort}
+	switch geminiThinkingParamForModel(modelID) {
+	case geminiThinkingParamLevel:
+		config["thinkingConfig"] = map[string]any{"thinkingLevel": geminiThinkingLevelFor(modelID, intent)}
+	case geminiThinkingParamBudget:
+		if budget, ok := geminiThinkingBudgetFor(modelID, intent); ok {
+			config["thinkingConfig"] = map[string]any{"thinkingBudget": budget}
+		}
+	}
 }
 
 // processGeminiStream processes SSE stream from Gemini API
@@ -3318,6 +3417,12 @@ func (s *AccountTestService) RunTestBackground(ctx context.Context, accountID in
 // RunTestBackgroundWithPrompt executes a test using the supplied prompt while
 // keeping the request in memory and returning the parsed SSE result.
 func (s *AccountTestService) RunTestBackgroundWithPrompt(ctx context.Context, accountID int64, modelID, prompt string) (*ScheduledTestResult, error) {
+	return s.RunTestBackgroundWithOptions(ctx, accountID, modelID, prompt, AccountTestOptions{})
+}
+
+// RunTestBackgroundWithOptions keeps the full upstream reply in memory only.
+// Callers decide which derived fragment, if any, is allowed to be persisted.
+func (s *AccountTestService) RunTestBackgroundWithOptions(ctx context.Context, accountID int64, modelID, prompt string, options AccountTestOptions) (*ScheduledTestResult, error) {
 	startedAt := time.Now()
 
 	w := httptest.NewRecorder()
@@ -3325,7 +3430,7 @@ func (s *AccountTestService) RunTestBackgroundWithPrompt(ctx context.Context, ac
 	ginCtx.Request = (&http.Request{}).WithContext(ctx)
 	ginCtx.Set(accountTestBackgroundKey, true)
 
-	testErr := s.TestAccountConnection(ginCtx, accountID, modelID, prompt, AccountTestModeDefault)
+	testErr := s.TestAccountConnection(ginCtx, accountID, modelID, prompt, AccountTestModeDefault, options)
 
 	finishedAt := time.Now()
 	body := w.Body.String()
