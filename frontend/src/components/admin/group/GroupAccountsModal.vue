@@ -18,7 +18,46 @@
         <span class="text-gray-600 dark:text-gray-400">
           {{ t('admin.groups.groupAccountsCount', { count: pagination.total }) }}
         </span>
+        <span class="text-gray-500 dark:text-gray-400">
+          {{ t('admin.groups.groupAccountsGroupRate', { rate: formatMultiplier(group.rate_multiplier) }) }}
+        </span>
       </div>
+
+      <section class="border-b border-gray-200 pb-4 dark:border-dark-600">
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="btn btn-primary" :disabled="adding" @click="toggleCandidates">
+            <Icon name="plus" size="sm" class="mr-1.5" />
+            {{ showCandidates ? t('common.cancel') : t('admin.groups.groupAccountsAdd') }}
+          </button>
+          <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.groupAccountsMarginHint') }}</span>
+        </div>
+        <div v-if="showCandidates" class="mt-3 space-y-3 rounded border border-gray-200 p-3 dark:border-dark-600">
+          <div class="flex flex-wrap items-center gap-2">
+            <input v-model="candidateSearch" class="input w-full sm:w-64" :placeholder="t('admin.accounts.searchAccounts')" @input="debouncedCandidateReload" />
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.groups.groupAccountsSelected', { count: selectedCandidateIDs.length }) }}</span>
+            <button type="button" class="btn btn-secondary ml-auto" :disabled="adding || selectedCandidateIDs.length === 0" @click="addSelectedCandidates">
+              {{ adding ? t('common.loading') : t('admin.groups.groupAccountsAddSelected') }}
+            </button>
+          </div>
+          <div class="max-h-64 overflow-auto">
+            <div v-if="candidateLoading" class="py-5 text-center text-sm text-gray-500">{{ t('common.loading') }}</div>
+            <div v-else-if="candidateAccounts.length === 0" class="py-5 text-center text-sm text-gray-500">{{ t('admin.groups.groupAccountsNoCandidates') }}</div>
+            <label v-for="candidate in candidateAccounts" :key="candidate.id" class="flex cursor-pointer items-center gap-3 border-b border-gray-100 px-2 py-2 text-sm last:border-0 dark:border-dark-700">
+              <input type="checkbox" :checked="selectedCandidateIDs.includes(candidate.id)" @change="toggleCandidateSelection(candidate.id)" />
+              <span class="font-mono text-xs text-gray-500">#{{ candidate.id }}</span>
+              <span class="min-w-0 flex-1 truncate">{{ candidate.name }}</span>
+              <span class="text-xs text-gray-500">{{ candidate.platform }} / {{ candidate.type }}</span>
+              <span class="font-mono text-xs">{{ formatMultiplier(candidate.rate_multiplier ?? 1) }}x</span>
+            </label>
+          </div>
+          <Pagination v-if="candidatePagination.total > 0" :total="candidatePagination.total" :page="candidatePagination.page" :page-size="candidatePagination.pageSize" @update:page="handleCandidatePageChange" @update:pageSize="handleCandidatePageSizeChange" />
+          <div v-if="lastAddResults.length" class="space-y-1 border-t border-gray-200 pt-2 text-xs dark:border-dark-600">
+            <div v-for="result in lastAddResults" :key="result.account_id" :class="result.added ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'">
+              #{{ result.account_id }} {{ result.added ? t('admin.groups.groupAccountsAdded') : t(`admin.groups.groupAccountsSkipReasons.${result.reason || 'unknown'}`) }}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- 筛选 -->
       <div class="flex flex-wrap items-center gap-2">
@@ -107,6 +146,17 @@
             </span>
           </span>
         </template>
+        <template #cell-group_rate_multiplier>
+          <span class="font-mono text-sm text-gray-700 dark:text-gray-300">{{ formatMultiplier(group.rate_multiplier) }}x</span>
+        </template>
+        <template #cell-estimated_margin="{ row }">
+          <span :class="marginClass(estimatedMargin(row))" class="font-mono text-sm">{{ formatMargin(estimatedMargin(row)) }}</span>
+        </template>
+        <template #cell-actions="{ row }">
+          <button type="button" class="btn btn-sm btn-secondary" :disabled="removingAccountIDs.has(row.id)" :aria-label="t('admin.groups.groupAccountsRemove')" @click="removeAccount(row)">
+            <Icon name="trash" size="sm" />
+          </button>
+        </template>
         <template #cell-upstream_billing_rate="{ row }">
           <UpstreamBillingRateCell
             :account="row"
@@ -166,6 +216,7 @@ import UpstreamBillingRateCell from '@/components/account/UpstreamBillingRateCel
 import { formatDateTime } from '@/utils/format'
 import { formatMultiplier } from '@/utils/formatters'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import type { GroupAccountMutationResult } from '@/api/admin/groups'
 
 const props = defineProps<{
   show: boolean
@@ -174,6 +225,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
+  success: []
 }>()
 
 const { t } = useI18n()
@@ -183,6 +235,15 @@ const loading = ref(false)
 const accounts = ref<Account[]>([])
 const filters = reactive({ search: '', status: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
+const showCandidates = ref(false)
+const candidateLoading = ref(false)
+const adding = ref(false)
+const candidateAccounts = ref<Account[]>([])
+const candidateSearch = ref('')
+const selectedCandidateIDs = ref<number[]>([])
+const lastAddResults = ref<GroupAccountMutationResult[]>([])
+const candidatePagination = reactive({ page: 1, pageSize: 20, total: 0 })
+const removingAccountIDs = reactive(new Set<number>())
 
 const upstreamBillingProbeGloballyEnabled = ref<boolean | undefined>(undefined)
 const upstreamBillingNow = ref(Date.now())
@@ -207,9 +268,21 @@ const cols = computed(() => [
   { key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false },
   { key: 'priority', label: t('admin.accounts.columns.priority'), sortable: false },
   { key: 'rate_multiplier', label: t('admin.accounts.columns.billingRateMultiplier'), sortable: false },
+  { key: 'group_rate_multiplier', label: t('admin.groups.groupAccountsGroupRateColumn'), sortable: false },
+  { key: 'estimated_margin', label: t('admin.groups.groupAccountsMarginColumn'), sortable: false },
   { key: 'upstream_billing_rate', label: t('admin.accounts.columns.upstreamBillingRate'), sortable: false },
-  { key: 'last_used_at', label: t('admin.accounts.columns.lastUsed'), sortable: false }
+  { key: 'last_used_at', label: t('admin.accounts.columns.lastUsed'), sortable: false },
+  { key: 'actions', label: t('admin.groups.groupAccountsActions'), sortable: false }
 ])
+
+const estimatedMargin = (account: Account): number | null => {
+  const groupRate = props.group?.rate_multiplier
+  const accountRate = account.rate_multiplier ?? 1
+  if (typeof groupRate !== 'number' || !Number.isFinite(groupRate) || groupRate <= 0 || !Number.isFinite(accountRate)) return null
+  return ((groupRate - accountRate) / groupRate) * 100
+}
+const formatMargin = (value: number | null): string => value === null ? '-' : `${value.toFixed(2)}%`
+const marginClass = (value: number | null): string => value === null ? 'text-gray-500 dark:text-gray-400' : value < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
 
 const platformColorClass = computed(() => {
   switch (props.group?.platform) {
@@ -237,6 +310,71 @@ const loadAccounts = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const loadCandidates = async () => {
+  if (!props.group) return
+  candidateLoading.value = true
+  try {
+    const result = await adminAPI.groups.getGroupAccountCandidates(props.group.id, candidatePagination.page, candidatePagination.pageSize, candidateSearch.value)
+    candidateAccounts.value = result.items
+    candidatePagination.total = result.total
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.groups.groupAccountsCandidatesFailed')))
+  } finally {
+    candidateLoading.value = false
+  }
+}
+
+const toggleCandidates = () => {
+  showCandidates.value = !showCandidates.value
+  if (showCandidates.value) loadCandidates()
+}
+const toggleCandidateSelection = (id: number) => {
+  if (selectedCandidateIDs.value.includes(id)) {
+    selectedCandidateIDs.value = selectedCandidateIDs.value.filter(candidateID => candidateID !== id)
+    return
+  }
+  if (selectedCandidateIDs.value.length >= 100) {
+    appStore.showError(t('admin.groups.groupAccountsSelectionLimit'))
+    return
+  }
+  selectedCandidateIDs.value = [...selectedCandidateIDs.value, id]
+}
+const addSelectedCandidates = async () => {
+  if (!props.group || adding.value || selectedCandidateIDs.value.length === 0) return
+  adding.value = true
+  try {
+    lastAddResults.value = await adminAPI.groups.addGroupAccounts(props.group.id, selectedCandidateIDs.value)
+    selectedCandidateIDs.value = []
+    await Promise.all([loadAccounts(), loadCandidates()])
+    emit('success')
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.groups.groupAccountsAddFailed')))
+  } finally {
+    adding.value = false
+  }
+}
+const removeAccount = async (account: Account) => {
+  if (!props.group || removingAccountIDs.has(account.id)) return
+  if (!window.confirm(t('admin.groups.groupAccountsRemoveConfirm', { name: account.name }))) return
+  removingAccountIDs.add(account.id)
+  try {
+    await adminAPI.groups.removeGroupAccount(props.group.id, account.id)
+    await loadAccounts()
+    emit('success')
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.groups.groupAccountsRemoveFailed')))
+  } finally {
+    removingAccountIDs.delete(account.id)
+  }
+}
+const handleCandidatePageChange = (page: number) => { candidatePagination.page = page; loadCandidates() }
+const handleCandidatePageSizeChange = (size: number) => { candidatePagination.pageSize = size; candidatePagination.page = 1; loadCandidates() }
+let candidateSearchTimeout: ReturnType<typeof setTimeout> | undefined
+const debouncedCandidateReload = () => {
+  clearTimeout(candidateSearchTimeout)
+  candidateSearchTimeout = setTimeout(() => { candidatePagination.page = 1; loadCandidates() }, 300)
 }
 
 const loadUpstreamBillingProbeGlobalState = async () => {
@@ -312,6 +450,10 @@ watch(() => props.show, (val) => {
     pagination.page = 1
     pagination.total = 0
     accounts.value = []
+    showCandidates.value = false
+    candidateAccounts.value = []
+    selectedCandidateIDs.value = []
+    lastAddResults.value = []
     upstreamBillingNow.value = Date.now()
     resumeBillingClock()
     loadAccounts()
@@ -323,6 +465,7 @@ watch(() => props.show, (val) => {
 
 onUnmounted(() => {
   clearTimeout(searchTimeout)
+  clearTimeout(candidateSearchTimeout)
   pauseBillingClock()
 })
 </script>

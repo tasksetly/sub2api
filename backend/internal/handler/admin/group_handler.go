@@ -41,6 +41,66 @@ func (h *GroupHandler) GetLiveCapability(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *GroupHandler) ListGroupAccountCandidates(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || groupID <= 0 {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	search := strings.TrimSpace(c.Query("search"))
+	if len(search) > 100 {
+		search = search[:100]
+	}
+	accounts, total, err := h.adminService.ListGroupAccountCandidates(c.Request.Context(), groupID, page, pageSize, search)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	items := make([]*dto.Account, 0, len(accounts))
+	for i := range accounts {
+		items = append(items, dto.AccountFromService(&accounts[i]))
+	}
+	response.Paginated(c, items, total, page, pageSize)
+}
+
+type addGroupAccountsRequest struct {
+	AccountIDs []int64 `json:"account_ids" binding:"required,min=1,max=100"`
+}
+
+func (h *GroupHandler) AddGroupAccounts(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || groupID <= 0 {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+	var req addGroupAccountsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid account_ids")
+		return
+	}
+	results, err := h.adminService.AddGroupAccounts(c.Request.Context(), groupID, req.AccountIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"results": results})
+}
+
+func (h *GroupHandler) RemoveGroupAccount(c *gin.Context) {
+	groupID, groupErr := strconv.ParseInt(c.Param("id"), 10, 64)
+	accountID, accountErr := strconv.ParseInt(c.Param("account_id"), 10, 64)
+	if groupErr != nil || accountErr != nil || groupID <= 0 || accountID <= 0 {
+		response.BadRequest(c, "Invalid group or account ID")
+		return
+	}
+	if err := h.adminService.RemoveGroupAccount(c.Request.Context(), groupID, accountID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "Account removed from group"})
+}
+
 type optionalLimitField struct {
 	set   bool
 	value *float64

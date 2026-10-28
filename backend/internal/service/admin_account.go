@@ -35,6 +35,136 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 	return accounts, result.Total, nil
 }
 
+func (s *adminServiceImpl) ListGroupAccountCandidates(ctx context.Context, groupID int64, page, pageSize int, search string) ([]Account, int64, error) {
+	if groupID <= 0 {
+		return nil, 0, ErrGroupNotFound
+	}
+	if err := s.ValidateAccountGroupBindings(ctx, []int64{groupID}); err != nil {
+		return nil, 0, err
+	}
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return nil, 0, err
+	}
+	lister, ok := s.accountRepo.(AccountGroupCandidateRepository)
+	if !ok {
+		return nil, 0, errors.New("account repository does not support group candidates")
+	}
+	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: "name", SortOrder: pagination.SortOrderAsc}
+	items, result, err := lister.ListGroupCandidates(ctx, params, groupID, search)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, result.Total, nil
+}
+
+func (s *adminServiceImpl) AddGroupAccounts(ctx context.Context, groupID int64, accountIDs []int64) ([]GroupAccountMutationResult, error) {
+	if groupID <= 0 {
+		return nil, ErrGroupNotFound
+	}
+	if err := s.ValidateAccountGroupBindings(ctx, []int64{groupID}); err != nil {
+		return nil, err
+	}
+	group, err := s.groupRepo.GetByID(ctx, groupID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(accountIDs))
+	seen := make(map[int64]struct{}, len(accountIDs))
+	for _, id := range accountIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	accounts, err := s.accountRepo.GetByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	accountByID := make(map[int64]*Account, len(accounts))
+	for _, account := range accounts {
+		if account != nil {
+			accountByID[account.ID] = account
+		}
+	}
+	results := make([]GroupAccountMutationResult, 0, len(ids))
+	validIDs := make([]int64, 0, len(ids))
+	batchChannel := ""
+	for _, id := range ids {
+		account := accountByID[id]
+		if account == nil {
+			results = append(results, GroupAccountMutationResult{AccountID: id, Reason: "account_not_found"})
+			continue
+		}
+		if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple && !IsGroupBindableInSimpleMode(group) {
+			results = append(results, GroupAccountMutationResult{AccountID: id, Reason: "group_not_bindable_in_simple_mode"})
+			continue
+		}
+		if account.Type == AccountTypeAPIKey && group.RequireOAuthOnly &&
+			(group.Platform == PlatformOpenAI || group.Platform == PlatformAntigravity || group.Platform == PlatformAnthropic || group.Platform == PlatformGemini || group.Platform == PlatformGrok) {
+			results = append(results, GroupAccountMutationResult{AccountID: id, Reason: "oauth_only_group"})
+			continue
+		}
+		matching, err := s.filterGroupIDsByAccountRate(ctx, account.RateMultiplier, []int64{groupID})
+		if err != nil {
+			return nil, err
+		}
+		if len(matching) == 0 {
+			results = append(results, GroupAccountMutationResult{AccountID: id, Reason: "account_rate_exceeds_group_rate"})
+			continue
+		}
+		channel := getAccountPlatform(account.Platform)
+		if channel != "" && batchChannel != "" && channel != batchChannel {
+			results = append(results, GroupAccountMutationResult{AccountID: id, Reason: "mixed_channel_risk"})
+			continue
+		}
+		if err := s.checkMixedChannelRisk(ctx, account.ID, account.Platform, []int64{groupID}); err != nil {
+			var mixed *MixedChannelError
+			if errors.As(err, &mixed) {
+				results = append(results, GroupAccountMutationResult{AccountID: id, Reason: "mixed_channel_risk"})
+				continue
+			}
+			return nil, err
+		}
+		if channel != "" {
+			batchChannel = channel
+		}
+		validIDs = append(validIDs, id)
+	}
+	if len(validIDs) > 0 {
+		if err := s.groupRepo.BindAccountsToGroup(ctx, groupID, validIDs); err != nil {
+			return nil, err
+		}
+	}
+	for _, id := range validIDs {
+		results = append(results, GroupAccountMutationResult{AccountID: id, Added: true})
+	}
+	return results, nil
+}
+
+func (s *adminServiceImpl) RemoveGroupAccount(ctx context.Context, groupID, accountID int64) error {
+	if groupID <= 0 || accountID <= 0 {
+		return ErrGroupNotFound
+	}
+	if err := s.ValidateAccountGroupBindings(ctx, []int64{groupID}); err != nil {
+		return err
+	}
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return err
+	}
+	if _, err := s.accountRepo.GetByID(ctx, accountID); err != nil {
+		return err
+	}
+	mutator, ok := s.accountRepo.(AccountGroupMutationRepository)
+	if !ok {
+		return errors.New("account repository does not support group membership changes")
+	}
+	return mutator.RemoveFromGroup(ctx, accountID, groupID)
+}
+
 func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, nil

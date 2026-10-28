@@ -1152,6 +1152,30 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 	return outAccounts, paginationResultFromTotal(int64(total), params), nil
 }
 
+func (r *accountRepository) ListGroupCandidates(ctx context.Context, params pagination.PaginationParams, groupID int64, search string) ([]service.Account, *pagination.PaginationResult, error) {
+	q := r.client.Account.Query().Where(
+		dbaccount.DeletedAtIsNil(),
+		dbaccount.Not(dbaccount.HasAccountGroupsWith(dbaccountgroup.GroupIDEQ(groupID))),
+	)
+	if search = strings.TrimSpace(search); search != "" {
+		q = q.Where(dbaccount.Or(dbaccount.NameContainsFold(search), dbaccount.SupplierContainsFold(search)))
+	}
+	total, err := q.Clone().Count(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	accounts, err := q.Order(dbent.Asc(dbaccount.FieldName), dbent.Asc(dbaccount.FieldID)).
+		Offset(params.Offset()).Limit(params.Limit()).All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	items, err := r.accountsToService(ctx, accounts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return items, paginationResultFromTotal(int64(total), params), nil
+}
+
 func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
 	// 调度分候选池不按上游筛：池子代表「参与竞争的全部账号」，
 	// 按上游裁剪会改变打分口径，让同一个账号在不同筛选下显示不同分数。

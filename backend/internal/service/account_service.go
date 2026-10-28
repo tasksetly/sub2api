@@ -138,6 +138,17 @@ type AccountDuplicateRepository interface {
 	CreateWithAccountGroups(ctx context.Context, account *Account, groups []AccountGroup) error
 }
 
+// AccountGroupCandidateRepository lists accounts that are not yet members of a group.
+type AccountGroupCandidateRepository interface {
+	ListGroupCandidates(ctx context.Context, params pagination.PaginationParams, groupID int64, search string) ([]Account, *pagination.PaginationResult, error)
+}
+
+// AccountGroupMutationRepository changes one membership without replacing the account's other groups.
+type AccountGroupMutationRepository interface {
+	AddToGroup(ctx context.Context, accountID, groupID int64, priority int) error
+	RemoveFromGroup(ctx context.Context, accountID, groupID int64) error
+}
+
 // AccountBillingSettingsRepository applies an admin edit without overwriting a
 // rate_multiplier that a successful upstream probe synchronized after the edit
 // form was loaded. A nil rateMultiplier means the request did not edit it.

@@ -4275,6 +4275,7 @@
       :show="showGroupAccountsModal"
       :group="groupAccountsGroup"
       @close="showGroupAccountsModal = false"
+      @success="loadGroups"
     />
   </AppLayout>
 </template>

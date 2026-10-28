@@ -56,6 +56,9 @@ type AdminService interface {
 	DeleteCompositeRoute(ctx context.Context, groupID, routeID int64) error
 	PreviewCompositeRoute(ctx context.Context, groupID int64, input CompositeRoutePreviewRequest) (*CompositeRouteDecision, error)
 	GetGroupAPIKeys(ctx context.Context, groupID int64, page, pageSize int) ([]APIKey, int64, error)
+	ListGroupAccountCandidates(ctx context.Context, groupID int64, page, pageSize int, search string) ([]Account, int64, error)
+	AddGroupAccounts(ctx context.Context, groupID int64, accountIDs []int64) ([]GroupAccountMutationResult, error)
+	RemoveGroupAccount(ctx context.Context, groupID, accountID int64) error
 	GetGroupRateMultipliers(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error)
 	ClearGroupRateMultipliers(ctx context.Context, groupID int64) error
 	BatchSetGroupRateMultipliers(ctx context.Context, groupID int64, entries []GroupRateMultiplierInput) error
@@ -138,6 +141,12 @@ type AdminService interface {
 	BatchDeleteRedeemCodes(ctx context.Context, ids []int64) (int64, error)
 	ExpireRedeemCode(ctx context.Context, id int64) (*RedeemCode, error)
 	ResetAccountQuota(ctx context.Context, id int64) error
+}
+
+type GroupAccountMutationResult struct {
+	AccountID int64  `json:"account_id"`
+	Added     bool   `json:"added"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 type AdminGroupOperation string

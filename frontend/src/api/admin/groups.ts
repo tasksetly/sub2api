@@ -5,6 +5,7 @@
 
 import { apiClient } from '../client'
 import type {
+  Account,
   AdminGroup,
   GroupPlatform,
   CompositeModelRoute,
@@ -15,6 +16,35 @@ import type {
   UpdateGroupRequest,
   PaginatedResponse
 } from '@/types'
+
+export interface GroupAccountMutationResult {
+  account_id: number
+  added: boolean
+  reason?: string
+}
+
+export async function getGroupAccountCandidates(
+  id: number,
+  page = 1,
+  pageSize = 20,
+  search?: string
+): Promise<PaginatedResponse<Account>> {
+  const { data } = await apiClient.get<PaginatedResponse<Account>>(`/admin/groups/${id}/accounts/candidates`, {
+    params: { page, page_size: pageSize, search: search?.trim() || undefined }
+  })
+  return data
+}
+
+export async function addGroupAccounts(id: number, accountIDs: number[]): Promise<GroupAccountMutationResult[]> {
+  const { data } = await apiClient.post<{ results: GroupAccountMutationResult[] }>(`/admin/groups/${id}/accounts`, {
+    account_ids: accountIDs
+  })
+  return data.results
+}
+
+export async function removeGroupAccount(id: number, accountID: number): Promise<void> {
+  await apiClient.delete(`/admin/groups/${id}/accounts/${accountID}`)
+}
 
 export interface LiveCapability {
   supported: boolean
@@ -478,6 +508,9 @@ export const groupsAPI = {
   getLiveCapability,
   getById,
   getModelAllowlistCandidates,
+  getGroupAccountCandidates,
+  addGroupAccounts,
+  removeGroupAccount,
   create,
   duplicate,
   update,

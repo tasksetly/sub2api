@@ -404,6 +404,20 @@ func (s *stubAdminService) GetGroupAPIKeys(ctx context.Context, groupID int64, p
 	return s.apiKeys, int64(len(s.apiKeys)), nil
 }
 
+func (s *stubAdminService) ListGroupAccountCandidates(context.Context, int64, int, int, string) ([]service.Account, int64, error) {
+	return s.accounts, int64(len(s.accounts)), nil
+}
+
+func (s *stubAdminService) AddGroupAccounts(_ context.Context, _ int64, ids []int64) ([]service.GroupAccountMutationResult, error) {
+	results := make([]service.GroupAccountMutationResult, 0, len(ids))
+	for _, id := range ids {
+		results = append(results, service.GroupAccountMutationResult{AccountID: id, Added: true})
+	}
+	return results, nil
+}
+
+func (s *stubAdminService) RemoveGroupAccount(context.Context, int64, int64) error { return nil }
+
 func (s *stubAdminService) GetGroupRateMultipliers(_ context.Context, _ int64) ([]service.UserGroupRateEntry, error) {
 	return nil, nil
 }
