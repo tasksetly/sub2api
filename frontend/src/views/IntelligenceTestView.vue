@@ -148,17 +148,24 @@
             <strong>{{ preview.group }}</strong>
             <span>{{ preview.item.model_name || preview.item.model || preview.item.model_id || copy.unknownModel }}</span>
           </div>
-          <button type="button" class="icon-button" :aria-label="copy.close" :title="copy.close" @click="closePreview">
-            <Icon name="x" size="sm" />
-          </button>
+          <div class="preview-header__actions">
+            <button type="button" class="preview-tab" :class="{ active: previewMode === 'render' }" :aria-pressed="previewMode === 'render'" @click="previewMode = 'render'">{{ copy.renderedPreview }}</button>
+            <button v-if="preview.item.svg_content" type="button" class="preview-tab" :class="{ active: previewMode === 'source' }" :aria-pressed="previewMode === 'source'" @click="previewMode = 'source'">{{ copy.sourceCode }}</button>
+            <button type="button" class="icon-button" :aria-label="copy.close" :title="copy.close" @click="closePreview">
+              <Icon name="x" size="sm" />
+            </button>
+          </div>
         </header>
-        <div class="preview-canvas">
-          <img :src="getAssetUrl(preview.item)" :alt="copy.svgWork" />
+        <div v-if="previewMode === 'source' && preview.item.svg_content" class="preview-source"><pre><code>{{ preview.item.svg_content }}</code></pre></div>
+        <div v-else class="preview-canvas">
+          <iframe v-if="preview.item.svg_content" :srcdoc="getPreviewDocument(preview.item.svg_content)" sandbox :title="copy.preview" />
+          <img v-else :src="getAssetUrl(preview.item)" :alt="copy.svgWork" />
         </div>
         <footer class="preview-footer">
           <span>{{ formatDate(preview.item) }}</span>
           <span>{{ copy.reasoning }}：{{ formatEffort(preview.item.effort) }}</span>
           <span>{{ copy.elapsed }}：{{ formatLatency(preview.item.latency_ms) || '—' }}</span>
+          <span v-if="preview.item.svg_content">{{ hasSVGAnimation(preview.item.svg_content) ? copy.animatedSVG : copy.staticSVG }}</span>
           <span v-if="preview.item.check || preview.item.status === 'validated'" class="validated-label"><Icon name="check" size="xs" /> {{ copy.validated }}</span>
         </footer>
       </section>
@@ -184,6 +191,7 @@ const selectedGroup = ref(ALL_GROUP)
 const statusFilter = ref<'all' | 'ok' | 'recent'>('all')
 const response = ref<IntelligenceTestResponse>({})
 const preview = ref<{ item: IntelligenceTestItem; group: string } | null>(null)
+const previewMode = ref<'render' | 'source'>('render')
 const groupRefs = new Map<string, HTMLElement>()
 
 const isEmbedded = computed(() => route.query.ui_mode === 'embedded' || route.query.embedded === '1')
@@ -208,9 +216,9 @@ const config = computed(() => ({
 
 const isEnglish = computed(() => String(route.query.lang || '').toLowerCase().startsWith('en'))
 const copy = computed(() => isEnglish.value ? {
-  eyebrow: 'Capability benchmark', title: 'SVG intelligence benchmark', description: 'Compare SVG generation quality across configured API key groups.', refresh: 'Refresh', refreshing: 'Refreshing', currentPrompt: 'Current prompt', promptPlaceholder: 'The prompt configured by your administrator will appear here.', groupCount: 'Groups', workCount: 'Works', filters: 'Result filters', groups: 'Groups', allGroups: 'All groups', statusFilter: 'Status', allStatus: 'All status', validated: 'Validated', recent: 'Last hour', loading: 'Loading recent SVG works…', loadFailed: 'Unable to load results', retry: 'Try again', noResults: 'No works yet', noResultsDescription: 'Configure a prompt and API key group in the admin panel, then results will appear here.', emptyGroup: 'No works match the current filter.', works: 'works', previous: 'Previous', next: 'Next', svgWork: 'SVG work', unknownModel: 'Unknown model', preview: 'SVG preview', close: 'Close', reasoning: 'Effort', elapsed: 'Elapsed',
+  eyebrow: 'Capability benchmark', title: 'SVG intelligence benchmark', description: 'Compare SVG generation quality across configured API key groups.', refresh: 'Refresh', refreshing: 'Refreshing', currentPrompt: 'Current prompt', promptPlaceholder: 'The prompt configured by your administrator will appear here.', groupCount: 'Groups', workCount: 'Works', filters: 'Result filters', groups: 'Groups', allGroups: 'All groups', statusFilter: 'Status', allStatus: 'All status', validated: 'Validated', recent: 'Last hour', loading: 'Loading recent SVG works…', loadFailed: 'Unable to load results', retry: 'Try again', noResults: 'No works yet', noResultsDescription: 'Configure a prompt and API key group in the admin panel, then results will appear here.', emptyGroup: 'No works match the current filter.', works: 'works', previous: 'Previous', next: 'Next', svgWork: 'SVG work', unknownModel: 'Unknown model', preview: 'SVG preview', close: 'Close', reasoning: 'Effort', elapsed: 'Elapsed', renderedPreview: 'Preview', sourceCode: 'SVG source', staticSVG: 'Static SVG', animatedSVG: 'Animated SVG',
 } : {
-  eyebrow: '能力测试', title: 'SVG 生成能力测试', description: '对比不同 API Key 分组的 SVG 生成质量，观察模型的推理与执行能力。', refresh: '刷新', refreshing: '刷新中', currentPrompt: '当前提示词', promptPlaceholder: '后台配置的提示词会显示在这里。', groupCount: '分组', workCount: '作品', filters: '结果筛选', groups: '分组', allGroups: '全部分组', statusFilter: '状态', allStatus: '全部状态', validated: '已通过校验', recent: '最近 1 小时', loading: '正在加载最近的 SVG 作品…', loadFailed: '结果加载失败', retry: '重新加载', noResults: '还没有测试作品', noResultsDescription: '请先在后台配置提示词和 API Key 分组，生成结果后会显示在这里。', emptyGroup: '当前筛选条件下暂无作品', works: '张作品', previous: '上一组', next: '下一组', svgWork: 'SVG 作品', unknownModel: '未知模型', preview: 'SVG 作品预览', close: '关闭', reasoning: '推理', elapsed: '耗时',
+  eyebrow: '能力测试', title: 'SVG 生成能力测试', description: '对比不同 API Key 分组的 SVG 生成质量，观察模型的推理与执行能力。', refresh: '刷新', refreshing: '刷新中', currentPrompt: '当前提示词', promptPlaceholder: '后台配置的提示词会显示在这里。', groupCount: '分组', workCount: '作品', filters: '结果筛选', groups: '分组', allGroups: '全部分组', statusFilter: '状态', allStatus: '全部状态', validated: '已通过校验', recent: '最近 1 小时', loading: '正在加载最近的 SVG 作品…', loadFailed: '结果加载失败', retry: '重新加载', noResults: '还没有测试作品', noResultsDescription: '请先在后台配置提示词和 API Key 分组，生成结果后会显示在这里。', emptyGroup: '当前筛选条件下暂无作品', works: '张作品', previous: '上一组', next: '下一组', svgWork: 'SVG 作品', unknownModel: '未知模型', preview: 'SVG 作品预览', close: '关闭', reasoning: '推理', elapsed: '耗时', renderedPreview: '效果预览', sourceCode: 'SVG 源码', staticSVG: '静态 SVG', animatedSVG: '含动画',
 })
 
 interface DisplayGroup { name: string; items: IntelligenceTestItem[] }
@@ -280,6 +288,19 @@ function getAssetUrl(item: IntelligenceTestItem) {
   return `${base.replace(/\/+$/, '')}/${source.replace(/^\/+/, '')}`
 }
 
+const previewCSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'none'; base-uri 'none'; form-action 'none'"
+
+function getPreviewDocument(svg: string) {
+  return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="'
+    + previewCSP
+    + '"><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;overflow:auto;background:#fff}body>svg{max-width:100%;max-height:100%}</style></head><body>'
+    + svg + '</body></html>'
+}
+
+function hasSVGAnimation(svg: string) {
+  return /<(?:animate|animateMotion|animateTransform|animateColor|set)\b|@keyframes\b|\banimation(?:-name)?\s*:/i.test(svg)
+}
+
 function formatEffort(value: string | null | undefined) {
   if (!value) return isEnglish.value ? 'default' : '默认强度'
   const labels: Record<string, string> = isEnglish.value ? { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' } : { low: '低', medium: '中', high: '高', xhigh: '极高', max: '最大' }
@@ -320,6 +341,7 @@ function scrollGroup(name: string, direction: number) {
 }
 
 function openPreview(item: IntelligenceTestItem, group: string) {
+  previewMode.value = 'render'
   preview.value = { item, group }
 }
 
@@ -367,9 +389,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .works-row { display:flex; gap:14px; overflow-x:auto; padding:4px 2px 13px; scroll-snap-type:x mandatory; scrollbar-width:thin; }.empty-row { align-self:center; min-width:300px; padding:30px; color:#9ca3af; font-size:13px; text-align:center; }.work-card { flex:0 0 320px; padding:0; overflow:hidden; scroll-snap-align:start; border:1px solid #e1e5ea; border-radius:10px; background:#fff; text-align:left; cursor:pointer; transition:transform .16s, box-shadow .16s; }.work-card:hover { transform:translateY(-3px); box-shadow:0 8px 22px rgba(15,23,42,.09); }.work-preview { display:block; position:relative; height:220px; background:#fafafa; border-bottom:1px solid #e8ebef; }.work-preview img { display:block; width:100%; height:100%; object-fit:contain; background:#fff; }.validated-mark { position:absolute; top:10px; right:10px; display:grid; place-items:center; width:23px; height:23px; border-radius:50%; color:#047857; background:#d1fae5; }.work-meta { display:block; padding:10px 12px 11px; }.work-model { display:block; overflow:hidden; color:#1f2937; font-size:13px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }.work-tags { display:flex; gap:5px; margin-top:7px; }.work-tags span { max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.work-tags span:empty { display:none; }
 .state-panel { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:300px; padding:30px; border:1px dashed #d7dde5; border-radius:10px; color:#9ca3af; background:rgba(255,255,255,.6); text-align:center; }.state-panel h2 { margin:13px 0 4px; color:#374151; font-size:16px; }.state-panel p { max-width:440px; margin:0; font-size:13px; line-height:1.6; }.state-panel--error { color:#dc2626; }.state-panel--error h2 { color:#991b1b; }.state-panel--error p { color:#6b7280; }.state-panel .secondary-button { margin-top:16px; }.loader { width:28px; height:28px; border:3px solid #dbeafe; border-top-color:#2563eb; border-radius:50%; animation:spin .8s linear infinite; }
 .preview-backdrop { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:20px; background:rgba(17,24,39,.62); }.preview-modal { width:min(1000px, 96vw); overflow:hidden; border-radius:12px; background:#fff; box-shadow:0 24px 80px rgba(0,0,0,.25); }.preview-header { justify-content:space-between; gap:12px; padding:11px 14px; border-bottom:1px solid #e5e7eb; }.preview-header > div { gap:10px; min-width:0; }.preview-header strong { font-size:14px; }.preview-header span { overflow:hidden; color:#6b7280; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }.preview-canvas { display:grid; place-items:center; min-height:360px; max-height:78vh; background:#fafafa; }.preview-canvas img { display:block; width:100%; height:min(78vh, 720px); object-fit:contain; background:#fff; }.preview-footer { gap:8px; padding:10px 14px; border-top:1px solid #e5e7eb; color:#6b7280; font-size:12px; }.validated-label { display:inline-flex; align-items:center; gap:4px; color:#047857; }
+.preview-header__actions { display:flex; align-items:center; gap:6px; flex:0 0 auto; }.preview-tab { border:1px solid #dbe1e8; border-radius:7px; padding:7px 10px; color:#64748b; background:#fff; font:inherit; font-size:12px; cursor:pointer; }.preview-tab.active { border-color:#2563eb; color:#1d4ed8; background:#eff6ff; }.preview-canvas iframe { display:block; width:100%; height:min(78vh, 720px); border:0; background:#fff; }.preview-source { max-height:78vh; overflow:auto; padding:16px; color:#dbeafe; background:#0b1220; }.preview-source pre { margin:0; font:12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; white-space:pre; tab-size:2; }.preview-footer { flex-wrap:wrap; }
+@media (max-width:720px) { .preview-header { flex-wrap:wrap; }.preview-header__actions { margin-left:auto; } }
 @keyframes spin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) { .work-card { transition:none; }.spin-once, .loader { animation:none; } }
 @media (max-width:720px) { .test-header__inner, .test-shell { width:min(100% - 28px, 1280px); }.test-shell { padding-top:24px; }.test-intro { align-items:flex-start; flex-direction:column; gap:14px; }.test-intro h1 { font-size:24px; }.refresh-button { align-self:flex-start; }.prompt-panel { align-items:flex-start; flex-wrap:wrap; }.prompt-panel__content { flex-basis:calc(100% - 54px); }.prompt-panel__meta { width:100%; display:flex; gap:8px; align-items:center; padding-left:52px; text-align:left; }.prompt-panel__meta strong { margin-right:7px; }.toolbar { align-items:flex-start; flex-direction:column; }.toolbar-controls { width:100%; }.select-wrap, .select-wrap select { width:100%; }.work-card { flex-basis:min(320px, calc(100vw - 38px)); }.work-preview { height:210px; } }
 .dark .intelligence-test { background:#0f172a; color:#f8fafc; }.dark .test-header { border-color:#1e293b; background:rgba(15,23,42,.92); }.dark .brand-mark, .dark .icon-button, .dark .refresh-button, .dark .secondary-button, .dark .filter-tab, .dark .select-wrap select, .dark .section-arrows button, .dark .work-card { border-color:#334155; background:#111c2e; color:#e2e8f0; }.dark .header-link, .dark .intro-description, .dark .prompt-panel__content p, .dark .section-heading span, .dark .state-panel p, .dark .preview-header span, .dark .preview-footer { color:#94a3b8; }.dark .eyebrow { color:#60a5fa; }.dark .prompt-panel { border-color:#1e40af; background:#172554; }.dark .prompt-panel__icon { background:#1e3a8a; color:#93c5fd; }.dark .prompt-panel__meta strong { color:#bfdbfe; }.dark .meta-pill, .dark .work-tags span { background:#243247; color:#94a3b8; }.dark .filter-tab { color:#cbd5e1; }.dark .filter-tab.active { border-color:#f8fafc; background:#f8fafc; color:#0f172a; }.dark .filter-tab.active span { color:#64748b; }.dark .work-preview, .dark .preview-canvas { background:#0b1220; }.dark .work-preview img, .dark .preview-canvas img { background:#fff; }.dark .work-model, .dark .state-panel h2, .dark .preview-header strong { color:#f8fafc; }.dark .state-panel { border-color:#334155; background:rgba(15,23,42,.55); }.dark .state-panel--error h2 { color:#fca5a5; }.dark .preview-modal { background:#111c2e; }.dark .preview-header, .dark .preview-footer { border-color:#334155; }.dark .preview-canvas { border-color:#334155; }
 .dark .empty-row { color:#64748b; }
+.dark .preview-tab { border-color:#334155; color:#cbd5e1; background:#111c2e; }.dark .preview-tab.active { border-color:#60a5fa; color:#bfdbfe; background:#1e3a8a; }
 </style>

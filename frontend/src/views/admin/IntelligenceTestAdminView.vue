@@ -50,7 +50,7 @@
           <div><label class="input-label">模型展示名称（选填）</label><input v-model="form.model_name" class="input" placeholder="留空时显示模型 ID" /></div>
           <div><label class="input-label">推理等级</label><select v-model="form.reasoning_effort" class="input"><option value="">模型默认</option><option value="low">低 (low)</option><option value="medium">中 (medium)</option><option value="high">高 (high)</option><option value="xhigh">极高 (xhigh)</option><option value="max">最大 (max)</option></select><p class="mt-1 text-xs text-gray-500">可选等级取决于模型；不支持的等级会由上游拒绝。</p></div>
           <div><label class="input-label">提示词</label><textarea v-model="form.prompt_text" class="input min-h-32" required placeholder="请输出一个完整的 SVG，不要附加 Markdown 代码块。" /></div>
-          <p class="text-xs text-gray-500">系统提示词会固定要求模型只输出 SVG；此处填写测试题目。</p>
+          <p class="text-xs text-gray-500">系统提示词会固定要求模型只输出 SVG；若需动态作品，请在题目中明确要求使用 SVG animate 或 CSS 动画。</p>
           <div class="grid gap-4 sm:grid-cols-2"><div><label class="input-label">Cron（默认每小时）</label><input v-model="form.cron_expression" class="input" placeholder="0 * * * *" /></div><div><label class="input-label">保留结果数</label><input v-model.number="form.keep_count" type="number" min="1" max="100" class="input" /></div></div>
           <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-dark-300"><input v-model="form.enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />启用定时测试</label>
           <div class="flex justify-end gap-2"><button type="button" class="btn btn-secondary" @click="dialogOpen = false">取消</button><button type="submit" class="btn btn-primary" :disabled="saving">{{ saving ? '保存中...' : '保存配置' }}</button></div>
