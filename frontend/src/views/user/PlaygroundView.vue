@@ -58,6 +58,24 @@
         </div>
 
         <div>
+          <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ t('playground.reasoningEffort') }}
+          </label>
+          <Select
+            v-model="reasoningEffort"
+            :options="reasoningEffortOptions"
+            :placeholder="t('playground.reasoningEffortDefault')"
+            :disabled="streaming"
+            :aria-label="t('playground.reasoningEffort')"
+            :searchable="false"
+            clearable
+          />
+          <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('playground.reasoningEffortHint') }}
+          </p>
+        </div>
+
+        <div>
           <label class="mb-1.5 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
             <span>{{ t('playground.temperature') }}</span>
             <span class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ temperature.toFixed(2) }}</span>
@@ -253,6 +271,7 @@ import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { keysAPI } from '@/api/keys'
 import { listPlaygroundModels, streamPlaygroundChat, type PlaygroundUsage } from '@/api/playground'
+import { REASONING_EFFORT_LEVELS, type ReasoningEffortLevel } from '@/constants/channel'
 import { useClipboard } from '@/composables/useClipboard'
 import type { ApiKey } from '@/types'
 import '@/styles/announcement-markdown.css'
@@ -275,6 +294,7 @@ const modelsError = ref('')
 const selectedModel = ref<string | null>(null)
 
 const systemPrompt = ref('')
+const reasoningEffort = ref<ReasoningEffortLevel | null>(null)
 const temperature = ref(1)
 const maxTokens = ref(2048)
 
@@ -302,6 +322,11 @@ const keyOptions = computed<SelectOption[]>(() =>
 const modelOptions = computed<SelectOption[]>(() =>
   models.value.map((model) => ({ value: model, label: model }))
 )
+
+const reasoningEffortOptions: SelectOption[] = REASONING_EFFORT_LEVELS.map((effort) => ({
+  value: effort,
+  label: effort,
+}))
 
 const canSend = computed(
   () => !!selectedKey.value?.key && !!selectedModel.value && !!input.value.trim() && !streaming.value
@@ -413,6 +438,7 @@ async function runCompletion(): Promise<void> {
       messages: payload,
       temperature: temperature.value,
       maxTokens: maxTokens.value,
+      reasoningEffort: reasoningEffort.value ?? undefined,
       signal: abortController.signal,
       onDelta: (text) => {
         const target = messages.value[targetIndex]

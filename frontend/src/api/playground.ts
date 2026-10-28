@@ -6,6 +6,7 @@
  */
 
 import { buildGatewayUrl } from './url'
+import type { ReasoningEffortLevel } from '@/constants/channel'
 
 /** 网关 /v1/models 的单条模型（Anthropic 与 OpenAI 两种形状都带 id）。 */
 export interface PlaygroundModel {
@@ -90,6 +91,7 @@ export interface StreamChatOptions {
   messages: PlaygroundMessage[]
   temperature?: number
   maxTokens?: number
+  reasoningEffort?: ReasoningEffortLevel
   signal?: AbortSignal
   /** 每收到一段增量文本触发。 */
   onDelta: (text: string) => void
@@ -140,6 +142,9 @@ export async function streamPlaygroundChat(options: StreamChatOptions): Promise<
   }
   if (typeof options.maxTokens === 'number' && options.maxTokens > 0) {
     body.max_tokens = options.maxTokens
+  }
+  if (options.reasoningEffort) {
+    body.reasoning_effort = options.reasoningEffort
   }
 
   const response = await fetch(buildGatewayUrl('/v1/chat/completions'), {
