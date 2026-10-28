@@ -67,9 +67,15 @@ func (h *IntelligenceTestHandler) Delete(c *gin.Context) {
 func (h *IntelligenceTestHandler) Run(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil { response.BadRequest(c, "invalid config id"); return }
-	result, err := h.svc.RunNow(c.Request.Context(), id)
+	result, err := h.svc.QueueRun(c.Request.Context(), id)
 	if err != nil { response.InternalError(c, err.Error()); return }
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusAccepted, result)
+}
+
+func (h *IntelligenceTestHandler) RunStatus(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil { response.BadRequest(c, "invalid config id"); return }
+	c.JSON(http.StatusOK, h.svc.RunStatus(id))
 }
 
 func (h *IntelligenceTestHandler) ListResults(c *gin.Context) {

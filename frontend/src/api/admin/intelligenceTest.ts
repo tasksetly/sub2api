@@ -42,6 +42,15 @@ export interface IntelligenceTestResult {
   created_at: string
 }
 
+export interface IntelligenceTestRunStatus {
+  running: boolean
+  status: string
+  started_at?: string
+  finished_at?: string
+  result_id?: number
+  error?: string
+}
+
 export interface IntelligenceTestConfigInput {
   name: string
   model_id: string
@@ -79,7 +88,12 @@ export async function remove(id: number) {
 }
 
 export async function runNow(id: number) {
-  const { data } = await apiClient.post<IntelligenceTestResult>(`/admin/intelligence-test/configs/${id}/run`)
+  const { data } = await apiClient.post<IntelligenceTestRunStatus>(`/admin/intelligence-test/configs/${id}/run`)
+  return data
+}
+
+export async function getRunStatus(id: number) {
+  const { data } = await apiClient.get<IntelligenceTestRunStatus>(`/admin/intelligence-test/configs/${id}/run-status`)
   return data
 }
 
@@ -88,5 +102,5 @@ export async function listResults(id: number, limit = 20) {
   return data ?? []
 }
 
-export const intelligenceTestAPI = { listConfigs, listAPIKeys, create, update, remove, runNow, listResults }
+export const intelligenceTestAPI = { listConfigs, listAPIKeys, create, update, remove, runNow, getRunStatus, listResults }
 export default intelligenceTestAPI

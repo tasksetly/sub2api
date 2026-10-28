@@ -799,6 +799,7 @@ func registerIntelligenceTestRoutes(admin *gin.RouterGroup, h *handler.Handlers)
 		tests.PUT("/configs/:id", h.Admin.IntelligenceTest.Update)
 		tests.DELETE("/configs/:id", h.Admin.IntelligenceTest.Delete)
 		tests.POST("/configs/:id/run", h.Admin.IntelligenceTest.Run)
+		tests.GET("/configs/:id/run-status", h.Admin.IntelligenceTest.RunStatus)
 		tests.GET("/configs/:id/results", h.Admin.IntelligenceTest.ListResults)
 	}
 }

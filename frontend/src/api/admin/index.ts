@@ -130,7 +130,7 @@ export type { ErrorPassthroughRule, CreateRuleRequest, UpdateRuleRequest } from 
 export type { BackupAgentHealth, DataManagementConfig } from './dataManagement'
 export type { TLSFingerprintProfile, CreateProfileRequest, UpdateProfileRequest } from './tlsFingerprintProfile'
 export type { ContentModerationConfig, ContentModerationLog, ModerationMode } from './riskControl'
-export type { IntelligenceTestConfig, IntelligenceTestAPIKeyOption, IntelligenceTestResult, IntelligenceTestConfigInput } from './intelligenceTest'
+export type { IntelligenceTestConfig, IntelligenceTestAPIKeyOption, IntelligenceTestResult, IntelligenceTestRunStatus, IntelligenceTestConfigInput } from './intelligenceTest'
 export type {
   PluginInstallation,
   PluginCompatibility,

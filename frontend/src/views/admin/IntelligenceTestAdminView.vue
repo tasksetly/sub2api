@@ -32,9 +32,10 @@
               <div class="flex flex-wrap items-center gap-2"><h3 class="font-semibold text-gray-900 dark:text-white">{{ item.name }}</h3><span class="rounded-full px-2 py-0.5 text-xs" :class="item.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'">{{ item.enabled ? '运行中' : '已停用' }}</span></div>
               <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ item.group_name || '未绑定分组' }} · {{ item.model_name || item.model_id }} · {{ item.reasoning_effort || '默认推理' }} · {{ item.cron_expression }}</p>
               <p class="mt-2 line-clamp-2 max-w-3xl text-xs text-gray-400">{{ item.prompt_text }}</p>
+              <p v-if="runningId === item.id" class="mt-2 text-xs text-primary-600">正在后台生成 SVG，可离开页面；完成后会自动刷新结果。</p>
             </div>
             <div class="flex shrink-0 items-center gap-2">
-              <button class="btn btn-secondary" :disabled="runningId === item.id" title="立即运行" @click="run(item)"><Icon name="play" size="sm" class="mr-1" />{{ runningId === item.id ? '运行中' : '立即运行' }}</button>
+              <button class="btn btn-secondary" :disabled="runningId !== null" title="立即运行" @click="run(item)"><Icon name="play" size="sm" class="mr-1" />{{ runningId === item.id ? '运行中' : '立即运行' }}</button>
               <button class="btn btn-secondary" title="编辑" @click="openEdit(item)"><Icon name="edit" size="sm" class="mr-1" />编辑</button>
               <button class="btn btn-secondary text-red-600" title="删除" @click="remove(item)"><Icon name="trash" size="sm" /></button>
             </div>
@@ -60,11 +61,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { adminAPI, type IntelligenceTestConfig, type IntelligenceTestAPIKeyOption } from '@/api/admin'
+import { adminAPI, type IntelligenceTestConfig, type IntelligenceTestAPIKeyOption, type IntelligenceTestRunStatus } from '@/api/admin'
 
 const configs = ref<IntelligenceTestConfig[]>([])
 const apiKeys = ref<IntelligenceTestAPIKeyOption[]>([])
@@ -74,6 +75,7 @@ const runningId = ref<number | null>(null)
 const dialogOpen = ref(false)
 const editing = ref<IntelligenceTestConfig | null>(null)
 const error = ref('')
+let runPollTimer: ReturnType<typeof setTimeout> | null = null
 const form = reactive({ name: '', model_id: '', model_name: '', reasoning_effort: '', prompt_text: '', api_key_id: 0, cron_expression: '0 * * * *', keep_count: 20, enabled: true })
 
 async function load() {
@@ -84,7 +86,42 @@ function resetForm() { Object.assign(form, { name: '', model_id: '', model_name:
 function openCreate() { editing.value = null; resetForm(); dialogOpen.value = true }
 function openEdit(item: IntelligenceTestConfig) { editing.value = item; Object.assign(form, { name: item.name, model_id: item.model_id, model_name: item.model_name || '', reasoning_effort: item.reasoning_effort || '', prompt_text: item.prompt_text, api_key_id: item.api_key_id, cron_expression: item.cron_expression, keep_count: item.keep_count, enabled: item.enabled }); dialogOpen.value = true }
 async function save() { saving.value = true; error.value = ''; try { const input = { ...form }; if (editing.value) await adminAPI.intelligenceTest.update(editing.value.id, input); else await adminAPI.intelligenceTest.create(input); dialogOpen.value = false; await load() } catch (cause) { error.value = cause instanceof Error ? cause.message : '保存失败' } finally { saving.value = false } }
-async function run(item: IntelligenceTestConfig) { runningId.value = item.id; error.value = ''; try { await adminAPI.intelligenceTest.runNow(item.id); await load() } catch (cause) { error.value = cause instanceof Error ? cause.message : '运行失败' } finally { runningId.value = null } }
+function scheduleRunPoll(id: number) {
+  runPollTimer = setTimeout(() => { void pollRun(id) }, 3000)
+}
+async function finishRun(state: IntelligenceTestRunStatus) {
+  runningId.value = null
+  await load()
+  if (state.status !== 'validated') {
+    error.value = state.status === 'idle'
+      ? '运行状态已丢失，请检查最近结果后重试。'
+      : state.error ? '运行失败：' + state.error : '运行未生成有效 SVG，请检查模型和推理等级。'
+  }
+}
+async function pollRun(id: number) {
+  try {
+    const state = await adminAPI.intelligenceTest.getRunStatus(id)
+    if (state.running) { scheduleRunPoll(id); return }
+    await finishRun(state)
+  } catch (cause) {
+    runningId.value = null
+    error.value = cause instanceof Error ? cause.message : '查询运行状态失败'
+  }
+}
+async function run(item: IntelligenceTestConfig) {
+  if (runningId.value !== null) return
+  runningId.value = item.id
+  error.value = ''
+  try {
+    const state = await adminAPI.intelligenceTest.runNow(item.id)
+    if (state.running) scheduleRunPoll(item.id)
+    else await finishRun(state)
+  } catch (cause) {
+    runningId.value = null
+    error.value = cause instanceof Error ? cause.message : '启动运行失败'
+  }
+}
 async function remove(item: IntelligenceTestConfig) { if (!window.confirm(`确定删除“${item.name}”吗？`)) return; try { await adminAPI.intelligenceTest.remove(item.id); await load() } catch (cause) { error.value = cause instanceof Error ? cause.message : '删除失败' } }
 onMounted(load)
+onBeforeUnmount(() => { if (runPollTimer) clearTimeout(runPollTimer) })
 </script>

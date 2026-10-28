@@ -6,6 +6,7 @@ import (
 	"errors"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 var (
 	ErrIntelligenceTestConfigNotFound = infraerrors.NotFound("INTELLIGENCE_TEST_CONFIG_NOT_FOUND", "intelligence test config not found")
 	ErrIntelligenceTestConfigInvalid  = infraerrors.BadRequest("INTELLIGENCE_TEST_CONFIG_INVALID", "name, model, prompt, and API key are required")
+	ErrIntelligenceTestAlreadyRunning = infraerrors.BadRequest("INTELLIGENCE_TEST_ALREADY_RUNNING", "intelligence test is already running")
 )
 
 const intelligenceTestSVGSystemPrompt = "只输出完整的 SVG 代码，以 <svg> 开始、以 </svg> 结束。不要 Markdown 代码块、解释文字或其他内容。"
@@ -131,6 +133,15 @@ type IntelligenceTestPublicResponse struct {
 	Updated   *time.Time                    `json:"updated,omitempty"`
 }
 
+type IntelligenceTestRunStatus struct {
+	Running    bool       `json:"running"`
+	Status     string     `json:"status"`
+	StartedAt  time.Time  `json:"started_at"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	ResultID   int64      `json:"result_id,omitempty"`
+	Error      string     `json:"error,omitempty"`
+}
+
 type IntelligenceTestService struct {
 	repo          IntelligenceTestRepository
 	apiKeyRepo    APIKeyRepository
@@ -139,10 +150,12 @@ type IntelligenceTestService struct {
 	cron          *cron.Cron
 	startOnce     sync.Once
 	stopOnce      sync.Once
+	runMu         sync.Mutex
+	runs          map[int64]IntelligenceTestRunStatus
 }
 
 func NewIntelligenceTestService(repo IntelligenceTestRepository, apiKeyRepo APIKeyRepository, accountRepo AccountRepository, accountTest *AccountTestService) *IntelligenceTestService {
-	return &IntelligenceTestService{repo: repo, apiKeyRepo: apiKeyRepo, accountRepo: accountRepo, accountTest: accountTest}
+	return &IntelligenceTestService{repo: repo, apiKeyRepo: apiKeyRepo, accountRepo: accountRepo, accountTest: accountTest, runs: make(map[int64]IntelligenceTestRunStatus)}
 }
 
 func (s *IntelligenceTestService) Start() {
@@ -212,24 +225,83 @@ func (s *IntelligenceTestService) normalizeConfig(input IntelligenceTestConfigIn
 func (s *IntelligenceTestService) RunNow(ctx context.Context, id int64) (*IntelligenceTestResult, error) {
 	c, err := s.repo.GetConfig(ctx, id)
 	if err != nil { return nil, err }
-	result := s.runConfig(ctx, c)
+	if _, started := s.beginRun(id); !started { return nil, ErrIntelligenceTestAlreadyRunning }
+	result, err := s.executeRun(ctx, c)
+	s.finishRun(id, result, err)
+	return result, err
+}
+
+// QueueRun detaches a manually started benchmark from the browser request.
+// A high-effort SVG can then finish even when the HTTP client times out or closes.
+func (s *IntelligenceTestService) QueueRun(ctx context.Context, id int64) (*IntelligenceTestRunStatus, error) {
+	c, err := s.repo.GetConfig(ctx, id)
+	if err != nil { return nil, err }
+	state, started := s.beginRun(id)
+	if !started { return &state, nil }
+	go func() {
+		jobCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		result, runErr := s.executeRun(jobCtx, c)
+		s.finishRun(id, result, runErr)
+	}()
+	return &state, nil
+}
+
+func (s *IntelligenceTestService) RunStatus(id int64) IntelligenceTestRunStatus {
+	s.runMu.Lock()
+	defer s.runMu.Unlock()
+	if state, ok := s.runs[id]; ok { return state }
+	return IntelligenceTestRunStatus{Status: "idle"}
+}
+
+func (s *IntelligenceTestService) beginRun(id int64) (IntelligenceTestRunStatus, bool) {
+	s.runMu.Lock()
+	defer s.runMu.Unlock()
+	if state, ok := s.runs[id]; ok && state.Running { return state, false }
+	state := IntelligenceTestRunStatus{Running: true, Status: "running", StartedAt: time.Now()}
+	s.runs[id] = state
+	return state, true
+}
+
+func (s *IntelligenceTestService) finishRun(id int64, result *IntelligenceTestResult, err error) {
+	s.runMu.Lock()
+	defer s.runMu.Unlock()
+	state := s.runs[id]
+	state.Running = false
+	finished := time.Now()
+	state.FinishedAt = &finished
+	if result != nil {
+		state.ResultID = result.ID
+		state.Status = result.Status
+		state.Error = result.ErrorMessage
+	}
+	if err != nil {
+		state.Status = "failed"
+		state.Error = err.Error()
+	}
+	s.runs[id] = state
+}
+
+func (s *IntelligenceTestService) executeRun(ctx context.Context, c *IntelligenceTestConfig) (*IntelligenceTestResult, error) {
+	result, err := s.runConfig(ctx, c)
 	now := time.Now()
 	next := now
 	if schedule, parseErr := scheduledTestCronParser.Parse(c.CronExpression); parseErr == nil { next = schedule.Next(now) }
-	if updateErr := s.repo.UpdateRun(ctx, c.ID, now, next); updateErr != nil && err == nil { err = updateErr }
-	if err != nil { return result, err }
-	return result, nil
+	writeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if updateErr := s.repo.UpdateRun(writeCtx, c.ID, now, next); updateErr != nil && err == nil { err = updateErr }
+	return result, err
 }
 
 func (s *IntelligenceTestService) runDue() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	configs, err := s.repo.ListDueConfigs(ctx, time.Now())
 	if err != nil { return }
 	for _, c := range configs { _, _ = s.RunNow(ctx, c.ID) }
 }
 
-func (s *IntelligenceTestService) runConfig(ctx context.Context, c *IntelligenceTestConfig) *IntelligenceTestResult {
+func (s *IntelligenceTestService) runConfig(ctx context.Context, c *IntelligenceTestConfig) (*IntelligenceTestResult, error) {
 	started := time.Now()
 	result := &IntelligenceTestResult{ConfigID: c.ID, APIKeyID: c.APIKeyID, ModelID: c.ModelID, ModelName: c.ModelName, ReasoningEffort: c.ReasoningEffort, Status: "failed", StartedAt: started, CreatedAt: started}
 	key, err := s.apiKeyRepo.GetByID(ctx, c.APIKeyID)
@@ -249,17 +321,22 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 					result.SVGContent = extractSVG(run.ResponseText)
 					result.Check = result.SVGContent != ""
 					if result.Check { result.Status = "validated" } else { result.ErrorMessage = "svg_missing_or_invalid" }
-				} else { result.ErrorMessage = "upstream test failed" }
+				} else {
+					result.ErrorMessage = "upstream test failed"
+					if run.ErrorCode >= 100 { result.ErrorMessage = "upstream HTTP " + strconv.Itoa(run.ErrorCode) }
+					if errors.Is(ctx.Err(), context.DeadlineExceeded) { result.ErrorMessage = "benchmark timed out" }
+				}
 			} else { result.ErrorMessage = "upstream test failed" }
 		} else if accountErr != nil { result.ErrorMessage = "account lookup failed" } else { result.ErrorMessage = "no schedulable account in the API key group" }
 	} else if err != nil { result.ErrorMessage = "API key lookup failed" } else { result.ErrorMessage = "API key is not bound to a group" }
 	if result.FinishedAt.IsZero() { result.FinishedAt = time.Now(); result.LatencyMs = result.FinishedAt.Sub(started).Milliseconds() }
-	if err := s.repo.InsertResult(ctx, result); err == nil {
-		// Keep the public benchmark bounded so a long-running schedule does not
-		// grow the SVG response table without limit.
-		_ = s.repo.PruneResults(ctx, result.ConfigID, c.KeepCount)
-	}
-	return result
+	// Persist the completed state with a fresh, short context even when the
+	// upstream inference hit its deadline. Never persist the raw model reply.
+	writeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := s.repo.InsertResult(writeCtx, result); err != nil { return result, err }
+	if err := s.repo.PruneResults(writeCtx, result.ConfigID, c.KeepCount); err != nil { return result, err }
+	return result, nil
 }
 
 func extractSVG(value string) string {
