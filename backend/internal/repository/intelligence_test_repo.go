@@ -59,7 +59,7 @@ func (r *intelligenceTestRepository) CreateConfig(ctx context.Context, c *servic
 	row := r.db.QueryRowContext(ctx, `INSERT INTO intelligence_test_questions
 (name, model_id, question_text, answer_mode, strength, api_key_id, cron_expression, keep_count, enabled, next_run_at)
 VALUES ($1, $2, $3, 'svg', 'medium', $4, $5, $6, $7, $8) RETURNING id`, c.Name, c.ModelID, c.PromptText,
-		nullInt64(c.APIKeyID), c.CronExpression, c.KeepCount, c.Enabled, c.NextRunAt)
+		intelligenceTestNullInt64(c.APIKeyID), c.CronExpression, c.KeepCount, c.Enabled, c.NextRunAt)
 	if err := row.Scan(&c.ID); err != nil { return nil, err }
 	return r.GetConfig(ctx, c.ID)
 }
@@ -67,7 +67,7 @@ VALUES ($1, $2, $3, 'svg', 'medium', $4, $5, $6, $7, $8) RETURNING id`, c.Name, 
 func (r *intelligenceTestRepository) UpdateConfig(ctx context.Context, c *service.IntelligenceTestConfig) (*service.IntelligenceTestConfig, error) {
 	result, err := r.db.ExecContext(ctx, `UPDATE intelligence_test_questions SET name=$2, model_id=$3, question_text=$4,
 api_key_id=$5, cron_expression=$6, keep_count=$7, enabled=$8, updated_at=NOW() WHERE id=$1`, c.ID, c.Name,
-		c.ModelID, c.PromptText, nullInt64(c.APIKeyID), c.CronExpression, c.KeepCount, c.Enabled)
+		c.ModelID, c.PromptText, intelligenceTestNullInt64(c.APIKeyID), c.CronExpression, c.KeepCount, c.Enabled)
 	if err != nil { return nil, err }
 	count, err := result.RowsAffected()
 	if err != nil { return nil, err }
@@ -128,7 +128,7 @@ func (r *intelligenceTestRepository) InsertResult(ctx context.Context, item *ser
 	row := r.db.QueryRowContext(ctx, `INSERT INTO intelligence_test_results
 (question_id, api_key_id, group_id, group_name, model_id, status, check_ok, svg_content, response_text, error_message, latency_ms, started_at, finished_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, created_at`, item.ConfigID,
-		nullInt64(item.APIKeyID), item.GroupID, item.GroupName, item.ModelID, item.Status, item.Check, item.SVGContent,
+		intelligenceTestNullInt64(item.APIKeyID), item.GroupID, item.GroupName, item.ModelID, item.Status, item.Check, item.SVGContent,
 		item.ResponseText, item.ErrorMessage, item.LatencyMs, item.StartedAt, item.FinishedAt)
 	return row.Scan(&item.ID, &item.CreatedAt)
 }
@@ -168,7 +168,7 @@ FROM intelligence_test_results WHERE question_id=$1 ORDER BY created_at DESC LIM
 	return items, rows.Err()
 }
 
-func nullInt64(value int64) any {
+func intelligenceTestNullInt64(value int64) any {
 	if value == 0 { return nil }
 	return value
 }
