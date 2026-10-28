@@ -158,7 +158,7 @@
         </header>
         <div v-if="previewMode === 'source' && preview.item.svg_content" class="preview-source"><pre><code>{{ preview.item.svg_content }}</code></pre></div>
         <div v-else class="preview-canvas">
-          <iframe v-if="preview.item.svg_content" :srcdoc="getPreviewDocument(preview.item.svg_content)" sandbox :title="copy.preview" />
+          <iframe v-if="preview.item.svg_content" :srcdoc="getPreviewDocument(preview.item.svg_content)" sandbox="" :title="copy.preview" />
           <img v-else :src="getAssetUrl(preview.item)" :alt="copy.svgWork" />
         </div>
         <footer class="preview-footer">
