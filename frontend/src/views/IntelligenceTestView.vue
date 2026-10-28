@@ -244,7 +244,7 @@ const normalizedItems = computed(() => {
 const groups = computed<DisplayGroup[]>(() => Array.from(normalizedItems.value.entries()).map(([name, items]) => ({ name, items })))
 const visibleGroups = computed(() => groups.value
   .filter((group) => selectedGroup.value === ALL_GROUP || selectedGroup.value === group.name)
-  .map((group) => ({ ...group, items: group.items.filter((item) => matchesFilter(item)) }))
+  .map((group) => ({ ...group, items: group.items.filter((item) => matchesFilter(item)) })))
 const totalCount = computed(() => groups.value.reduce((total, group) => total + group.items.length, 0))
 
 function asQueryString(value: unknown) {
