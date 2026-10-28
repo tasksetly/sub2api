@@ -107,6 +107,17 @@
               </p>
             </div>
           </div>
+          <div class="sm:col-span-2 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <Toggle v-model="newPlan.temp_unschedulable_enabled" />
+              {{ t('admin.scheduledTests.tempUnschedulable') }}
+            </label>
+            <p class="mt-1 text-xs text-gray-400">{{ t('admin.scheduledTests.tempUnschedulableHelp') }}</p>
+            <div v-if="newPlan.temp_unschedulable_enabled" class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input v-model="newPlan.error_codes" :label="t('admin.scheduledTests.errorCodes')" :placeholder="'401, 429, 503'" />
+              <Input v-model="newPlan.minutes" type="number" :label="t('admin.scheduledTests.pauseMinutes')" />
+            </div>
+          </div>
         </div>
         <div class="mt-3 flex justify-end gap-2">
           <button
@@ -317,6 +328,17 @@
                   </p>
                 </div>
               </div>
+              <div class="sm:col-span-2 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <Toggle v-model="editForm.temp_unschedulable_enabled" />
+                  {{ t('admin.scheduledTests.tempUnschedulable') }}
+                </label>
+                <p class="mt-1 text-xs text-gray-400">{{ t('admin.scheduledTests.tempUnschedulableHelp') }}</p>
+                <div v-if="editForm.temp_unschedulable_enabled" class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Input v-model="editForm.error_codes" :label="t('admin.scheduledTests.errorCodes')" :placeholder="'401, 429, 503'" />
+                  <Input v-model="editForm.minutes" type="number" :label="t('admin.scheduledTests.pauseMinutes')" />
+                </div>
+              </div>
             </div>
             <div class="mt-3 flex justify-end gap-2">
               <button
@@ -515,7 +537,10 @@ const editForm = reactive({
   cron_expression: '' as string,
   max_results: '100' as string,
   enabled: true,
-  auto_recover: false
+  auto_recover: false,
+  temp_unschedulable_enabled: false,
+  error_codes: '',
+  minutes: '5'
 })
 
 const newPlan = reactive({
@@ -523,7 +548,10 @@ const newPlan = reactive({
   cron_expression: '' as string,
   max_results: '100' as string,
   enabled: true,
-  auto_recover: false
+  auto_recover: false,
+  temp_unschedulable_enabled: false,
+  error_codes: '',
+  minutes: '5'
 })
 
 const resetNewPlan = () => {
@@ -532,7 +560,12 @@ const resetNewPlan = () => {
   newPlan.max_results = '100'
   newPlan.enabled = true
   newPlan.auto_recover = false
+  newPlan.temp_unschedulable_enabled = false
+  newPlan.error_codes = ''
+  newPlan.minutes = '5'
 }
+
+const parseErrorCodes = (value: string) => [...new Set(value.split(',').map((part) => Number(part.trim())).filter((code) => Number.isInteger(code) && code >= 100 && code <= 599))]
 
 // Load plans when dialog opens
 watch(
@@ -574,7 +607,10 @@ const handleCreate = async () => {
       cron_expression: newPlan.cron_expression,
       enabled: newPlan.enabled,
       max_results: maxResults,
-      auto_recover: newPlan.auto_recover
+      auto_recover: newPlan.auto_recover,
+      temp_unschedulable_enabled: newPlan.temp_unschedulable_enabled,
+      temp_unschedulable_error_codes: parseErrorCodes(newPlan.error_codes),
+      temp_unschedulable_minutes: Number(newPlan.minutes) || 5
     })
     appStore.showSuccess(t('admin.scheduledTests.createSuccess'))
     showAddForm.value = false
@@ -607,6 +643,9 @@ const startEdit = (plan: ScheduledTestPlan) => {
   editForm.max_results = String(plan.max_results)
   editForm.enabled = plan.enabled
   editForm.auto_recover = plan.auto_recover
+  editForm.temp_unschedulable_enabled = plan.temp_unschedulable_enabled === true
+  editForm.error_codes = (plan.temp_unschedulable_error_codes || []).join(', ')
+  editForm.minutes = String(plan.temp_unschedulable_minutes || 5)
 }
 
 const cancelEdit = () => {
@@ -622,7 +661,10 @@ const handleEdit = async () => {
       cron_expression: editForm.cron_expression,
       max_results: Number(editForm.max_results) || 100,
       enabled: editForm.enabled,
-      auto_recover: editForm.auto_recover
+      auto_recover: editForm.auto_recover,
+      temp_unschedulable_enabled: editForm.temp_unschedulable_enabled,
+      temp_unschedulable_error_codes: parseErrorCodes(editForm.error_codes),
+      temp_unschedulable_minutes: Number(editForm.minutes) || 5
     })
     const index = plans.value.findIndex((p) => p.id === editingPlanId.value)
     if (index !== -1) {

@@ -25,7 +25,10 @@ type createScheduledTestPlanRequest struct {
 	CronExpression string `json:"cron_expression" binding:"required"`
 	Enabled        *bool  `json:"enabled"`
 	MaxResults     int    `json:"max_results"`
-	AutoRecover    *bool  `json:"auto_recover"`
+	AutoRecover                *bool  `json:"auto_recover"`
+	TempUnschedulableEnabled   *bool  `json:"temp_unschedulable_enabled"`
+	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
+	TempUnschedulableMinutes   *int   `json:"temp_unschedulable_minutes"`
 }
 
 type updateScheduledTestPlanRequest struct {
@@ -33,7 +36,10 @@ type updateScheduledTestPlanRequest struct {
 	CronExpression string `json:"cron_expression"`
 	Enabled        *bool  `json:"enabled"`
 	MaxResults     int    `json:"max_results"`
-	AutoRecover    *bool  `json:"auto_recover"`
+	AutoRecover                *bool  `json:"auto_recover"`
+	TempUnschedulableEnabled   *bool  `json:"temp_unschedulable_enabled"`
+	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
+	TempUnschedulableMinutes   *int   `json:"temp_unschedulable_minutes"`
 }
 
 // ListByAccount GET /admin/accounts/:id/scheduled-test-plans
@@ -72,6 +78,13 @@ func (h *ScheduledTestHandler) Create(c *gin.Context) {
 	}
 	if req.AutoRecover != nil {
 		plan.AutoRecover = *req.AutoRecover
+	}
+	if req.TempUnschedulableEnabled != nil {
+		plan.TempUnschedulableEnabled = *req.TempUnschedulableEnabled
+	}
+	plan.TempUnschedulableErrorCodes = req.TempUnschedulableErrorCodes
+	if req.TempUnschedulableMinutes != nil {
+		plan.TempUnschedulableMinutes = *req.TempUnschedulableMinutes
 	}
 
 	created, err := h.scheduledTestSvc.CreatePlan(c.Request.Context(), plan)
@@ -116,6 +129,15 @@ func (h *ScheduledTestHandler) Update(c *gin.Context) {
 	}
 	if req.AutoRecover != nil {
 		existing.AutoRecover = *req.AutoRecover
+	}
+	if req.TempUnschedulableEnabled != nil {
+		existing.TempUnschedulableEnabled = *req.TempUnschedulableEnabled
+	}
+	if req.TempUnschedulableErrorCodes != nil {
+		existing.TempUnschedulableErrorCodes = req.TempUnschedulableErrorCodes
+	}
+	if req.TempUnschedulableMinutes != nil {
+		existing.TempUnschedulableMinutes = *req.TempUnschedulableMinutes
 	}
 
 	updated, err := h.scheduledTestSvc.UpdatePlan(c.Request.Context(), existing)

@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -3307,6 +3308,8 @@ func (s *AccountTestService) RunTestBackground(ctx context.Context, accountID in
 	finishedAt := time.Now()
 	body := w.Body.String()
 	responseText, errMsg := parseTestSSEOutput(body)
+	errorCode := parseTestSSEErrorCode(body)
+	if errorCode == 0 { errorCode = parseHTTPErrorCode(errMsg) }
 
 	status := "success"
 	if testErr != nil || errMsg != "" {
@@ -3320,10 +3323,32 @@ func (s *AccountTestService) RunTestBackground(ctx context.Context, accountID in
 		Status:       status,
 		ResponseText: responseText,
 		ErrorMessage: errMsg,
+		ErrorCode:    errorCode,
 		LatencyMs:    finishedAt.Sub(startedAt).Milliseconds(),
 		StartedAt:    startedAt,
 		FinishedAt:   finishedAt,
 	}, nil
+}
+
+func parseTestSSEErrorCode(body string) int {
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "data: ") { continue }
+		var event TestEvent
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &event); err != nil || event.Type != "error" { continue }
+		code, err := strconv.Atoi(event.Code)
+		if err == nil && code >= 100 && code <= 599 { return code }
+	}
+	return 0
+}
+
+var testHTTPErrorCodePattern = regexp.MustCompile(`(?i)(?:http|status|code)[^0-9]{0,8}([1-5][0-9]{2})`)
+
+func parseHTTPErrorCode(message string) int {
+	match := testHTTPErrorCodePattern.FindStringSubmatch(message)
+	if len(match) != 2 { return 0 }
+	code, _ := strconv.Atoi(match[1])
+	return code
 }
 
 // parseTestSSEOutput extracts response text and error message from captured SSE output.

@@ -131,9 +131,15 @@ func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *Sched
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d SaveResult error: %v", plan.ID, err)
 	}
 
-	if result.Status == "failed" {
-		s.markAccountTemporarilyUnschedulable(ctx, plan.AccountID, plan.ID)
-	} else {
+	if result.Status == "failed" && plan.TempUnschedulableEnabled && containsInt(plan.TempUnschedulableErrorCodes, result.ErrorCode) {
+		duration := time.Duration(plan.TempUnschedulableMinutes) * time.Minute
+		if plan.TempUnschedulableMinutes <= 0 { duration = scheduledTestFailureCooldown }
+		if s.rateLimitSvc != nil {
+			if err := s.rateLimitSvc.MarkAccountTemporarilyUnschedulableAfterScheduledTestFailureFor(ctx, plan.AccountID, duration); err != nil {
+				logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d temporary unschedulable failed: %v", plan.ID, err)
+			}
+		}
+	} else if result.Status == "success" {
 		s.clearScheduledTestTemporaryUnschedulable(ctx, plan.AccountID, plan.ID)
 	}
 
@@ -153,13 +159,9 @@ func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *Sched
 	}
 }
 
-func (s *ScheduledTestRunnerService) markAccountTemporarilyUnschedulable(ctx context.Context, accountID int64, planID int64) {
-	if s.rateLimitSvc == nil {
-		return
-	}
-	if err := s.rateLimitSvc.MarkAccountTemporarilyUnschedulableAfterScheduledTestFailure(ctx, accountID); err != nil {
-		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d temporary unschedulable failed: %v", planID, err)
-	}
+func containsInt(values []int, target int) bool {
+	for _, value := range values { if value == target { return true } }
+	return false
 }
 
 func (s *ScheduledTestRunnerService) clearScheduledTestTemporaryUnschedulable(ctx context.Context, accountID int64, planID int64) {

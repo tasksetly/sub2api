@@ -2509,6 +2509,9 @@ export interface ScheduledTestPlan {
   enabled: boolean
   max_results: number
   auto_recover: boolean
+  temp_unschedulable_enabled?: boolean
+  temp_unschedulable_error_codes?: number[]
+  temp_unschedulable_minutes?: number
   last_run_at: string | null
   next_run_at: string | null
   created_at: string
@@ -2521,6 +2524,7 @@ export interface ScheduledTestResult {
   status: string
   response_text: string
   error_message: string
+  error_code?: number
   latency_ms: number
   started_at: string
   finished_at: string
@@ -2534,6 +2538,9 @@ export interface CreateScheduledTestPlanRequest {
   enabled?: boolean
   max_results?: number
   auto_recover?: boolean
+  temp_unschedulable_enabled?: boolean
+  temp_unschedulable_error_codes?: number[]
+  temp_unschedulable_minutes?: number
 }
 
 export interface UpdateScheduledTestPlanRequest {
@@ -2542,6 +2549,9 @@ export interface UpdateScheduledTestPlanRequest {
   enabled?: boolean
   max_results?: number
   auto_recover?: boolean
+  temp_unschedulable_enabled?: boolean
+  temp_unschedulable_error_codes?: number[]
+  temp_unschedulable_minutes?: number
 }
 
 // Payment types

@@ -14,6 +14,9 @@ type ScheduledTestPlan struct {
 	Enabled        bool       `json:"enabled"`
 	MaxResults     int        `json:"max_results"`
 	AutoRecover    bool       `json:"auto_recover"`
+	TempUnschedulableEnabled bool `json:"temp_unschedulable_enabled"`
+	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
+	TempUnschedulableMinutes int `json:"temp_unschedulable_minutes"`
 	LastRunAt      *time.Time `json:"last_run_at"`
 	NextRunAt      *time.Time `json:"next_run_at"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -27,6 +30,7 @@ type ScheduledTestResult struct {
 	Status       string    `json:"status"`
 	ResponseText string    `json:"response_text"`
 	ErrorMessage string    `json:"error_message"`
+	ErrorCode    int       `json:"error_code"`
 	LatencyMs    int64     `json:"latency_ms"`
 	StartedAt    time.Time `json:"started_at"`
 	FinishedAt   time.Time `json:"finished_at"`

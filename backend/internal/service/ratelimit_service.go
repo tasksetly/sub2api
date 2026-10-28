@@ -173,9 +173,14 @@ func (s *RateLimitService) notifyAccountSchedulingBlockCleared(accountID int64) 
 // MarkAccountTemporarilyUnschedulableAfterScheduledTestFailure parks an
 // account for a short period after a scheduled connectivity test fails.
 func (s *RateLimitService) MarkAccountTemporarilyUnschedulableAfterScheduledTestFailure(ctx context.Context, accountID int64) error {
+	return s.MarkAccountTemporarilyUnschedulableAfterScheduledTestFailureFor(ctx, accountID, scheduledTestFailureCooldown)
+}
+
+func (s *RateLimitService) MarkAccountTemporarilyUnschedulableAfterScheduledTestFailureFor(ctx context.Context, accountID int64, duration time.Duration) error {
 	if s == nil || s.accountRepo == nil {
 		return nil
 	}
+	if duration <= 0 { duration = scheduledTestFailureCooldown }
 
 	account, err := s.accountRepo.GetByID(ctx, accountID)
 	if err != nil {
@@ -185,7 +190,7 @@ func (s *RateLimitService) MarkAccountTemporarilyUnschedulableAfterScheduledTest
 		return nil
 	}
 
-	until := time.Now().Add(scheduledTestFailureCooldown)
+	until := time.Now().Add(duration)
 	if account.TempUnschedulableUntil != nil && !account.TempUnschedulableUntil.Before(until) {
 		return nil
 	}

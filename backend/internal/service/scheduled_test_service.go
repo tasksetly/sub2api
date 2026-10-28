@@ -29,6 +29,7 @@ func NewScheduledTestService(
 
 // CreatePlan validates the cron expression, computes next_run_at, and persists the plan.
 func (s *ScheduledTestService) CreatePlan(ctx context.Context, plan *ScheduledTestPlan) (*ScheduledTestPlan, error) {
+	if err := validateScheduledTestActions(plan); err != nil { return nil, err }
 	nextRun, err := computeNextRun(plan.CronExpression, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("invalid cron expression: %w", err)
@@ -38,6 +39,7 @@ func (s *ScheduledTestService) CreatePlan(ctx context.Context, plan *ScheduledTe
 	if plan.MaxResults <= 0 {
 		plan.MaxResults = 50
 	}
+	if plan.TempUnschedulableMinutes <= 0 { plan.TempUnschedulableMinutes = 5 }
 
 	return s.planRepo.Create(ctx, plan)
 }
@@ -54,6 +56,7 @@ func (s *ScheduledTestService) ListPlansByAccount(ctx context.Context, accountID
 
 // UpdatePlan validates cron and updates the plan.
 func (s *ScheduledTestService) UpdatePlan(ctx context.Context, plan *ScheduledTestPlan) (*ScheduledTestPlan, error) {
+	if err := validateScheduledTestActions(plan); err != nil { return nil, err }
 	nextRun, err := computeNextRun(plan.CronExpression, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("invalid cron expression: %w", err)
@@ -61,6 +64,13 @@ func (s *ScheduledTestService) UpdatePlan(ctx context.Context, plan *ScheduledTe
 	plan.NextRunAt = &nextRun
 
 	return s.planRepo.Update(ctx, plan)
+}
+
+func validateScheduledTestActions(plan *ScheduledTestPlan) error {
+	if plan.TempUnschedulableMinutes < 0 || plan.TempUnschedulableMinutes > 10080 { return fmt.Errorf("temporary unschedulable duration must be between 1 and 10080 minutes") }
+	for _, code := range plan.TempUnschedulableErrorCodes { if code < 100 || code > 599 { return fmt.Errorf("error codes must be between 100 and 599") } }
+	if plan.TempUnschedulableEnabled && len(plan.TempUnschedulableErrorCodes) == 0 { return fmt.Errorf("select at least one error code") }
+	return nil
 }
 
 // DeletePlan removes a plan and its results (via CASCADE).
