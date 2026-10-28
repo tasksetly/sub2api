@@ -118,6 +118,9 @@ func RegisterAdminRoutes(
 		// 定时测试计划
 		registerScheduledTestRoutes(admin, h)
 
+		// SVG 能力测试
+		registerIntelligenceTestRoutes(admin, h)
+
 		// 渠道管理
 		registerChannelRoutes(admin, h)
 
@@ -785,6 +788,19 @@ func registerScheduledTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 	// Nested under accounts
 	admin.GET("/accounts/:id/scheduled-test-plans", h.Admin.ScheduledTest.ListByAccount)
+}
+
+func registerIntelligenceTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	tests := admin.Group("/intelligence-test")
+	{
+		tests.GET("/configs", h.Admin.IntelligenceTest.ListConfigs)
+		tests.GET("/api-keys", h.Admin.IntelligenceTest.ListAPIKeys)
+		tests.POST("/configs", h.Admin.IntelligenceTest.Create)
+		tests.PUT("/configs/:id", h.Admin.IntelligenceTest.Update)
+		tests.DELETE("/configs/:id", h.Admin.IntelligenceTest.Delete)
+		tests.POST("/configs/:id/run", h.Admin.IntelligenceTest.Run)
+		tests.GET("/configs/:id/results", h.Admin.IntelligenceTest.ListResults)
+	}
 }
 
 func registerErrorPassthroughRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

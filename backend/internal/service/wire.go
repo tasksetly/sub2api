@@ -668,6 +668,18 @@ func ProvideScheduledTestRunnerService(
 	return svc
 }
 
+// ProvideIntelligenceTestService creates and starts the configurable SVG benchmark runner.
+func ProvideIntelligenceTestService(
+	repo IntelligenceTestRepository,
+	apiKeyRepo APIKeyRepository,
+	accountRepo AccountRepository,
+	accountTest *AccountTestService,
+) *IntelligenceTestService {
+	svc := NewIntelligenceTestService(repo, apiKeyRepo, accountRepo, accountTest)
+	svc.Start()
+	return svc
+}
+
 // ProvideOpsScheduledReportService creates and starts OpsScheduledReportService.
 func ProvideOpsScheduledReportService(
 	opsService *OpsService,
@@ -972,6 +984,7 @@ var ProviderSet = wire.NewSet(
 	ProvideIdempotencyCleanupService,
 	ProvideScheduledTestService,
 	ProvideScheduledTestRunnerService,
+	ProvideIntelligenceTestService,
 	NewGroupCapacityService,
 	NewChannelService,
 	wire.Bind(new(ChannelCacheInvalidator), new(*ChannelService)),
