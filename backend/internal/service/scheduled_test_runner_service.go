@@ -25,6 +25,8 @@ type ScheduledTestRunnerService struct {
 	cron      *cron.Cron
 	startOnce sync.Once
 	stopOnce  sync.Once
+	manualMu  sync.Mutex
+	manualRuns map[int64]struct{}
 }
 
 // NewScheduledTestRunnerService creates a new runner.
@@ -41,6 +43,7 @@ func NewScheduledTestRunnerService(
 		accountTestSvc: accountTestSvc,
 		rateLimitSvc:   rateLimitSvc,
 		cfg:            cfg,
+		manualRuns:     make(map[int64]struct{}),
 	}
 }
 
@@ -139,15 +142,33 @@ func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *Sched
 	}
 }
 
-// RunPlanNow executes a plan immediately and returns the complete result. It
-// does not change the cron schedule, but applies the same account actions as a
-// scheduled run.
-func (s *ScheduledTestRunnerService) RunPlanNow(ctx context.Context, planID int64) (*ScheduledTestResult, error) {
+// StartPlanNow starts an immediate test independently of the initiating HTTP
+// request. The result is persisted when execution finishes.
+func (s *ScheduledTestRunnerService) StartPlanNow(ctx context.Context, planID int64) error {
 	plan, err := s.planRepo.GetByID(ctx, planID)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return s.executePlan(ctx, plan)
+	s.manualMu.Lock()
+	if _, running := s.manualRuns[planID]; running {
+		s.manualMu.Unlock()
+		return fmt.Errorf("scheduled test is already running")
+	}
+	s.manualRuns[planID] = struct{}{}
+	s.manualMu.Unlock()
+	go func() {
+		defer func() {
+			s.manualMu.Lock()
+			delete(s.manualRuns, planID)
+			s.manualMu.Unlock()
+		}()
+		backgroundCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		if _, err := s.executePlan(backgroundCtx, plan); err != nil {
+			logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] manual plan=%d execute error: %v", planID, err)
+		}
+	}()
+	return nil
 }
 
 func (s *ScheduledTestRunnerService) executePlan(ctx context.Context, plan *ScheduledTestPlan) (*ScheduledTestResult, error) {

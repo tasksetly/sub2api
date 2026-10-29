@@ -212,12 +212,11 @@ func (h *ScheduledTestHandler) RunNow(c *gin.Context) {
 		response.InternalError(c, "scheduled test runner unavailable")
 		return
 	}
-	result, err := h.runner.RunPlanNow(c.Request.Context(), planID)
-	if err != nil {
-		response.InternalError(c, err.Error())
+	if err := h.runner.StartPlanNow(c.Request.Context(), planID); err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusAccepted, gin.H{"status": "running"})
 }
 
 // Delete DELETE /admin/scheduled-test-plans/:id

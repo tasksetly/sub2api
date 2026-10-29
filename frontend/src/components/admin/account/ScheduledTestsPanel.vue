@@ -840,10 +840,22 @@ const toggleResultDetail = (resultId: number) => {
 const runNow = async (plan: ScheduledTestPlan) => {
   runningPlanId.value = plan.id
   expandedPlanId.value = plan.id
+  const startedAfter = Date.now() - 1000
   try {
-    const result = await adminAPI.scheduledTests.runNow(plan.id)
-    results.value = [result, ...results.value.filter((item) => item.id !== result.id)]
-    expandedResultIds.clear()
+    await adminAPI.scheduledTests.runNow(plan.id)
+    const deadline = Date.now() + 5 * 60 * 1000
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000))
+      const latest = await adminAPI.scheduledTests.listResults(plan.id, 20)
+      const current = latest.find((item) => new Date(item.started_at).getTime() >= startedAfter)
+      results.value = latest
+      if (current) {
+        expandedResultIds.clear()
+        if (current.response_text || current.error_message) expandedResultIds.add(current.id)
+        return
+      }
+    }
+    appStore.showError('测试仍在后台运行，稍后刷新结果查看')
   } catch (error: any) {
     appStore.showError(error?.message || '测试失败')
   } finally {
