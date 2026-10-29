@@ -166,7 +166,7 @@
                 </router-link>
 
                 <a
-                  href="https://t.me/FlexusAI"
+                  href="https://t.me/Tasksetly"
                   target="_blank"
                   rel="noopener noreferrer"
                   @click="closeDropdown"
