@@ -68,8 +68,12 @@ func (s *ScheduledTestService) UpdatePlan(ctx context.Context, plan *ScheduledTe
 
 func validateScheduledTestActions(plan *ScheduledTestPlan) error {
 	if plan.TempUnschedulableMinutes < 0 || plan.TempUnschedulableMinutes > 10080 { return fmt.Errorf("temporary unschedulable duration must be between 1 and 10080 minutes") }
+	if plan.FailureTempUnschedulableMinutes < 0 || plan.FailureTempUnschedulableMinutes > 10080 { return fmt.Errorf("failure temporary unschedulable duration must be between 1 and 10080 minutes") }
 	for _, code := range plan.TempUnschedulableErrorCodes { if code < 100 || code > 599 { return fmt.Errorf("error codes must be between 100 and 599") } }
 	if plan.TempUnschedulableEnabled && len(plan.TempUnschedulableErrorCodes) == 0 { return fmt.Errorf("select at least one error code") }
+	if plan.PromptText != "" && plan.ExpectedAnswer == "" { return fmt.Errorf("expected answer is required when a prompt is configured") }
+	if plan.FailureRemoveGroupID != nil && *plan.FailureRemoveGroupID <= 0 { return fmt.Errorf("failure group id must be positive") }
+	if plan.SuccessAddGroupID != nil && *plan.SuccessAddGroupID <= 0 { return fmt.Errorf("success group id must be positive") }
 	return nil
 }
 

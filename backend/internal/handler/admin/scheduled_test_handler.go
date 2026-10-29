@@ -22,6 +22,8 @@ func NewScheduledTestHandler(scheduledTestSvc *service.ScheduledTestService) *Sc
 type createScheduledTestPlanRequest struct {
 	AccountID      int64  `json:"account_id" binding:"required"`
 	ModelID        string `json:"model_id"`
+	PromptText     string `json:"prompt_text"`
+	ExpectedAnswer string `json:"expected_answer"`
 	CronExpression string `json:"cron_expression" binding:"required"`
 	Enabled        *bool  `json:"enabled"`
 	MaxResults     int    `json:"max_results"`
@@ -29,10 +31,18 @@ type createScheduledTestPlanRequest struct {
 	TempUnschedulableEnabled   *bool  `json:"temp_unschedulable_enabled"`
 	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
 	TempUnschedulableMinutes   *int   `json:"temp_unschedulable_minutes"`
+	FailureRemoveGroupID       *int64 `json:"failure_remove_group_id"`
+	FailureDisable             *bool  `json:"failure_disable"`
+	FailureTempUnschedulableMinutes *int `json:"failure_temp_unschedulable_minutes"`
+	SuccessAddGroupID          *int64 `json:"success_add_group_id"`
+	SuccessEnable              *bool  `json:"success_enable"`
+	SuccessRecover             *bool  `json:"success_recover"`
 }
 
 type updateScheduledTestPlanRequest struct {
 	ModelID        string `json:"model_id"`
+	PromptText     string `json:"prompt_text"`
+	ExpectedAnswer string `json:"expected_answer"`
 	CronExpression string `json:"cron_expression"`
 	Enabled        *bool  `json:"enabled"`
 	MaxResults     int    `json:"max_results"`
@@ -40,6 +50,12 @@ type updateScheduledTestPlanRequest struct {
 	TempUnschedulableEnabled   *bool  `json:"temp_unschedulable_enabled"`
 	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
 	TempUnschedulableMinutes   *int   `json:"temp_unschedulable_minutes"`
+	FailureRemoveGroupID       *int64 `json:"failure_remove_group_id"`
+	FailureDisable             *bool  `json:"failure_disable"`
+	FailureTempUnschedulableMinutes *int `json:"failure_temp_unschedulable_minutes"`
+	SuccessAddGroupID          *int64 `json:"success_add_group_id"`
+	SuccessEnable              *bool  `json:"success_enable"`
+	SuccessRecover             *bool  `json:"success_recover"`
 }
 
 // ListByAccount GET /admin/accounts/:id/scheduled-test-plans
@@ -69,6 +85,8 @@ func (h *ScheduledTestHandler) Create(c *gin.Context) {
 	plan := &service.ScheduledTestPlan{
 		AccountID:      req.AccountID,
 		ModelID:        req.ModelID,
+		PromptText:     req.PromptText,
+		ExpectedAnswer: req.ExpectedAnswer,
 		CronExpression: req.CronExpression,
 		Enabled:        true,
 		MaxResults:     req.MaxResults,
@@ -86,6 +104,12 @@ func (h *ScheduledTestHandler) Create(c *gin.Context) {
 	if req.TempUnschedulableMinutes != nil {
 		plan.TempUnschedulableMinutes = *req.TempUnschedulableMinutes
 	}
+	plan.FailureRemoveGroupID = req.FailureRemoveGroupID
+	if req.FailureDisable != nil { plan.FailureDisable = *req.FailureDisable }
+	if req.FailureTempUnschedulableMinutes != nil { plan.FailureTempUnschedulableMinutes = *req.FailureTempUnschedulableMinutes }
+	plan.SuccessAddGroupID = req.SuccessAddGroupID
+	if req.SuccessEnable != nil { plan.SuccessEnable = *req.SuccessEnable }
+	if req.SuccessRecover != nil { plan.SuccessRecover = *req.SuccessRecover }
 
 	created, err := h.scheduledTestSvc.CreatePlan(c.Request.Context(), plan)
 	if err != nil {
@@ -118,6 +142,8 @@ func (h *ScheduledTestHandler) Update(c *gin.Context) {
 	if req.ModelID != "" {
 		existing.ModelID = req.ModelID
 	}
+	if req.PromptText != "" || existing.PromptText != "" { existing.PromptText = req.PromptText }
+	if req.ExpectedAnswer != "" || existing.ExpectedAnswer != "" { existing.ExpectedAnswer = req.ExpectedAnswer }
 	if req.CronExpression != "" {
 		existing.CronExpression = req.CronExpression
 	}
@@ -139,6 +165,20 @@ func (h *ScheduledTestHandler) Update(c *gin.Context) {
 	if req.TempUnschedulableMinutes != nil {
 		existing.TempUnschedulableMinutes = *req.TempUnschedulableMinutes
 	}
+	if req.FailureRemoveGroupID != nil { if *req.FailureRemoveGroupID <= 0 {
+			existing.FailureRemoveGroupID = nil
+		} else {
+			existing.FailureRemoveGroupID = req.FailureRemoveGroupID
+		} }
+	if req.FailureDisable != nil { existing.FailureDisable = *req.FailureDisable }
+	if req.FailureTempUnschedulableMinutes != nil { existing.FailureTempUnschedulableMinutes = *req.FailureTempUnschedulableMinutes }
+	if req.SuccessAddGroupID != nil { if *req.SuccessAddGroupID <= 0 {
+			existing.SuccessAddGroupID = nil
+		} else {
+			existing.SuccessAddGroupID = req.SuccessAddGroupID
+		} }
+	if req.SuccessEnable != nil { existing.SuccessEnable = *req.SuccessEnable }
+	if req.SuccessRecover != nil { existing.SuccessRecover = *req.SuccessRecover }
 
 	updated, err := h.scheduledTestSvc.UpdatePlan(c.Request.Context(), existing)
 	if err != nil {

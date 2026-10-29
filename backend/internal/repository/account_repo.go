@@ -1084,6 +1084,10 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 					))
 				}),
 			)
+		case "intelligence_online":
+			q = q.Where(sqljson.ValueEQ(dbaccount.FieldExtra, service.IntelligenceStatusOnline, sqljson.Path(service.IntelligenceStatusExtraKey)))
+		case "intelligence_offline":
+			q = q.Where(sqljson.ValueEQ(dbaccount.FieldExtra, service.IntelligenceStatusOffline, sqljson.Path(service.IntelligenceStatusExtraKey)))
 		default:
 			q = q.Where(dbaccount.StatusEQ(status))
 		}

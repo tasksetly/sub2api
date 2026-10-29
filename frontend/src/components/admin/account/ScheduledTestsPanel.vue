@@ -90,6 +90,19 @@
               placeholder="100"
             />
           </div>
+          <div class="sm:col-span-2 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">定时提示词（可选）</label>
+            <textarea v-model="newPlan.prompt_text" rows="2" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-dark-600 dark:bg-dark-800" placeholder="要求模型只输出数字或文本"></textarea>
+            <Input v-model="newPlan.expected_answer" class="mt-2" label="期望答案" placeholder="与模型输出完全一致" />
+            <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select v-model="newPlan.failure_remove_group_id" :options="[{ value: '', label: '失败：不移除分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '失败：移除 ' + g.name }))]" />
+              <Input v-model="newPlan.failure_temp_unschedulable_minutes" type="number" label="失败：临时不可调度（分钟，0=不操作）" />
+              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="newPlan.failure_disable" />失败：关闭账号</label>
+              <Select v-model="newPlan.success_add_group_id" :options="[{ value: '', label: '成功：不加入分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '成功：加入 ' + g.name }))]" />
+              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="newPlan.success_enable" />成功：开启账号</label>
+              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="newPlan.success_recover" />成功：恢复调度与错误状态</label>
+            </div>
+          </div>
           <div class="flex items-end">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <Toggle v-model="newPlan.enabled" />
@@ -311,7 +324,20 @@
                   placeholder="100"
                 />
               </div>
-              <div class="flex items-end">
+              <div class="sm:col-span-2 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">定时提示词（可选）</label>
+            <textarea v-model="editForm.prompt_text" rows="2" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-dark-600 dark:bg-dark-800" placeholder="要求模型只输出数字或文本"></textarea>
+            <Input v-model="editForm.expected_answer" class="mt-2" label="期望答案" placeholder="与模型输出完全一致" />
+            <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select v-model="editForm.failure_remove_group_id" :options="[{ value: '', label: '失败：不移除分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '失败：移除 ' + g.name }))]" />
+              <Input v-model="editForm.failure_temp_unschedulable_minutes" type="number" label="失败：临时不可调度（分钟，0=不操作）" />
+              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="editForm.failure_disable" />失败：关闭账号</label>
+              <Select v-model="editForm.success_add_group_id" :options="[{ value: '', label: '成功：不加入分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '成功：加入 ' + g.name }))]" />
+              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="editForm.success_enable" />成功：开启账号</label>
+              <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="editForm.success_recover" />成功：恢复调度与错误状态</label>
+            </div>
+          </div>
+          <div class="flex items-end">
                 <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                   <Toggle v-model="editForm.enabled" />
                   {{ t('admin.scheduledTests.enabled') }}
@@ -497,7 +523,7 @@ import { Icon } from '@/components/icons'
 import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime } from '@/utils/format'
-import type { ScheduledTestPlan, ScheduledTestResult } from '@/types'
+import type { ScheduledTestPlan, ScheduledTestResult, AdminGroup } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -506,6 +532,7 @@ const props = defineProps<{
   show: boolean
   accountId: number | null
   modelOptions: SelectOption[]
+  groups?: AdminGroup[]
 }>()
 
 const emit = defineEmits<{
@@ -533,6 +560,14 @@ const deletingPlan = ref<ScheduledTestPlan | null>(null)
 const editingPlanId = ref<number | null>(null)
 const updating = ref(false)
 const editForm = reactive({
+  prompt_text: '',
+  expected_answer: '',
+  failure_remove_group_id: '',
+  failure_disable: false,
+  failure_temp_unschedulable_minutes: '0',
+  success_add_group_id: '',
+  success_enable: false,
+  success_recover: false,
   model_id: '' as string,
   cron_expression: '' as string,
   max_results: '100' as string,
@@ -544,6 +579,14 @@ const editForm = reactive({
 })
 
 const newPlan = reactive({
+  prompt_text: '',
+  expected_answer: '',
+  failure_remove_group_id: '',
+  failure_disable: false,
+  failure_temp_unschedulable_minutes: '0',
+  success_add_group_id: '',
+  success_enable: false,
+  success_recover: false,
   model_id: '' as string,
   cron_expression: '' as string,
   max_results: '100' as string,
@@ -555,6 +598,14 @@ const newPlan = reactive({
 })
 
 const resetNewPlan = () => {
+  newPlan.prompt_text = ''
+  newPlan.expected_answer = ''
+  newPlan.failure_remove_group_id = ''
+  newPlan.failure_disable = false
+  newPlan.failure_temp_unschedulable_minutes = '0'
+  newPlan.success_add_group_id = ''
+  newPlan.success_enable = false
+  newPlan.success_recover = false
   newPlan.model_id = ''
   newPlan.cron_expression = ''
   newPlan.max_results = '100'
@@ -604,6 +655,14 @@ const handleCreate = async () => {
     await adminAPI.scheduledTests.create({
       account_id: props.accountId,
       model_id: newPlan.model_id,
+      prompt_text: newPlan.prompt_text,
+      expected_answer: newPlan.expected_answer,
+      failure_remove_group_id: newPlan.failure_remove_group_id ? Number(newPlan.failure_remove_group_id) : null,
+      failure_disable: newPlan.failure_disable,
+      failure_temp_unschedulable_minutes: Number(newPlan.failure_temp_unschedulable_minutes) || 0,
+      success_add_group_id: newPlan.success_add_group_id ? Number(newPlan.success_add_group_id) : null,
+      success_enable: newPlan.success_enable,
+      success_recover: newPlan.success_recover,
       cron_expression: newPlan.cron_expression,
       enabled: newPlan.enabled,
       max_results: maxResults,
@@ -638,6 +697,14 @@ const handleToggleEnabled = async (plan: ScheduledTestPlan, enabled: boolean) =>
 
 const startEdit = (plan: ScheduledTestPlan) => {
   editingPlanId.value = plan.id
+  editForm.prompt_text = plan.prompt_text || ''
+  editForm.expected_answer = plan.expected_answer || ''
+  editForm.failure_remove_group_id = plan.failure_remove_group_id ? String(plan.failure_remove_group_id) : ''
+  editForm.failure_disable = plan.failure_disable === true
+  editForm.failure_temp_unschedulable_minutes = String(plan.failure_temp_unschedulable_minutes || 0)
+  editForm.success_add_group_id = plan.success_add_group_id ? String(plan.success_add_group_id) : ''
+  editForm.success_enable = plan.success_enable === true
+  editForm.success_recover = plan.success_recover === true
   editForm.model_id = plan.model_id
   editForm.cron_expression = plan.cron_expression
   editForm.max_results = String(plan.max_results)
@@ -658,6 +725,14 @@ const handleEdit = async () => {
   try {
     const updated = await adminAPI.scheduledTests.update(editingPlanId.value, {
       model_id: editForm.model_id,
+      prompt_text: editForm.prompt_text,
+      expected_answer: editForm.expected_answer,
+      failure_remove_group_id: editForm.failure_remove_group_id ? Number(editForm.failure_remove_group_id) : 0,
+      failure_disable: editForm.failure_disable,
+      failure_temp_unschedulable_minutes: Number(editForm.failure_temp_unschedulable_minutes) || 0,
+      success_add_group_id: editForm.success_add_group_id ? Number(editForm.success_add_group_id) : 0,
+      success_enable: editForm.success_enable,
+      success_recover: editForm.success_recover,
       cron_expression: editForm.cron_expression,
       max_results: Number(editForm.max_results) || 100,
       enabled: editForm.enabled,

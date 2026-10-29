@@ -2508,6 +2508,8 @@ export interface ScheduledTestPlan {
   id: number
   account_id: number
   model_id: string
+  prompt_text: string
+  expected_answer: string
   cron_expression: string
   enabled: boolean
   max_results: number
@@ -2515,6 +2517,12 @@ export interface ScheduledTestPlan {
   temp_unschedulable_enabled?: boolean
   temp_unschedulable_error_codes?: number[]
   temp_unschedulable_minutes?: number
+  failure_remove_group_id?: number | null
+  failure_disable?: boolean
+  failure_temp_unschedulable_minutes?: number
+  success_add_group_id?: number | null
+  success_enable?: boolean
+  success_recover?: boolean
   last_run_at: string | null
   next_run_at: string | null
   created_at: string
@@ -2528,6 +2536,7 @@ export interface ScheduledTestResult {
   response_text: string
   error_message: string
   error_code?: number
+  check_ok?: boolean
   latency_ms: number
   started_at: string
   finished_at: string
@@ -2537,6 +2546,8 @@ export interface ScheduledTestResult {
 export interface CreateScheduledTestPlanRequest {
   account_id: number
   model_id: string
+  prompt_text?: string
+  expected_answer?: string
   cron_expression: string
   enabled?: boolean
   max_results?: number
@@ -2544,10 +2555,18 @@ export interface CreateScheduledTestPlanRequest {
   temp_unschedulable_enabled?: boolean
   temp_unschedulable_error_codes?: number[]
   temp_unschedulable_minutes?: number
+  failure_remove_group_id?: number | null
+  failure_disable?: boolean
+  failure_temp_unschedulable_minutes?: number
+  success_add_group_id?: number | null
+  success_enable?: boolean
+  success_recover?: boolean
 }
 
 export interface UpdateScheduledTestPlanRequest {
   model_id?: string
+  prompt_text?: string
+  expected_answer?: string
   cron_expression?: string
   enabled?: boolean
   max_results?: number
@@ -2555,6 +2574,12 @@ export interface UpdateScheduledTestPlanRequest {
   temp_unschedulable_enabled?: boolean
   temp_unschedulable_error_codes?: number[]
   temp_unschedulable_minutes?: number
+  failure_remove_group_id?: number | null
+  failure_disable?: boolean
+  failure_temp_unschedulable_minutes?: number
+  success_add_group_id?: number | null
+  success_enable?: boolean
+  success_recover?: boolean
 }
 
 // Payment types

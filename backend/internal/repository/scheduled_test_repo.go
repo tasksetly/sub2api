@@ -22,16 +22,16 @@ func NewScheduledTestPlanRepository(db *sql.DB) service.ScheduledTestPlanReposit
 
 func (r *scheduledTestPlanRepository) Create(ctx context.Context, plan *service.ScheduledTestPlan) (*service.ScheduledTestPlan, error) {
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO scheduled_test_plans (account_id, model_id, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, next_run_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-		RETURNING id, account_id, model_id, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, last_run_at, next_run_at, created_at, updated_at
-	`, plan.AccountID, plan.ModelID, plan.CronExpression, plan.Enabled, plan.MaxResults, plan.AutoRecover, plan.TempUnschedulableEnabled, pq.Array(plan.TempUnschedulableErrorCodes), plan.TempUnschedulableMinutes, plan.NextRunAt)
+		INSERT INTO scheduled_test_plans (account_id, model_id, prompt_text, expected_answer, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, failure_remove_group_id, failure_disable, failure_temp_unschedulable_minutes, success_add_group_id, success_enable, success_recover, next_run_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
+		RETURNING id, account_id, model_id, prompt_text, expected_answer, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, failure_remove_group_id, failure_disable, failure_temp_unschedulable_minutes, success_add_group_id, success_enable, success_recover, last_run_at, next_run_at, created_at, updated_at
+	`, plan.AccountID, plan.ModelID, plan.PromptText, plan.ExpectedAnswer, plan.CronExpression, plan.Enabled, plan.MaxResults, plan.AutoRecover, plan.TempUnschedulableEnabled, pq.Array(plan.TempUnschedulableErrorCodes), plan.TempUnschedulableMinutes, plan.FailureRemoveGroupID, plan.FailureDisable, plan.FailureTempUnschedulableMinutes, plan.SuccessAddGroupID, plan.SuccessEnable, plan.SuccessRecover, plan.NextRunAt)
 	return scanPlan(row)
 }
 
 func (r *scheduledTestPlanRepository) GetByID(ctx context.Context, id int64) (*service.ScheduledTestPlan, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, account_id, model_id, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, last_run_at, next_run_at, created_at, updated_at
+		SELECT id, account_id, model_id, prompt_text, expected_answer, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, failure_remove_group_id, failure_disable, failure_temp_unschedulable_minutes, success_add_group_id, success_enable, success_recover, last_run_at, next_run_at, created_at, updated_at
 		FROM scheduled_test_plans WHERE id = $1
 	`, id)
 	return scanPlan(row)
@@ -39,7 +39,7 @@ func (r *scheduledTestPlanRepository) GetByID(ctx context.Context, id int64) (*s
 
 func (r *scheduledTestPlanRepository) ListByAccountID(ctx context.Context, accountID int64) ([]*service.ScheduledTestPlan, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, account_id, model_id, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, last_run_at, next_run_at, created_at, updated_at
+		SELECT id, account_id, model_id, prompt_text, expected_answer, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, failure_remove_group_id, failure_disable, failure_temp_unschedulable_minutes, success_add_group_id, success_enable, success_recover, last_run_at, next_run_at, created_at, updated_at
 		FROM scheduled_test_plans WHERE account_id = $1
 		ORDER BY created_at DESC
 	`, accountID)
@@ -52,7 +52,7 @@ func (r *scheduledTestPlanRepository) ListByAccountID(ctx context.Context, accou
 
 func (r *scheduledTestPlanRepository) ListDue(ctx context.Context, now time.Time) ([]*service.ScheduledTestPlan, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, account_id, model_id, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, last_run_at, next_run_at, created_at, updated_at
+		SELECT id, account_id, model_id, prompt_text, expected_answer, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, failure_remove_group_id, failure_disable, failure_temp_unschedulable_minutes, success_add_group_id, success_enable, success_recover, last_run_at, next_run_at, created_at, updated_at
 		FROM scheduled_test_plans
 		WHERE enabled = true AND next_run_at <= $1
 		ORDER BY next_run_at ASC
@@ -67,10 +67,10 @@ func (r *scheduledTestPlanRepository) ListDue(ctx context.Context, now time.Time
 func (r *scheduledTestPlanRepository) Update(ctx context.Context, plan *service.ScheduledTestPlan) (*service.ScheduledTestPlan, error) {
 	row := r.db.QueryRowContext(ctx, `
 		UPDATE scheduled_test_plans
-		SET model_id = $2, cron_expression = $3, enabled = $4, max_results = $5, auto_recover = $6, temp_unschedulable_enabled = $7, temp_unschedulable_error_codes = $8, temp_unschedulable_minutes = $9, next_run_at = $10, updated_at = NOW()
+		SET model_id = $2, prompt_text = $3, expected_answer = $4, cron_expression = $5, enabled = $6, max_results = $7, auto_recover = $8, temp_unschedulable_enabled = $9, temp_unschedulable_error_codes = $10, temp_unschedulable_minutes = $11, failure_remove_group_id = $12, failure_disable = $13, failure_temp_unschedulable_minutes = $14, success_add_group_id = $15, success_enable = $16, success_recover = $17, next_run_at = $18, updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, account_id, model_id, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, last_run_at, next_run_at, created_at, updated_at
-	`, plan.ID, plan.ModelID, plan.CronExpression, plan.Enabled, plan.MaxResults, plan.AutoRecover, plan.TempUnschedulableEnabled, pq.Array(plan.TempUnschedulableErrorCodes), plan.TempUnschedulableMinutes, plan.NextRunAt)
+		RETURNING id, account_id, model_id, prompt_text, expected_answer, cron_expression, enabled, max_results, auto_recover, temp_unschedulable_enabled, temp_unschedulable_error_codes, temp_unschedulable_minutes, failure_remove_group_id, failure_disable, failure_temp_unschedulable_minutes, success_add_group_id, success_enable, success_recover, last_run_at, next_run_at, created_at, updated_at
+	`, plan.ID, plan.ModelID, plan.PromptText, plan.ExpectedAnswer, plan.CronExpression, plan.Enabled, plan.MaxResults, plan.AutoRecover, plan.TempUnschedulableEnabled, pq.Array(plan.TempUnschedulableErrorCodes), plan.TempUnschedulableMinutes, plan.FailureRemoveGroupID, plan.FailureDisable, plan.FailureTempUnschedulableMinutes, plan.SuccessAddGroupID, plan.SuccessEnable, plan.SuccessRecover, plan.NextRunAt)
 	return scanPlan(row)
 }
 
@@ -98,15 +98,15 @@ func NewScheduledTestResultRepository(db *sql.DB) service.ScheduledTestResultRep
 
 func (r *scheduledTestResultRepository) Create(ctx context.Context, result *service.ScheduledTestResult) (*service.ScheduledTestResult, error) {
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO scheduled_test_results (plan_id, status, response_text, error_message, error_code, latency_ms, started_at, finished_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-		RETURNING id, plan_id, status, response_text, error_message, error_code, latency_ms, started_at, finished_at, created_at
-	`, result.PlanID, result.Status, result.ResponseText, result.ErrorMessage, result.ErrorCode, result.LatencyMs, result.StartedAt, result.FinishedAt)
+		INSERT INTO scheduled_test_results (plan_id, status, response_text, error_message, error_code, check_ok, latency_ms, started_at, finished_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+		RETURNING id, plan_id, status, response_text, error_message, error_code, check_ok, latency_ms, started_at, finished_at, created_at
+	`, result.PlanID, result.Status, result.ResponseText, result.ErrorMessage, result.ErrorCode, result.CheckOK, result.LatencyMs, result.StartedAt, result.FinishedAt)
 
 	out := &service.ScheduledTestResult{}
 	if err := row.Scan(
 		&out.ID, &out.PlanID, &out.Status, &out.ResponseText, &out.ErrorMessage, &out.ErrorCode,
-		&out.LatencyMs, &out.StartedAt, &out.FinishedAt, &out.CreatedAt,
+		&out.CheckOK, &out.LatencyMs, &out.StartedAt, &out.FinishedAt, &out.CreatedAt,
 	); err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (r *scheduledTestResultRepository) Create(ctx context.Context, result *serv
 
 func (r *scheduledTestResultRepository) ListByPlanID(ctx context.Context, planID int64, limit int) ([]*service.ScheduledTestResult, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, plan_id, status, response_text, error_message, error_code, latency_ms, started_at, finished_at, created_at
+		SELECT id, plan_id, status, response_text, error_message, error_code, check_ok, latency_ms, started_at, finished_at, created_at
 		FROM scheduled_test_results
 		WHERE plan_id = $1
 		ORDER BY created_at DESC
@@ -131,7 +131,7 @@ func (r *scheduledTestResultRepository) ListByPlanID(ctx context.Context, planID
 		r := &service.ScheduledTestResult{}
 		if err := rows.Scan(
 			&r.ID, &r.PlanID, &r.Status, &r.ResponseText, &r.ErrorMessage, &r.ErrorCode,
-			&r.LatencyMs, &r.StartedAt, &r.FinishedAt, &r.CreatedAt,
+			&r.CheckOK, &r.LatencyMs, &r.StartedAt, &r.FinishedAt, &r.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -164,8 +164,9 @@ type scannable interface {
 func scanPlan(row scannable) (*service.ScheduledTestPlan, error) {
 	p := &service.ScheduledTestPlan{}
 	if err := row.Scan(
-		&p.ID, &p.AccountID, &p.ModelID, &p.CronExpression, &p.Enabled, &p.MaxResults, &p.AutoRecover,
+		&p.ID, &p.AccountID, &p.ModelID, &p.PromptText, &p.ExpectedAnswer, &p.CronExpression, &p.Enabled, &p.MaxResults, &p.AutoRecover,
 		&p.TempUnschedulableEnabled, pq.Array(&p.TempUnschedulableErrorCodes), &p.TempUnschedulableMinutes,
+		&p.FailureRemoveGroupID, &p.FailureDisable, &p.FailureTempUnschedulableMinutes, &p.SuccessAddGroupID, &p.SuccessEnable, &p.SuccessRecover,
 		&p.LastRunAt, &p.NextRunAt, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		return nil, err

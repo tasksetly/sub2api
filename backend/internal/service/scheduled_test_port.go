@@ -5,11 +5,19 @@ import (
 	"time"
 )
 
+const (
+	IntelligenceStatusExtraKey = "scheduled_test_intelligence_status"
+	IntelligenceStatusOnline   = "online"
+	IntelligenceStatusOffline  = "offline"
+)
+
 // ScheduledTestPlan represents a scheduled test plan domain model.
 type ScheduledTestPlan struct {
 	ID             int64      `json:"id"`
 	AccountID      int64      `json:"account_id"`
 	ModelID        string     `json:"model_id"`
+	PromptText     string     `json:"prompt_text"`
+	ExpectedAnswer string     `json:"expected_answer"`
 	CronExpression string     `json:"cron_expression"`
 	Enabled        bool       `json:"enabled"`
 	MaxResults     int        `json:"max_results"`
@@ -17,6 +25,12 @@ type ScheduledTestPlan struct {
 	TempUnschedulableEnabled bool `json:"temp_unschedulable_enabled"`
 	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
 	TempUnschedulableMinutes int `json:"temp_unschedulable_minutes"`
+	FailureRemoveGroupID *int64 `json:"failure_remove_group_id,omitempty"`
+	FailureDisable bool `json:"failure_disable"`
+	FailureTempUnschedulableMinutes int `json:"failure_temp_unschedulable_minutes"`
+	SuccessAddGroupID *int64 `json:"success_add_group_id,omitempty"`
+	SuccessEnable bool `json:"success_enable"`
+	SuccessRecover bool `json:"success_recover"`
 	LastRunAt      *time.Time `json:"last_run_at"`
 	NextRunAt      *time.Time `json:"next_run_at"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -31,6 +45,7 @@ type ScheduledTestResult struct {
 	ResponseText string    `json:"response_text"`
 	ErrorMessage string    `json:"error_message"`
 	ErrorCode    int       `json:"error_code"`
+	CheckOK      bool      `json:"check_ok"`
 	LatencyMs    int64     `json:"latency_ms"`
 	StartedAt    time.Time `json:"started_at"`
 	FinishedAt   time.Time `json:"finished_at"`
