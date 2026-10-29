@@ -1,11 +1,16 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"sort"
 	"strconv"
@@ -14,7 +19,10 @@ import (
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
+	"github.com/tidwall/gjson"
 )
 
 var (
@@ -149,6 +157,7 @@ type IntelligenceTestService struct {
 	apiKeyRepo    APIKeyRepository
 	accountRepo   AccountRepository
 	accountTest   *AccountTestService
+	gateway       *GatewayService
 	db            *sql.DB
 	cron          *cron.Cron
 	startOnce     sync.Once
@@ -157,8 +166,8 @@ type IntelligenceTestService struct {
 	runs          map[int64]IntelligenceTestRunStatus
 }
 
-func NewIntelligenceTestService(repo IntelligenceTestRepository, apiKeyRepo APIKeyRepository, accountRepo AccountRepository, accountTest *AccountTestService, db *sql.DB) *IntelligenceTestService {
-	return &IntelligenceTestService{repo: repo, apiKeyRepo: apiKeyRepo, accountRepo: accountRepo, accountTest: accountTest, db: db, runs: make(map[int64]IntelligenceTestRunStatus)}
+func NewIntelligenceTestService(repo IntelligenceTestRepository, apiKeyRepo APIKeyRepository, accountRepo AccountRepository, accountTest *AccountTestService, gateway *GatewayService, db *sql.DB) *IntelligenceTestService {
+	return &IntelligenceTestService{repo: repo, apiKeyRepo: apiKeyRepo, accountRepo: accountRepo, accountTest: accountTest, gateway: gateway, db: db, runs: make(map[int64]IntelligenceTestRunStatus)}
 }
 
 func (s *IntelligenceTestService) Start() {
@@ -398,12 +407,10 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 	if err == nil && key.GroupID != nil {
 		result.GroupID = key.GroupID
 		if key.Group != nil { result.GroupName = key.Group.Name }
-		accounts, accountErr := s.accountRepo.ListSchedulableByGroupID(ctx, *key.GroupID)
-		if accountErr == nil && len(accounts) > 0 {
-			run, runErr := s.accountTest.RunTestBackgroundWithOptions(ctx, accounts[0].ID, c.ModelID, c.PromptText, AccountTestOptions{
-				ReasoningEffort: c.ReasoningEffort,
-				SystemPrompt: intelligenceTestSVGSystemPrompt,
-			})
+		if s.gateway == nil {
+			result.ErrorMessage = "gateway service unavailable"
+		} else {
+			run, runErr := s.runThroughGateway(ctx, key, c)
 			if runErr == nil && run != nil {
 				result.LatencyMs = run.LatencyMs
 				result.StartedAt, result.FinishedAt = run.StartedAt, run.FinishedAt
@@ -417,7 +424,7 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 					if errors.Is(ctx.Err(), context.DeadlineExceeded) { result.ErrorMessage = "benchmark timed out" }
 				}
 			} else { result.ErrorMessage = "upstream test failed" }
-		} else if accountErr != nil { result.ErrorMessage = "account lookup failed" } else { result.ErrorMessage = "no schedulable account in the API key group" }
+		}
 	} else if err != nil { result.ErrorMessage = "API key lookup failed" } else { result.ErrorMessage = "API key is not bound to a group" }
 	if result.FinishedAt.IsZero() { result.FinishedAt = time.Now(); result.LatencyMs = result.FinishedAt.Sub(started).Milliseconds() }
 	// Persist the completed state with a fresh, short context even when the
@@ -427,6 +434,39 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 	if err := s.repo.InsertResult(writeCtx, result); err != nil { return result, err }
 	if err := s.repo.PruneResults(writeCtx, result.ConfigID, c.KeepCount); err != nil { return result, err }
 	return result, nil
+}
+
+// runThroughGateway uses the configured API key group and the normal account
+// scheduler before forwarding the synthetic Anthropic request. It intentionally
+// avoids selecting a fixed account from the group.
+func (s *IntelligenceTestService) runThroughGateway(ctx context.Context, key *APIKey, c *IntelligenceTestConfig) (*ScheduledTestResult, error) {
+	body, err := json.Marshal(map[string]any{
+		"model": c.ModelID, "max_tokens": 4096, "stream": false,
+		"system": intelligenceTestSVGSystemPrompt,
+		"messages": []map[string]string{{"role": "user", "content": c.PromptText}},
+	})
+	if err != nil { return nil, err }
+	parsed, err := ParseGatewayRequest(NewRequestBodyRef(body), domain.PlatformAnthropic)
+	if err != nil { return nil, err }
+	parsed.GroupID = key.GroupID
+	selection, err := s.gateway.SelectAccountWithLoadAwareness(ctx, key.GroupID, "", c.ModelID, nil, "", key.UserID)
+	if err != nil { return nil, err }
+	if selection == nil || selection.Account == nil { return nil, fmt.Errorf("no schedulable account in the API key group") }
+	if selection.ReleaseFunc != nil { defer selection.ReleaseFunc() }
+
+	recorder := httptest.NewRecorder()
+	ginCtx, _ := gin.CreateTestContext(recorder)
+	ginCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body)).WithContext(ctx)
+	ginCtx.Request.Header.Set("Content-Type", "application/json")
+	forwarded, err := s.gateway.Forward(ctx, ginCtx, selection.Account, parsed)
+	if err != nil { return nil, err }
+	if forwarded == nil { return nil, fmt.Errorf("gateway returned no result") }
+	responseText := gjson.GetBytes(recorder.Body.Bytes(), "content.0.text").String()
+	if responseText == "" { responseText = recorder.Body.String() }
+	status := "success"
+	if recorder.Code >= http.StatusBadRequest { status = "failed" }
+	now := time.Now()
+	return &ScheduledTestResult{Status: status, ResponseText: responseText, LatencyMs: forwarded.Duration.Milliseconds(), StartedAt: now.Add(-forwarded.Duration), FinishedAt: now}, nil
 }
 
 func extractSVG(value string) string {
