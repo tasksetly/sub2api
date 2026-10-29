@@ -125,7 +125,7 @@ func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *Sched
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d account test service is unavailable", plan.ID)
 		return
 	}
-	result, err := s.accountTestSvc.RunTestBackgroundWithPrompt(ctx, plan.AccountID, plan.ModelID, plan.PromptText)
+	result, err := s.accountTestSvc.RunTestBackgroundWithOptions(ctx, plan.AccountID, plan.ModelID, plan.PromptText, AccountTestOptions{ReasoningEffort: plan.ReasoningEffort})
 	if err != nil {
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d RunTestBackground error: %v", plan.ID, err)
 		return

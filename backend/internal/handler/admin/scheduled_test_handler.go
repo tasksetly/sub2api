@@ -22,6 +22,7 @@ func NewScheduledTestHandler(scheduledTestSvc *service.ScheduledTestService) *Sc
 type createScheduledTestPlanRequest struct {
 	AccountID      int64  `json:"account_id" binding:"required"`
 	ModelID        string `json:"model_id"`
+	ReasoningEffort string `json:"reasoning_effort"`
 	PromptText     string `json:"prompt_text"`
 	ExpectedAnswer string `json:"expected_answer"`
 	CronExpression string `json:"cron_expression" binding:"required"`
@@ -41,6 +42,7 @@ type createScheduledTestPlanRequest struct {
 
 type updateScheduledTestPlanRequest struct {
 	ModelID        string `json:"model_id"`
+	ReasoningEffort *string `json:"reasoning_effort"`
 	PromptText     string `json:"prompt_text"`
 	ExpectedAnswer string `json:"expected_answer"`
 	CronExpression string `json:"cron_expression"`
@@ -85,6 +87,7 @@ func (h *ScheduledTestHandler) Create(c *gin.Context) {
 	plan := &service.ScheduledTestPlan{
 		AccountID:      req.AccountID,
 		ModelID:        req.ModelID,
+		ReasoningEffort: req.ReasoningEffort,
 		PromptText:     req.PromptText,
 		ExpectedAnswer: req.ExpectedAnswer,
 		CronExpression: req.CronExpression,
@@ -141,6 +144,9 @@ func (h *ScheduledTestHandler) Update(c *gin.Context) {
 
 	if req.ModelID != "" {
 		existing.ModelID = req.ModelID
+	}
+	if req.ReasoningEffort != nil {
+		existing.ReasoningEffort = *req.ReasoningEffort
 	}
 	if req.PromptText != "" || existing.PromptText != "" { existing.PromptText = req.PromptText }
 	if req.ExpectedAnswer != "" || existing.ExpectedAnswer != "" { existing.ExpectedAnswer = req.ExpectedAnswer }

@@ -2508,6 +2508,7 @@ export interface ScheduledTestPlan {
   id: number
   account_id: number
   model_id: string
+  reasoning_effort?: string
   prompt_text: string
   expected_answer: string
   cron_expression: string
@@ -2546,6 +2547,7 @@ export interface ScheduledTestResult {
 export interface CreateScheduledTestPlanRequest {
   account_id: number
   model_id: string
+  reasoning_effort?: string
   prompt_text?: string
   expected_answer?: string
   cron_expression: string
@@ -2565,6 +2567,7 @@ export interface CreateScheduledTestPlanRequest {
 
 export interface UpdateScheduledTestPlanRequest {
   model_id?: string
+  reasoning_effort?: string
   prompt_text?: string
   expected_answer?: string
   cron_expression?: string

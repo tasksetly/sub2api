@@ -16,6 +16,7 @@ type ScheduledTestPlan struct {
 	ID             int64      `json:"id"`
 	AccountID      int64      `json:"account_id"`
 	ModelID        string     `json:"model_id"`
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 	PromptText     string     `json:"prompt_text"`
 	ExpectedAnswer string     `json:"expected_answer"`
 	CronExpression string     `json:"cron_expression"`

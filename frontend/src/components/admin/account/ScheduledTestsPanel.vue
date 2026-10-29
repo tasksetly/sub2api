@@ -41,6 +41,13 @@
             />
           </div>
           <div>
+            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">推理等级</label>
+            <Select
+              v-model="newPlan.reasoning_effort"
+              :options="[{ value: '', label: '模型默认' }, { value: 'low', label: '低 (low)' }, { value: 'medium', label: '中 (medium)' }, { value: 'high', label: '高 (high)' }, { value: 'xhigh', label: '极高 (xhigh)' }, { value: 'max', label: '最大 (max)' }]"
+            />
+          </div>
+          <div>
             <label class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400">
               {{ t('admin.scheduledTests.cronExpression') }}
               <HelpTooltip>
@@ -272,6 +279,13 @@
                   :options="modelOptions"
                   :placeholder="t('admin.scheduledTests.model')"
                   :searchable="modelOptions.length > 5"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">推理等级</label>
+                <Select
+                  v-model="editForm.reasoning_effort"
+                  :options="[{ value: '', label: '模型默认' }, { value: 'low', label: '低 (low)' }, { value: 'medium', label: '中 (medium)' }, { value: 'high', label: '高 (high)' }, { value: 'xhigh', label: '极高 (xhigh)' }, { value: 'max', label: '最大 (max)' }]"
                 />
               </div>
               <div>
@@ -569,6 +583,7 @@ const editForm = reactive({
   success_enable: false,
   success_recover: false,
   model_id: '' as string,
+  reasoning_effort: '',
   cron_expression: '' as string,
   max_results: '100' as string,
   enabled: true,
@@ -588,6 +603,7 @@ const newPlan = reactive({
   success_enable: false,
   success_recover: false,
   model_id: '' as string,
+  reasoning_effort: '',
   cron_expression: '' as string,
   max_results: '100' as string,
   enabled: true,
@@ -607,6 +623,7 @@ const resetNewPlan = () => {
   newPlan.success_enable = false
   newPlan.success_recover = false
   newPlan.model_id = ''
+  newPlan.reasoning_effort = ''
   newPlan.cron_expression = ''
   newPlan.max_results = '100'
   newPlan.enabled = true
@@ -655,6 +672,7 @@ const handleCreate = async () => {
     await adminAPI.scheduledTests.create({
       account_id: props.accountId,
       model_id: newPlan.model_id,
+      reasoning_effort: newPlan.reasoning_effort,
       prompt_text: newPlan.prompt_text,
       expected_answer: newPlan.expected_answer,
       failure_remove_group_id: newPlan.failure_remove_group_id ? Number(newPlan.failure_remove_group_id) : null,
@@ -706,6 +724,7 @@ const startEdit = (plan: ScheduledTestPlan) => {
   editForm.success_enable = plan.success_enable === true
   editForm.success_recover = plan.success_recover === true
   editForm.model_id = plan.model_id
+  editForm.reasoning_effort = plan.reasoning_effort || ''
   editForm.cron_expression = plan.cron_expression
   editForm.max_results = String(plan.max_results)
   editForm.enabled = plan.enabled
@@ -725,6 +744,7 @@ const handleEdit = async () => {
   try {
     const updated = await adminAPI.scheduledTests.update(editingPlanId.value, {
       model_id: editForm.model_id,
+      reasoning_effort: editForm.reasoning_effort,
       prompt_text: editForm.prompt_text,
       expected_answer: editForm.expected_answer,
       failure_remove_group_id: editForm.failure_remove_group_id ? Number(editForm.failure_remove_group_id) : 0,
