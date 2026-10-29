@@ -282,6 +282,7 @@ export default {
         weight: 'Weight',
         schedulerScore: 'Scheduler Score',
         status: 'Status',
+        intelligenceStatus: 'Intelligence Status',
         schedulable: 'Schedulable',
         todayStats: 'Today Stats',
         groups: 'Groups',

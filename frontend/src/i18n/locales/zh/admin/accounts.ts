@@ -412,6 +412,7 @@ export default {
         monthly: '月',
         monthlyShort: '1m',
         status: '状态',
+        intelligenceStatus: '智力状态',
         updatedAt: '更新时间',
         ok: '正常',
         unauthorized: '会话已过期',
