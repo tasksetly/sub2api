@@ -8,7 +8,8 @@ import type {
   ScheduledTestPlan,
   ScheduledTestResult,
   CreateScheduledTestPlanRequest,
-  UpdateScheduledTestPlanRequest
+  UpdateScheduledTestPlanRequest,
+  ScheduledTestPromptTemplate
 } from '@/types'
 
 /**
@@ -79,13 +80,30 @@ export async function runNow(planId: number): Promise<ScheduledTestResult> {
   return data
 }
 
+export async function listPromptTemplates(): Promise<ScheduledTestPromptTemplate[]> {
+  const { data } = await apiClient.get<ScheduledTestPromptTemplate[]>('/admin/scheduled-test-prompt-templates')
+  return data ?? []
+}
+
+export async function createPromptTemplate(input: Pick<ScheduledTestPromptTemplate, 'name' | 'prompt_text' | 'expected_answer'>): Promise<ScheduledTestPromptTemplate> {
+  const { data } = await apiClient.post<ScheduledTestPromptTemplate>('/admin/scheduled-test-prompt-templates', input)
+  return data
+}
+
+export async function deletePromptTemplate(id: number): Promise<void> {
+  await apiClient.delete(`/admin/scheduled-test-prompt-templates/${id}`)
+}
+
 export const scheduledTestsAPI = {
   listByAccount,
   create,
   update,
   delete: deletePlan,
   listResults,
-  runNow
+  runNow,
+  listPromptTemplates,
+  createPromptTemplate,
+  deletePromptTemplate
 }
 
 export default scheduledTestsAPI

@@ -54,6 +54,15 @@ type ScheduledTestResult struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type ScheduledTestPromptTemplate struct {
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	PromptText    string    `json:"prompt_text"`
+	ExpectedAnswer string   `json:"expected_answer"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 // ScheduledTestPlanRepository defines the data access interface for test plans.
 type ScheduledTestPlanRepository interface {
 	Create(ctx context.Context, plan *ScheduledTestPlan) (*ScheduledTestPlan, error)
@@ -63,6 +72,9 @@ type ScheduledTestPlanRepository interface {
 	Update(ctx context.Context, plan *ScheduledTestPlan) (*ScheduledTestPlan, error)
 	Delete(ctx context.Context, id int64) error
 	UpdateAfterRun(ctx context.Context, id int64, lastRunAt time.Time, nextRunAt time.Time) error
+	ListPromptTemplates(ctx context.Context) ([]*ScheduledTestPromptTemplate, error)
+	CreatePromptTemplate(ctx context.Context, template *ScheduledTestPromptTemplate) (*ScheduledTestPromptTemplate, error)
+	DeletePromptTemplate(ctx context.Context, id int64) error
 }
 
 // ScheduledTestResultRepository defines the data access interface for test results.

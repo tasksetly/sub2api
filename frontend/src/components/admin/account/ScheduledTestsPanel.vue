@@ -99,6 +99,7 @@
           </div>
           <div class="sm:col-span-2 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
             <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">定时提示词（可选）</label>
+            <div class="mb-2 flex flex-col gap-2 sm:flex-row"><Select v-model="newPromptTemplateId" class="flex-1" :options="promptTemplateOptions" placeholder="选择已保存的提示词" @update:model-value="applyPromptTemplate(newPromptTemplateId, newPlan)" /><button type="button" class="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:border-dark-600 dark:text-gray-300 dark:hover:bg-dark-700" :disabled="!newPlan.prompt_text || templateSaving" @click="savePromptTemplate(newPlan)">保存为模板</button></div>
             <textarea v-model="newPlan.prompt_text" rows="2" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-dark-600 dark:bg-dark-800" placeholder="要求模型只输出数字或文本"></textarea>
             <Input v-model="newPlan.expected_answer" class="mt-2" label="期望答案" placeholder="与模型输出完全一致" />
             <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -340,6 +341,7 @@
               </div>
               <div class="sm:col-span-2 rounded-lg border border-gray-200 p-3 dark:border-dark-600">
             <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">定时提示词（可选）</label>
+            <div class="mb-2 flex flex-col gap-2 sm:flex-row"><Select v-model="editPromptTemplateId" class="flex-1" :options="promptTemplateOptions" placeholder="选择已保存的提示词" @update:model-value="applyPromptTemplate(editPromptTemplateId, editForm)" /><button type="button" class="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 dark:border-dark-600 dark:text-gray-300 dark:hover:bg-dark-700" :disabled="!editForm.prompt_text || templateSaving" @click="savePromptTemplate(editForm)">保存为模板</button></div>
             <textarea v-model="editForm.prompt_text" rows="2" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-dark-600 dark:bg-dark-800" placeholder="要求模型只输出数字或文本"></textarea>
             <Input v-model="editForm.expected_answer" class="mt-2" label="期望答案" placeholder="与模型输出完全一致" />
             <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -538,7 +540,7 @@ import { Icon } from '@/components/icons'
 import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime } from '@/utils/format'
-import type { ScheduledTestPlan, ScheduledTestResult, AdminGroup } from '@/types'
+import type { ScheduledTestPlan, ScheduledTestResult, ScheduledTestPromptTemplate, AdminGroup } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -576,6 +578,11 @@ const deletingPlan = ref<ScheduledTestPlan | null>(null)
 const editingPlanId = ref<number | null>(null)
 const updating = ref(false)
 const runningPlanId = ref<number | null>(null)
+const promptTemplates = ref<ScheduledTestPromptTemplate[]>([])
+const newPromptTemplateId = ref('')
+const editPromptTemplateId = ref('')
+const templateSaving = ref(false)
+const promptTemplateOptions = computed(() => promptTemplates.value.map((item) => ({ value: String(item.id), label: item.name })))
 const boundGroups = computed(() => (props.groups || []).filter((group) => (props.accountGroupIds || []).includes(Number(group.id))))
 const editForm = reactive({
   prompt_text: '',
@@ -638,6 +645,7 @@ const resetNewPlan = () => {
   newPlan.temp_unschedulable_enabled = false
   newPlan.error_codes = ''
   newPlan.minutes = '5'
+  newPromptTemplateId.value = ''
 }
 
 const parseErrorCodes = (value: string) => [...new Set(value.split(',').map((part) => Number(part.trim())).filter((code) => Number.isInteger(code) && code >= 100 && code <= 599))]
@@ -648,6 +656,7 @@ watch(
   async (visible) => {
     if (visible && props.accountId) {
       await loadPlans()
+      await loadPromptTemplates()
     } else {
       plans.value = []
       results.value = []
@@ -668,6 +677,36 @@ const loadPlans = async () => {
     appStore.showError(error?.message || 'Failed to load plans')
   } finally {
     loading.value = false
+  }
+}
+
+const loadPromptTemplates = async () => {
+  try {
+    promptTemplates.value = await adminAPI.scheduledTests.listPromptTemplates()
+  } catch (error: any) {
+    appStore.showError(error?.message || 'Failed to load prompt templates')
+  }
+}
+
+const applyPromptTemplate = (templateId: string | number | boolean | null, target: { prompt_text: string; expected_answer: string }) => {
+  const template = promptTemplates.value.find((item) => String(item.id) === String(templateId || ''))
+  if (!template) return
+  target.prompt_text = template.prompt_text
+  target.expected_answer = template.expected_answer
+}
+
+const savePromptTemplate = async (target: { prompt_text: string; expected_answer: string }) => {
+  const name = window.prompt('请输入提示词模板名称')?.trim()
+  if (!name) return
+  templateSaving.value = true
+  try {
+    const created = await adminAPI.scheduledTests.createPromptTemplate({ name, prompt_text: target.prompt_text, expected_answer: target.expected_answer })
+    promptTemplates.value = [created, ...promptTemplates.value]
+    appStore.showSuccess('提示词模板已保存')
+  } catch (error: any) {
+    appStore.showError(error?.message || 'Failed to save prompt template')
+  } finally {
+    templateSaving.value = false
   }
 }
 
@@ -739,6 +778,7 @@ const startEdit = (plan: ScheduledTestPlan) => {
   editForm.temp_unschedulable_enabled = plan.temp_unschedulable_enabled === true
   editForm.error_codes = (plan.temp_unschedulable_error_codes || []).join(', ')
   editForm.minutes = String(plan.temp_unschedulable_minutes || 5)
+  editPromptTemplateId.value = ''
 }
 
 const cancelEdit = () => {

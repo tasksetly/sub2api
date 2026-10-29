@@ -65,6 +65,33 @@ type updateScheduledTestPlanRequest struct {
 	SuccessRecover             *bool  `json:"success_recover"`
 }
 
+type scheduledTestPromptTemplateRequest struct {
+	Name           string `json:"name"`
+	PromptText     string `json:"prompt_text"`
+	ExpectedAnswer string `json:"expected_answer"`
+}
+
+func (h *ScheduledTestHandler) ListPromptTemplates(c *gin.Context) {
+	items, err := h.scheduledTestSvc.ListPromptTemplates(c.Request.Context())
+	if err != nil { response.InternalError(c, err.Error()); return }
+	c.JSON(http.StatusOK, items)
+}
+
+func (h *ScheduledTestHandler) CreatePromptTemplate(c *gin.Context) {
+	var req scheduledTestPromptTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil { response.BadRequest(c, err.Error()); return }
+	item, err := h.scheduledTestSvc.CreatePromptTemplate(c.Request.Context(), &service.ScheduledTestPromptTemplate{Name: req.Name, PromptText: req.PromptText, ExpectedAnswer: req.ExpectedAnswer})
+	if err != nil { response.BadRequest(c, err.Error()); return }
+	c.JSON(http.StatusOK, item)
+}
+
+func (h *ScheduledTestHandler) DeletePromptTemplate(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil { response.BadRequest(c, "invalid template id"); return }
+	if err := h.scheduledTestSvc.DeletePromptTemplate(c.Request.Context(), id); err != nil { response.InternalError(c, err.Error()); return }
+	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
+}
+
 // ListByAccount GET /admin/accounts/:id/scheduled-test-plans
 func (h *ScheduledTestHandler) ListByAccount(c *gin.Context) {
 	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)

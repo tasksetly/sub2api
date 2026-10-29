@@ -2545,6 +2545,15 @@ export interface ScheduledTestResult {
   created_at: string
 }
 
+export interface ScheduledTestPromptTemplate {
+  id: number
+  name: string
+  prompt_text: string
+  expected_answer: string
+  created_at: string
+  updated_at: string
+}
+
 export interface CreateScheduledTestPlanRequest {
   account_id: number
   model_id: string

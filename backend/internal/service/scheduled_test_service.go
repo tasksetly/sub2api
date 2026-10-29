@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -88,6 +89,24 @@ func (s *ScheduledTestService) ListResults(ctx context.Context, planID int64, li
 		limit = 50
 	}
 	return s.resultRepo.ListByPlanID(ctx, planID, limit)
+}
+
+func (s *ScheduledTestService) ListPromptTemplates(ctx context.Context) ([]*ScheduledTestPromptTemplate, error) {
+	return s.planRepo.ListPromptTemplates(ctx)
+}
+
+func (s *ScheduledTestService) CreatePromptTemplate(ctx context.Context, template *ScheduledTestPromptTemplate) (*ScheduledTestPromptTemplate, error) {
+	if template == nil || strings.TrimSpace(template.Name) == "" || strings.TrimSpace(template.PromptText) == "" {
+		return nil, fmt.Errorf("template name and prompt are required")
+	}
+	template.Name = strings.TrimSpace(template.Name)
+	template.PromptText = strings.TrimSpace(template.PromptText)
+	template.ExpectedAnswer = strings.TrimSpace(template.ExpectedAnswer)
+	return s.planRepo.CreatePromptTemplate(ctx, template)
+}
+
+func (s *ScheduledTestService) DeletePromptTemplate(ctx context.Context, id int64) error {
+	return s.planRepo.DeletePromptTemplate(ctx, id)
 }
 
 // SaveResult inserts a result and prunes old entries beyond maxResults.

@@ -86,6 +86,32 @@ func (r *scheduledTestPlanRepository) UpdateAfterRun(ctx context.Context, id int
 	return err
 }
 
+func (r *scheduledTestPlanRepository) ListPromptTemplates(ctx context.Context) ([]*service.ScheduledTestPromptTemplate, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name, prompt_text, expected_answer, created_at, updated_at FROM scheduled_test_prompt_templates ORDER BY updated_at DESC, id DESC`)
+	if err != nil { return nil, err }
+	defer func() { _ = rows.Close() }()
+	items := make([]*service.ScheduledTestPromptTemplate, 0)
+	for rows.Next() {
+		item := &service.ScheduledTestPromptTemplate{}
+		if err := rows.Scan(&item.ID, &item.Name, &item.PromptText, &item.ExpectedAnswer, &item.CreatedAt, &item.UpdatedAt); err != nil { return nil, err }
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *scheduledTestPlanRepository) CreatePromptTemplate(ctx context.Context, template *service.ScheduledTestPromptTemplate) (*service.ScheduledTestPromptTemplate, error) {
+	item := &service.ScheduledTestPromptTemplate{}
+	err := r.db.QueryRowContext(ctx, `INSERT INTO scheduled_test_prompt_templates (name, prompt_text, expected_answer) VALUES ($1, $2, $3) RETURNING id, name, prompt_text, expected_answer, created_at, updated_at`, template.Name, template.PromptText, template.ExpectedAnswer).
+		Scan(&item.ID, &item.Name, &item.PromptText, &item.ExpectedAnswer, &item.CreatedAt, &item.UpdatedAt)
+	if err != nil { return nil, err }
+	return item, nil
+}
+
+func (r *scheduledTestPlanRepository) DeletePromptTemplate(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM scheduled_test_prompt_templates WHERE id = $1`, id)
+	return err
+}
+
 // --- Result Repository ---
 
 type scheduledTestResultRepository struct {

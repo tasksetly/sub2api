@@ -779,6 +779,12 @@ func registerUserAttributeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 }
 
 func registerScheduledTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	templates := admin.Group("/scheduled-test-prompt-templates")
+	{
+		templates.GET("", h.Admin.ScheduledTest.ListPromptTemplates)
+		templates.POST("", h.Admin.ScheduledTest.CreatePromptTemplate)
+		templates.DELETE("/:id", h.Admin.ScheduledTest.DeletePromptTemplate)
+	}
 	plans := admin.Group("/scheduled-test-plans")
 	{
 		plans.POST("", h.Admin.ScheduledTest.Create)
