@@ -222,7 +222,7 @@ func (s *ScheduledTestRunnerService) applyFailureActions(ctx context.Context, pl
 		}
 	}
 	if plan.FailureDisable {
-		s.updateAccountStatus(ctx, repo, plan.AccountID, StatusInactive, "scheduled test failed")
+		updateAccountStatus(ctx, repo, plan.AccountID, StatusDisabled, "scheduled test failed")
 	}
 	if plan.FailureTempUnschedulableMinutes > 0 {
 		until := time.Now().Add(time.Duration(plan.FailureTempUnschedulableMinutes) * time.Minute)
@@ -246,7 +246,7 @@ func (s *ScheduledTestRunnerService) applySuccessActions(ctx context.Context, pl
 		}
 	}
 	if plan.SuccessEnable {
-		s.updateAccountStatus(ctx, repo, plan.AccountID, StatusActive, "")
+		updateAccountStatus(ctx, repo, plan.AccountID, StatusActive, "")
 	}
 	if plan.SuccessRecover {
 		if err := repo.ClearError(ctx, plan.AccountID); err != nil { logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d recover error status failed: %v", plan.ID, err) }
