@@ -76,8 +76,66 @@ func newGroupRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor) *groupRep
 	return &groupRepository{client: client, sql: sqlq}
 }
 
+func persistGroupModelMapping(ctx context.Context, exec sqlExecutor, groupID int64, mapping map[string]string) error {
+	if exec == nil || groupID <= 0 {
+		return nil
+	}
+	data, err := json.Marshal(service.NormalizeGroupModelMapping(mapping))
+	if err != nil {
+		return fmt.Errorf("marshal group model mapping: %w", err)
+	}
+	if _, err := exec.ExecContext(ctx, `UPDATE groups SET model_mapping = $1::jsonb WHERE id = $2`, string(data), groupID); err != nil {
+		return fmt.Errorf("persist group model mapping: %w", err)
+	}
+	return nil
+}
+
+func loadGroupModelMapping(ctx context.Context, exec sqlExecutor, groupID int64) (map[string]string, error) {
+	if exec == nil || groupID <= 0 {
+		return map[string]string{}, nil
+	}
+	rows, err := exec.QueryContext(ctx, `SELECT model_mapping FROM groups WHERE id = $1`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return map[string]string{}, nil
+	}
+	var raw []byte
+	if err := rows.Scan(&raw); err != nil {
+		return nil, err
+	}
+	mapping := map[string]string{}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &mapping); err != nil {
+			return nil, err
+		}
+	}
+	return service.NormalizeGroupModelMapping(mapping), nil
+}
+
+func (r *groupRepository) groupEntityToService(ctx context.Context, entity *dbent.Group) (*service.Group, error) {
+	out := groupEntityToService(entity)
+	if out == nil {
+		return nil, nil
+	}
+	mapping, err := loadGroupModelMapping(ctx, r.sql, out.ID)
+	if err != nil {
+		return nil, fmt.Errorf("load group model mapping: %w", err)
+	}
+	out.ModelMapping = mapping
+	return out, nil
+}
+
 func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) error {
 	if err := createGroupRecord(ctx, r.client, groupIn); err != nil {
+		return err
+	}
+	if err := persistGroupModelMapping(ctx, r.sql, groupIn.ID, groupIn.ModelMapping); err != nil {
 		return err
 	}
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &groupIn.ID, nil); err != nil {
@@ -196,7 +254,7 @@ func (r *groupRepository) FindByDuplicateOperationID(ctx context.Context, operat
 	if err != nil {
 		return nil, fmt.Errorf("find group duplicate operation: %w", err)
 	}
-	return groupEntityToService(row), nil
+	return r.groupEntityToService(ctx, row)
 }
 
 // CreateFromSource atomically persists a copied group, clones the source
@@ -220,6 +278,9 @@ func (r *groupRepository) CreateFromSource(ctx context.Context, groupIn *service
 	}
 
 	if err := createGroupRecord(ctx, txClient, groupIn); err != nil {
+		return err
+	}
+	if err := persistGroupModelMapping(ctx, txClient, groupIn.ID, groupIn.ModelMapping); err != nil {
 		return err
 	}
 	result, err := txClient.ExecContext(
@@ -278,7 +339,7 @@ func (r *groupRepository) GetByIDLite(ctx context.Context, id int64) (*service.G
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrGroupNotFound, nil)
 	}
-	return groupEntityToService(m), nil
+	return r.groupEntityToService(ctx, m)
 }
 
 func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) error {
@@ -449,6 +510,9 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventGroupChanged, nil, &groupIn.ID, nil); err != nil {
 		logger.LegacyPrintf("repository.group", "[SchedulerOutbox] enqueue group update failed: group=%d err=%v", groupIn.ID, err)
 	}
+	if err := persistGroupModelMapping(ctx, r.sql, groupIn.ID, groupIn.ModelMapping); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -519,7 +583,8 @@ func (r *groupRepository) listWithFiltersQuery(ctx context.Context, q *dbent.Gro
 	groupIDs := make([]int64, 0, len(groups))
 	outGroups := make([]service.Group, 0, len(groups))
 	for i := range groups {
-		g := groupEntityToService(groups[i])
+		g, err := r.groupEntityToService(ctx, groups[i])
+		if err != nil { return nil, nil, err }
 		outGroups = append(outGroups, *g)
 		groupIDs = append(groupIDs, g.ID)
 	}
@@ -611,7 +676,8 @@ func (r *groupRepository) listWithAccountCountSort(ctx context.Context, q *dbent
 
 	outGroups := make([]service.Group, len(page))
 	for i := range groups {
-		g := groupEntityToService(groups[i])
+		g, err := r.groupEntityToService(ctx, groups[i])
+		if err != nil { return nil, nil, err }
 		c := counts[g.ID]
 		g.AccountCount = c.Total
 		g.ActiveAccountCount = c.Active
@@ -690,7 +756,8 @@ func (r *groupRepository) ListActive(ctx context.Context) ([]service.Group, erro
 	groupIDs := make([]int64, 0, len(groups))
 	outGroups := make([]service.Group, 0, len(groups))
 	for i := range groups {
-		g := groupEntityToService(groups[i])
+		g, err := r.groupEntityToService(ctx, groups[i])
+		if err != nil { return nil, err }
 		outGroups = append(outGroups, *g)
 		groupIDs = append(groupIDs, g.ID)
 	}
@@ -763,7 +830,8 @@ func (r *groupRepository) ListActiveByPlatform(ctx context.Context, platform str
 	groupIDs := make([]int64, 0, len(groups))
 	outGroups := make([]service.Group, 0, len(groups))
 	for i := range groups {
-		g := groupEntityToService(groups[i])
+		g, err := r.groupEntityToService(ctx, groups[i])
+		if err != nil { return nil, err }
 		outGroups = append(outGroups, *g)
 		groupIDs = append(groupIDs, g.ID)
 	}

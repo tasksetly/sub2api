@@ -87,6 +87,8 @@ type Group struct {
 	// value: 优先账号 ID 列表
 	ModelRouting        map[string][]int64
 	ModelRoutingEnabled bool
+	// ModelMapping maps client-visible model IDs to upstream model IDs.
+	ModelMapping map[string]string
 
 	// MCP XML 协议注入开关（仅 antigravity 平台使用）
 	MCPXMLInject bool

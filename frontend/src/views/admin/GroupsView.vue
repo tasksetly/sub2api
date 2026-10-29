@@ -777,6 +777,16 @@
         </div>
 
         <div class="border-t pt-4">
+          <label class="input-label">{{ t("admin.groups.form.modelMapping", "Model mapping") }}</label>
+          <textarea
+            v-model="createForm.model_mapping_json"
+            class="input min-h-20 font-mono text-sm"
+            placeholder='{"public-model":"real-upstream-model"}'
+          />
+          <p class="input-hint">{{ t("admin.groups.form.modelMappingHint", "Map public model IDs to upstream model IDs. JSON object format.") }}</p>
+        </div>
+
+        <div class="border-t pt-4">
           <div class="mb-3 flex items-center justify-between gap-3">
             <div>
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -2414,6 +2424,16 @@
               />
             </div>
           </div>
+        </div>
+
+        <div class="border-t pt-4">
+          <label class="input-label">{{ t("admin.groups.form.modelMapping", "Model mapping") }}</label>
+          <textarea
+            v-model="editForm.model_mapping_json"
+            class="input min-h-20 font-mono text-sm"
+            placeholder='{"public-model":"real-upstream-model"}'
+          />
+          <p class="input-hint">{{ t("admin.groups.form.modelMappingHint", "Map public model IDs to upstream model IDs. JSON object format.") }}</p>
         </div>
 
         <div class="border-t pt-4">
@@ -5023,6 +5043,7 @@ const createForm = reactive({
   require_privacy_set: false,
   // 模型路由开关
   model_routing_enabled: false,
+  model_mapping_json: "",
   // 支持的模型系列（仅 antigravity 平台）
   supported_model_scopes: ["claude", "gemini_text", "gemini_image"] as string[],
   // MCP XML 协议注入开关（仅 antigravity 平台）
@@ -5301,6 +5322,22 @@ const convertRoutingRulesToApiFormat = (
   return hasValidRules ? result : null;
 };
 
+const parseGroupModelMapping = (value: string): Record<string, string> => {
+  const trimmed = value.trim();
+  if (!trimmed) return {};
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([key, target]) => key.trim() && typeof target === "string" && target.trim(),
+      ),
+    ) as Record<string, string>;
+  } catch {
+    return {};
+  }
+};
+
 // 将 API 格式的路由规则转换为 UI 格式（需要加载账号名称）
 const convertApiFormatToRoutingRules = async (
   apiFormat: Record<string, number[]> | null,
@@ -5390,6 +5427,7 @@ const editForm = reactive({
   require_privacy_set: false,
   // 模型路由开关
   model_routing_enabled: false,
+  model_mapping_json: "",
   // 支持的模型系列（仅 antigravity 平台）
   supported_model_scopes: ["claude", "gemini_text", "gemini_image"] as string[],
   // MCP XML 协议注入开关（仅 antigravity 平台）
@@ -5838,6 +5876,7 @@ const closeCreateModal = () => {
   createForm.allow_live = false;
   createForm.require_oauth_only = false;
   createForm.require_privacy_set = false;
+  createForm.model_mapping_json = "";
   createForm.supported_model_scopes = ["claude", "gemini_text", "gemini_image"];
   createForm.mcp_xml_inject = true;
   createForm.copy_accounts_from_group_ids = [];
@@ -5966,6 +6005,7 @@ const handleCreateGroup = async () => {
       model_routing: convertRoutingRulesToApiFormat(
         createModelRoutingRules.value,
       ),
+      model_mapping: parseGroupModelMapping(createForm.model_mapping_json),
       model_allowlist: buildModelAllowlistConfig(createModelAllowlistState),
       // 创建时固定账号 manifest 固定发送关闭状态（后端创建路径禁止开启）
       codex_models_manifest_config: createCodexManifestDefaults(),
@@ -6148,6 +6188,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.require_oauth_only = group.require_oauth_only ?? false;
   editForm.require_privacy_set = group.require_privacy_set ?? false;
   editForm.model_routing_enabled = group.model_routing_enabled || false;
+  editForm.model_mapping_json = JSON.stringify(group.model_mapping ?? {}, null, 2);
   editForm.supported_model_scopes = group.supported_model_scopes || [
     "claude",
     "gemini_text",
@@ -6315,6 +6356,7 @@ const handleUpdateGroup = async () => {
       model_routing: convertRoutingRulesToApiFormat(
         editModelRoutingRules.value,
       ),
+      model_mapping: parseGroupModelMapping(editForm.model_mapping_json),
       model_allowlist: buildModelAllowlistConfig(editModelAllowlistState),
       // 非 openai 平台提交关闭状态，与后端归一化一致
       codex_models_manifest_config:

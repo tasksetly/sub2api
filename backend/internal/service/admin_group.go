@@ -618,6 +618,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		FallbackGroupID:                 input.FallbackGroupID,
 		FallbackGroupIDOnInvalidRequest: fallbackOnInvalidRequest,
 		ModelRouting:                    input.ModelRouting,
+		ModelMapping:                    normalizeGroupModelMapping(input.ModelMapping),
 		MCPXMLInject:                    mcpXMLInject,
 		SupportedModelScopes:            input.SupportedModelScopes,
 		AllowMessagesDispatch:           input.AllowMessagesDispatch,
@@ -992,6 +993,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// 模型路由配置
 	if input.ModelRouting != nil {
 		group.ModelRouting = input.ModelRouting
+	}
+	if input.ModelMapping != nil {
+		group.ModelMapping = normalizeGroupModelMapping(input.ModelMapping)
 	}
 	if input.ModelRoutingEnabled != nil {
 		group.ModelRoutingEnabled = *input.ModelRoutingEnabled

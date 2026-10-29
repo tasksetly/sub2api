@@ -235,6 +235,9 @@ func projectAccountModelAliases(body []byte, account *Account, group *Group, cod
 	if group.ModelAllowlistEnabled() {
 		candidates = append(candidates, group.ModelAllowlist.Models...)
 	}
+	if group != nil {
+		candidates = append(candidates, group.GroupModelMappingAliases()...)
+	}
 	projected := make([]json.RawMessage, 0, len(candidates))
 	seen := make(map[string]struct{}, len(candidates))
 	for _, id := range candidates {
@@ -245,9 +248,17 @@ func projectAccountModelAliases(body []byte, account *Account, group *Group, cod
 		if _, ok := seen[id]; ok {
 			continue
 		}
-		target, matched := account.ResolveMappedModel(id)
+		target := id
+		groupMatched := false
+		if group != nil {
+			target, groupMatched = group.ResolveGroupModel(target)
+		}
+		mappedTarget, matched := account.ResolveMappedModel(target)
+		if matched {
+			target = mappedTarget
+		}
 		raw, available := byID[strings.TrimSpace(target)]
-		if !matched || !available {
+		if (!matched && !groupMatched) || !available {
 			continue
 		}
 		seen[id] = struct{}{}

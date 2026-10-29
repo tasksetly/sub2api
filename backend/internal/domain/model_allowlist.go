@@ -6,3 +6,8 @@ type GroupModelAllowlist struct {
 	Enabled bool     `json:"enabled"`
 	Models  []string `json:"models,omitempty"`
 }
+
+// GroupModelMapping maps a client-visible model ID to the real upstream model
+// ID used by the selected account. Empty keys or targets are ignored at the
+// service boundary.
+type GroupModelMapping map[string]string

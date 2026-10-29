@@ -67,6 +67,17 @@ func cloneGroupModelRouting(value map[string][]int64) map[string][]int64 {
 	return cloned
 }
 
+func cloneGroupModelMapping(value map[string]string) map[string]string {
+	if len(value) == 0 {
+		return map[string]string{}
+	}
+	result := make(map[string]string, len(value))
+	for key, target := range value {
+		result[key] = target
+	}
+	return result
+}
+
 func cloneGroupVideoModelPrices(value map[string]map[string]float64) map[string]map[string]float64 {
 	if value == nil {
 		return nil
@@ -140,6 +151,7 @@ func cloneGroupForDuplicate(source *Group, operationID string) *Group {
 		FallbackGroupIDOnInvalidRequest: cloneGroupValuePointer(source.FallbackGroupIDOnInvalidRequest),
 		ModelRouting:                    cloneGroupModelRouting(source.ModelRouting),
 		ModelRoutingEnabled:             source.ModelRoutingEnabled,
+		ModelMapping:                    cloneGroupModelMapping(source.ModelMapping),
 		MCPXMLInject:                    source.MCPXMLInject,
 		SupportedModelScopes:            append([]string(nil), source.SupportedModelScopes...),
 		SortOrder:                       source.SortOrder,

@@ -1185,6 +1185,9 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 
 	// Get available models from account configurations for the selected group platform.
 	availableModels := h.gatewayService.GetAvailableModels(c.Request.Context(), groupID, platform)
+	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform != service.PlatformComposite {
+		availableModels = mergeModelIDs(availableModels, apiKey.Group.GroupModelMappingAliases())
+	}
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
 		source := modelListingSource(platform, availableModels, defaultModelIDsForPlatform(platform))
 		writeAllowlistedModelsList(c, platform, apiKey.Group.ModelAllowlist.FilterForListing(source))
@@ -1281,6 +1284,9 @@ func (h *GatewayHandler) codexModelIDsForGroup(ctx context.Context, group *servi
 	}
 
 	availableModels := h.gatewayService.GetAvailableModels(ctx, groupID, platform)
+	if group != nil && group.Platform != service.PlatformComposite {
+		availableModels = mergeModelIDs(availableModels, group.GroupModelMappingAliases())
+	}
 	fallbackModels := defaultCodexModelIDsForPlatform(platform)
 	if group.ModelAllowlistEnabled() {
 		return group.ModelAllowlist.FilterForListing(modelListingSource(platform, availableModels, fallbackModels))
@@ -1555,6 +1561,19 @@ func mergeModelIDs(primary, secondary []string) []string {
 // 分组级模型白名单开启时按白名单过滤。
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
 	models := antigravity.DefaultModels()
+	if apiKey, ok := middleware2.GetAPIKeyFromContext(c); ok && apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform != service.PlatformComposite {
+		seen := make(map[string]struct{}, len(models))
+		for _, model := range models {
+			seen[model.ID] = struct{}{}
+		}
+		for _, alias := range apiKey.Group.GroupModelMappingAliases() {
+			if _, exists := seen[alias]; exists {
+				continue
+			}
+			models = append(models, antigravity.ClaudeModel{ID: alias, DisplayName: alias})
+			seen[alias] = struct{}{}
+		}
+	}
 	if apiKey, ok := middleware2.GetAPIKeyFromContext(c); ok && apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
 		filtered := make([]antigravity.ClaudeModel, 0, len(models))
 		for _, model := range models {

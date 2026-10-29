@@ -71,6 +71,11 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 	for _, id := range agModelIDs {
 		agModels = append(agModels, gemini.FallbackModel(id))
 	}
+	if apiKey.Group != nil && apiKey.Group.Platform != service.PlatformComposite {
+		for _, alias := range apiKey.Group.GroupModelMappingAliases() {
+			agModels = append(agModels, gemini.FallbackModel(alias))
+		}
+	}
 	if forcePlatform == service.PlatformAntigravity {
 		c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: filterGeminiModels(agModels)})
 		return
