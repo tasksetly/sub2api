@@ -27,6 +27,7 @@ type ScheduledTestPlan struct {
 	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
 	TempUnschedulableMinutes int `json:"temp_unschedulable_minutes"`
 	FailureRemoveGroupID *int64 `json:"failure_remove_group_id,omitempty"`
+	FailureRemoveGroupIDs []int64 `json:"failure_remove_group_ids,omitempty"`
 	FailureDisable bool `json:"failure_disable"`
 	FailureTempUnschedulableMinutes int `json:"failure_temp_unschedulable_minutes"`
 	SuccessAddGroupID *int64 `json:"success_add_group_id,omitempty"`

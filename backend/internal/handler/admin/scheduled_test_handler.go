@@ -12,12 +12,15 @@ import (
 // ScheduledTestHandler handles admin scheduled-test-plan management.
 type ScheduledTestHandler struct {
 	scheduledTestSvc *service.ScheduledTestService
+	runner           *service.ScheduledTestRunnerService
 }
 
 // NewScheduledTestHandler creates a new ScheduledTestHandler.
 func NewScheduledTestHandler(scheduledTestSvc *service.ScheduledTestService) *ScheduledTestHandler {
 	return &ScheduledTestHandler{scheduledTestSvc: scheduledTestSvc}
 }
+
+func (h *ScheduledTestHandler) SetRunner(runner *service.ScheduledTestRunnerService) { h.runner = runner }
 
 type createScheduledTestPlanRequest struct {
 	AccountID      int64  `json:"account_id" binding:"required"`
@@ -33,6 +36,7 @@ type createScheduledTestPlanRequest struct {
 	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
 	TempUnschedulableMinutes   *int   `json:"temp_unschedulable_minutes"`
 	FailureRemoveGroupID       *int64 `json:"failure_remove_group_id"`
+	FailureRemoveGroupIDs      []int64 `json:"failure_remove_group_ids"`
 	FailureDisable             *bool  `json:"failure_disable"`
 	FailureTempUnschedulableMinutes *int `json:"failure_temp_unschedulable_minutes"`
 	SuccessAddGroupID          *int64 `json:"success_add_group_id"`
@@ -53,6 +57,7 @@ type updateScheduledTestPlanRequest struct {
 	TempUnschedulableErrorCodes []int `json:"temp_unschedulable_error_codes"`
 	TempUnschedulableMinutes   *int   `json:"temp_unschedulable_minutes"`
 	FailureRemoveGroupID       *int64 `json:"failure_remove_group_id"`
+	FailureRemoveGroupIDs      []int64 `json:"failure_remove_group_ids"`
 	FailureDisable             *bool  `json:"failure_disable"`
 	FailureTempUnschedulableMinutes *int `json:"failure_temp_unschedulable_minutes"`
 	SuccessAddGroupID          *int64 `json:"success_add_group_id"`
@@ -108,6 +113,7 @@ func (h *ScheduledTestHandler) Create(c *gin.Context) {
 		plan.TempUnschedulableMinutes = *req.TempUnschedulableMinutes
 	}
 	plan.FailureRemoveGroupID = req.FailureRemoveGroupID
+	plan.FailureRemoveGroupIDs = req.FailureRemoveGroupIDs
 	if req.FailureDisable != nil { plan.FailureDisable = *req.FailureDisable }
 	if req.FailureTempUnschedulableMinutes != nil { plan.FailureTempUnschedulableMinutes = *req.FailureTempUnschedulableMinutes }
 	plan.SuccessAddGroupID = req.SuccessAddGroupID
@@ -176,6 +182,7 @@ func (h *ScheduledTestHandler) Update(c *gin.Context) {
 		} else {
 			existing.FailureRemoveGroupID = req.FailureRemoveGroupID
 		} }
+	if req.FailureRemoveGroupIDs != nil { existing.FailureRemoveGroupIDs = req.FailureRemoveGroupIDs }
 	if req.FailureDisable != nil { existing.FailureDisable = *req.FailureDisable }
 	if req.FailureTempUnschedulableMinutes != nil { existing.FailureTempUnschedulableMinutes = *req.FailureTempUnschedulableMinutes }
 	if req.SuccessAddGroupID != nil { if *req.SuccessAddGroupID <= 0 {
@@ -192,6 +199,25 @@ func (h *ScheduledTestHandler) Update(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, updated)
+}
+
+// RunNow POST /admin/scheduled-test-plans/:id/run
+func (h *ScheduledTestHandler) RunNow(c *gin.Context) {
+	planID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "invalid plan id")
+		return
+	}
+	if h.runner == nil {
+		response.InternalError(c, "scheduled test runner unavailable")
+		return
+	}
+	result, err := h.runner.RunPlanNow(c.Request.Context(), planID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, result)
 }
 
 // Delete DELETE /admin/scheduled-test-plans/:id

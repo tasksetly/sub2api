@@ -102,7 +102,7 @@
             <textarea v-model="newPlan.prompt_text" rows="2" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-dark-600 dark:bg-dark-800" placeholder="要求模型只输出数字或文本"></textarea>
             <Input v-model="newPlan.expected_answer" class="mt-2" label="期望答案" placeholder="与模型输出完全一致" />
             <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Select v-model="newPlan.failure_remove_group_id" :options="[{ value: '', label: '失败：不移除分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '失败：移除 ' + g.name }))]" />
+              <div class="sm:col-span-2"><div class="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">失败：移除账号当前绑定的分组</div><div v-if="boundGroups.length" class="flex flex-wrap gap-2"><label v-for="group in boundGroups" :key="group.id" class="flex items-center gap-1.5 text-sm"><input v-model="newPlan.failure_remove_group_ids" type="checkbox" :value="Number(group.id)" class="rounded border-gray-300" />{{ group.name }}</label></div><span v-else class="text-xs text-gray-400">该账号当前没有绑定分组</span></div>
               <Input v-model="newPlan.failure_temp_unschedulable_minutes" type="number" label="失败：临时不可调度（分钟，0=不操作）" />
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="newPlan.failure_disable" />失败：关闭账号</label>
               <Select v-model="newPlan.success_add_group_id" :options="[{ value: '', label: '成功：不加入分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '成功：加入 ' + g.name }))]" />
@@ -343,7 +343,7 @@
             <textarea v-model="editForm.prompt_text" rows="2" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-dark-600 dark:bg-dark-800" placeholder="要求模型只输出数字或文本"></textarea>
             <Input v-model="editForm.expected_answer" class="mt-2" label="期望答案" placeholder="与模型输出完全一致" />
             <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Select v-model="editForm.failure_remove_group_id" :options="[{ value: '', label: '失败：不移除分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '失败：移除 ' + g.name }))]" />
+              <div class="sm:col-span-2"><div class="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">失败：移除账号当前绑定的分组</div><div v-if="boundGroups.length" class="flex flex-wrap gap-2"><label v-for="group in boundGroups" :key="group.id" class="flex items-center gap-1.5 text-sm"><input v-model="editForm.failure_remove_group_ids" type="checkbox" :value="Number(group.id)" class="rounded border-gray-300" />{{ group.name }}</label></div><span v-else class="text-xs text-gray-400">该账号当前没有绑定分组</span></div>
               <Input v-model="editForm.failure_temp_unschedulable_minutes" type="number" label="失败：临时不可调度（分钟，0=不操作）" />
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="editForm.failure_disable" />失败：关闭账号</label>
               <Select v-model="editForm.success_add_group_id" :options="[{ value: '', label: '成功：不加入分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '成功：加入 ' + g.name }))]" />
@@ -406,6 +406,7 @@
             <div class="mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">
               {{ t('admin.scheduledTests.results') }}
             </div>
+            <button @click="runNow(plan)" :disabled="runningPlanId === plan.id" class="mb-3 flex items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"><Icon :name="runningPlanId === plan.id ? 'refresh' : 'play'" size="sm" :class="runningPlanId === plan.id ? 'animate-spin' : ''" />{{ runningPlanId === plan.id ? '测试中...' : '开始测试' }}</button>
 
             <!-- Results Loading -->
             <div v-if="loadingResults" class="flex items-center justify-center py-4">
@@ -525,7 +526,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onBeforeUnmount } from 'vue'
+import { ref, reactive, watch, onBeforeUnmount, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -547,6 +548,7 @@ const props = defineProps<{
   accountId: number | null
   modelOptions: SelectOption[]
   groups?: AdminGroup[]
+  accountGroupIds?: number[]
 }>()
 
 const emit = defineEmits<{
@@ -573,10 +575,13 @@ const showDeleteConfirm = ref(false)
 const deletingPlan = ref<ScheduledTestPlan | null>(null)
 const editingPlanId = ref<number | null>(null)
 const updating = ref(false)
+const runningPlanId = ref<number | null>(null)
+const boundGroups = computed(() => (props.groups || []).filter((group) => (props.accountGroupIds || []).includes(Number(group.id))))
 const editForm = reactive({
   prompt_text: '',
   expected_answer: '',
   failure_remove_group_id: '',
+  failure_remove_group_ids: [] as number[],
   failure_disable: false,
   failure_temp_unschedulable_minutes: '0',
   success_add_group_id: '',
@@ -597,6 +602,7 @@ const newPlan = reactive({
   prompt_text: '',
   expected_answer: '',
   failure_remove_group_id: '',
+  failure_remove_group_ids: [] as number[],
   failure_disable: false,
   failure_temp_unschedulable_minutes: '0',
   success_add_group_id: '',
@@ -617,6 +623,7 @@ const resetNewPlan = () => {
   newPlan.prompt_text = ''
   newPlan.expected_answer = ''
   newPlan.failure_remove_group_id = ''
+  newPlan.failure_remove_group_ids = []
   newPlan.failure_disable = false
   newPlan.failure_temp_unschedulable_minutes = '0'
   newPlan.success_add_group_id = ''
@@ -675,7 +682,7 @@ const handleCreate = async () => {
       reasoning_effort: newPlan.reasoning_effort,
       prompt_text: newPlan.prompt_text,
       expected_answer: newPlan.expected_answer,
-      failure_remove_group_id: newPlan.failure_remove_group_id ? Number(newPlan.failure_remove_group_id) : null,
+      failure_remove_group_ids: newPlan.failure_remove_group_ids,
       failure_disable: newPlan.failure_disable,
       failure_temp_unschedulable_minutes: Number(newPlan.failure_temp_unschedulable_minutes) || 0,
       success_add_group_id: newPlan.success_add_group_id ? Number(newPlan.success_add_group_id) : null,
@@ -717,7 +724,7 @@ const startEdit = (plan: ScheduledTestPlan) => {
   editingPlanId.value = plan.id
   editForm.prompt_text = plan.prompt_text || ''
   editForm.expected_answer = plan.expected_answer || ''
-  editForm.failure_remove_group_id = plan.failure_remove_group_id ? String(plan.failure_remove_group_id) : ''
+  editForm.failure_remove_group_ids = plan.failure_remove_group_ids?.length ? [...plan.failure_remove_group_ids] : (plan.failure_remove_group_id ? [plan.failure_remove_group_id] : [])
   editForm.failure_disable = plan.failure_disable === true
   editForm.failure_temp_unschedulable_minutes = String(plan.failure_temp_unschedulable_minutes || 0)
   editForm.success_add_group_id = plan.success_add_group_id ? String(plan.success_add_group_id) : ''
@@ -747,7 +754,7 @@ const handleEdit = async () => {
       reasoning_effort: editForm.reasoning_effort,
       prompt_text: editForm.prompt_text,
       expected_answer: editForm.expected_answer,
-      failure_remove_group_id: editForm.failure_remove_group_id ? Number(editForm.failure_remove_group_id) : 0,
+      failure_remove_group_ids: editForm.failure_remove_group_ids,
       failure_disable: editForm.failure_disable,
       failure_temp_unschedulable_minutes: Number(editForm.failure_temp_unschedulable_minutes) || 0,
       success_add_group_id: editForm.success_add_group_id ? Number(editForm.success_add_group_id) : 0,
@@ -827,6 +834,20 @@ const toggleResultDetail = (resultId: number) => {
     expandedResultIds.delete(resultId)
   } else {
     expandedResultIds.add(resultId)
+  }
+}
+
+const runNow = async (plan: ScheduledTestPlan) => {
+  runningPlanId.value = plan.id
+  expandedPlanId.value = plan.id
+  try {
+    const result = await adminAPI.scheduledTests.runNow(plan.id)
+    results.value = [result, ...results.value.filter((item) => item.id !== result.id)]
+    expandedResultIds.clear()
+  } catch (error: any) {
+    appStore.showError(error?.message || '测试失败')
+  } finally {
+    runningPlanId.value = null
   }
 }
 </script>

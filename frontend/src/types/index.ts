@@ -2519,6 +2519,7 @@ export interface ScheduledTestPlan {
   temp_unschedulable_error_codes?: number[]
   temp_unschedulable_minutes?: number
   failure_remove_group_id?: number | null
+  failure_remove_group_ids?: number[]
   failure_disable?: boolean
   failure_temp_unschedulable_minutes?: number
   success_add_group_id?: number | null
@@ -2558,6 +2559,7 @@ export interface CreateScheduledTestPlanRequest {
   temp_unschedulable_error_codes?: number[]
   temp_unschedulable_minutes?: number
   failure_remove_group_id?: number | null
+  failure_remove_group_ids?: number[]
   failure_disable?: boolean
   failure_temp_unschedulable_minutes?: number
   success_add_group_id?: number | null
@@ -2578,6 +2580,7 @@ export interface UpdateScheduledTestPlanRequest {
   temp_unschedulable_error_codes?: number[]
   temp_unschedulable_minutes?: number
   failure_remove_group_id?: number | null
+  failure_remove_group_ids?: number[]
   failure_disable?: boolean
   failure_temp_unschedulable_minutes?: number
   success_add_group_id?: number | null

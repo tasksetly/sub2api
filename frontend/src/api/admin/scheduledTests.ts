@@ -74,12 +74,18 @@ export async function listResults(planId: number, limit?: number): Promise<Sched
   return data ?? []
 }
 
+export async function runNow(planId: number): Promise<ScheduledTestResult> {
+  const { data } = await apiClient.post<ScheduledTestResult>(`/admin/scheduled-test-plans/${planId}/run`)
+  return data
+}
+
 export const scheduledTestsAPI = {
   listByAccount,
   create,
   update,
   delete: deletePlan,
-  listResults
+  listResults,
+  runNow
 }
 
 export default scheduledTestsAPI

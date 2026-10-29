@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -121,14 +122,41 @@ func (s *ScheduledTestRunnerService) runScheduled() {
 }
 
 func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *ScheduledTestPlan) {
-	if s.accountTestSvc == nil {
-		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d account test service is unavailable", plan.ID)
+	result, err := s.executePlan(ctx, plan)
+	if err != nil {
+		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d execute error: %v", plan.ID, err)
+	}
+	if result == nil {
 		return
+	}
+	nextRun, err := computeNextRun(plan.CronExpression, time.Now())
+	if err != nil {
+		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d computeNextRun error: %v", plan.ID, err)
+		return
+	}
+	if err := s.planRepo.UpdateAfterRun(ctx, plan.ID, time.Now(), nextRun); err != nil {
+		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d UpdateAfterRun error: %v", plan.ID, err)
+	}
+}
+
+// RunPlanNow executes a plan immediately and returns the complete result. It
+// does not change the cron schedule, but applies the same account actions as a
+// scheduled run.
+func (s *ScheduledTestRunnerService) RunPlanNow(ctx context.Context, planID int64) (*ScheduledTestResult, error) {
+	plan, err := s.planRepo.GetByID(ctx, planID)
+	if err != nil {
+		return nil, err
+	}
+	return s.executePlan(ctx, plan)
+}
+
+func (s *ScheduledTestRunnerService) executePlan(ctx context.Context, plan *ScheduledTestPlan) (*ScheduledTestResult, error) {
+	if s.accountTestSvc == nil {
+		return nil, fmt.Errorf("account test service is unavailable")
 	}
 	result, err := s.accountTestSvc.RunTestBackgroundWithOptions(ctx, plan.AccountID, plan.ModelID, plan.PromptText, AccountTestOptions{ReasoningEffort: plan.ReasoningEffort})
 	if err != nil {
-		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d RunTestBackground error: %v", plan.ID, err)
-		return
+		return nil, err
 	}
 	connectivityOK := result.Status == "success"
 	result.CheckOK = connectivityOK
@@ -169,16 +197,7 @@ func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *Sched
 	if connectivityOK && plan.AutoRecover {
 		s.tryRecoverAccount(ctx, plan.AccountID, plan.ID)
 	}
-
-	nextRun, err := computeNextRun(plan.CronExpression, time.Now())
-	if err != nil {
-		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d computeNextRun error: %v", plan.ID, err)
-		return
-	}
-
-	if err := s.planRepo.UpdateAfterRun(ctx, plan.ID, time.Now(), nextRun); err != nil {
-		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d UpdateAfterRun error: %v", plan.ID, err)
-	}
+	return result, nil
 }
 
 func normalizeScheduledTestAnswer(value string) string {
@@ -214,10 +233,16 @@ func (s *ScheduledTestRunnerService) applyFailureActions(ctx context.Context, pl
 	if repo == nil {
 		return
 	}
-	if plan.FailureRemoveGroupID != nil {
+	groupIDs := append([]int64(nil), plan.FailureRemoveGroupIDs...)
+	if len(groupIDs) == 0 && plan.FailureRemoveGroupID != nil {
+		groupIDs = []int64{*plan.FailureRemoveGroupID}
+	}
+	if len(groupIDs) > 0 {
 		if mutation, ok := repo.(AccountGroupMutationRepository); ok {
-			if err := mutation.RemoveFromGroup(ctx, plan.AccountID, *plan.FailureRemoveGroupID); err != nil {
-				logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d remove group failed: %v", plan.ID, err)
+			for _, groupID := range groupIDs {
+				if err := mutation.RemoveFromGroup(ctx, plan.AccountID, groupID); err != nil {
+					logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d remove group=%d failed: %v", plan.ID, groupID, err)
+				}
 			}
 		}
 	}
