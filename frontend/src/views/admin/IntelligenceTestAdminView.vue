@@ -8,9 +8,9 @@
           <p class="mt-2 max-w-2xl text-sm text-gray-500 dark:text-dark-400">绑定 API Key 后，系统会自动使用该 Key 所属分组的可用账号执行提示词，并把最近结果展示到公开测试页。</p>
         </div>
         <div class="flex gap-2">
-          <a href="/pelican-test" target="_blank" rel="noopener" class="btn btn-secondary">
-            <Icon name="externalLink" size="sm" class="mr-2" />打开展示页
-          </a>
+          <RouterLink to="/intelligence-test/results" class="btn btn-secondary">
+            <Icon name="chart" size="sm" class="mr-2" />打开展示页
+          </RouterLink>
           <button class="btn btn-primary" @click="openCreate">
             <Icon name="plus" size="sm" class="mr-2" />新建测试
           </button>

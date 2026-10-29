@@ -1,5 +1,5 @@
 <template>
-  <div class="intelligence-test" :class="{ 'intelligence-test--embedded': isEmbedded }">
+  <div class="intelligence-test" :class="{ 'intelligence-test--embedded': isEmbedded, 'intelligence-test--in-app': inApp }">
     <header v-if="!isEmbedded" class="test-header">
       <div class="test-header__inner">
         <RouterLink to="/home" class="brand-link" aria-label="返回首页">
@@ -180,6 +180,7 @@ import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
 import { getIntelligenceTest, type IntelligenceTestItem, type IntelligenceTestResponse } from '@/api/intelligenceTest'
 
+const props = defineProps<{ inApp?: boolean }>()
 const ALL_GROUP = '__all__'
 const route = useRoute()
 const appStore = useAppStore()
@@ -194,7 +195,7 @@ const preview = ref<{ item: IntelligenceTestItem; group: string } | null>(null)
 const previewMode = ref<'render' | 'source'>('render')
 const groupRefs = new Map<string, HTMLElement>()
 
-const isEmbedded = computed(() => route.query.ui_mode === 'embedded' || route.query.embedded === '1')
+const isEmbedded = computed(() => props.inApp || route.query.ui_mode === 'embedded' || route.query.embedded === '1')
 const isDark = ref(route.query.theme === 'dark' || (
   route.query.theme !== 'light' &&
   typeof document !== 'undefined' &&
@@ -397,4 +398,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .dark .intelligence-test { background:#0f172a; color:#f8fafc; }.dark .test-header { border-color:#1e293b; background:rgba(15,23,42,.92); }.dark .brand-mark, .dark .icon-button, .dark .refresh-button, .dark .secondary-button, .dark .filter-tab, .dark .select-wrap select, .dark .section-arrows button, .dark .work-card { border-color:#334155; background:#111c2e; color:#e2e8f0; }.dark .header-link, .dark .intro-description, .dark .prompt-panel__content p, .dark .section-heading span, .dark .state-panel p, .dark .preview-header span, .dark .preview-footer { color:#94a3b8; }.dark .eyebrow { color:#60a5fa; }.dark .prompt-panel { border-color:#1e40af; background:#172554; }.dark .prompt-panel__icon { background:#1e3a8a; color:#93c5fd; }.dark .prompt-panel__meta strong { color:#bfdbfe; }.dark .meta-pill, .dark .work-tags span { background:#243247; color:#94a3b8; }.dark .filter-tab { color:#cbd5e1; }.dark .filter-tab.active { border-color:#f8fafc; background:#f8fafc; color:#0f172a; }.dark .filter-tab.active span { color:#64748b; }.dark .work-preview, .dark .preview-canvas { background:#0b1220; }.dark .work-preview img, .dark .preview-canvas img { background:#fff; }.dark .work-model, .dark .state-panel h2, .dark .preview-header strong { color:#f8fafc; }.dark .state-panel { border-color:#334155; background:rgba(15,23,42,.55); }.dark .state-panel--error h2 { color:#fca5a5; }.dark .preview-modal { background:#111c2e; }.dark .preview-header, .dark .preview-footer { border-color:#334155; }.dark .preview-canvas { border-color:#334155; }
 .dark .empty-row { color:#64748b; }
 .dark .preview-tab { border-color:#334155; color:#cbd5e1; background:#111c2e; }.dark .preview-tab.active { border-color:#60a5fa; color:#bfdbfe; background:#1e3a8a; }
+.intelligence-test--in-app, .dark .intelligence-test--in-app { min-height:0; background:transparent; }
+.intelligence-test--in-app .test-shell { width:100%; padding:0; }
+.intelligence-test--in-app .preview-backdrop { z-index:100; }
 </style>

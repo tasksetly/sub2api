@@ -198,6 +198,17 @@ const routes: RouteRecordRaw[] = [
 
   // ==================== User Routes ====================
   {
+    path: '/intelligence-test/results',
+    name: 'IntelligenceTestResults',
+    component: () => import('@/views/user/IntelligenceTestResultsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Intelligence Test',
+      titleKey: 'nav.intelligenceTest'
+    }
+  },
+  {
     path: '/',
     redirect: '/home'
   },

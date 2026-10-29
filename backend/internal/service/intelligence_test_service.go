@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"errors"
+	"log/slog"
 	"regexp"
 	"sort"
 	"strconv"
@@ -147,6 +149,7 @@ type IntelligenceTestService struct {
 	apiKeyRepo    APIKeyRepository
 	accountRepo   AccountRepository
 	accountTest   *AccountTestService
+	db            *sql.DB
 	cron          *cron.Cron
 	startOnce     sync.Once
 	stopOnce      sync.Once
@@ -154,8 +157,8 @@ type IntelligenceTestService struct {
 	runs          map[int64]IntelligenceTestRunStatus
 }
 
-func NewIntelligenceTestService(repo IntelligenceTestRepository, apiKeyRepo APIKeyRepository, accountRepo AccountRepository, accountTest *AccountTestService) *IntelligenceTestService {
-	return &IntelligenceTestService{repo: repo, apiKeyRepo: apiKeyRepo, accountRepo: accountRepo, accountTest: accountTest, runs: make(map[int64]IntelligenceTestRunStatus)}
+func NewIntelligenceTestService(repo IntelligenceTestRepository, apiKeyRepo APIKeyRepository, accountRepo AccountRepository, accountTest *AccountTestService, db *sql.DB) *IntelligenceTestService {
+	return &IntelligenceTestService{repo: repo, apiKeyRepo: apiKeyRepo, accountRepo: accountRepo, accountTest: accountTest, db: db, runs: make(map[int64]IntelligenceTestRunStatus)}
 }
 
 func (s *IntelligenceTestService) Start() {
@@ -223,9 +226,50 @@ func (s *IntelligenceTestService) normalizeConfig(input IntelligenceTestConfigIn
 }
 
 func (s *IntelligenceTestService) RunNow(ctx context.Context, id int64) (*IntelligenceTestResult, error) {
+	return s.run(ctx, id, nil)
+}
+
+// Use the same per-config lock for scheduled and manual runs. Reloading the
+// config under the lock prevents a stale due-list from running a completed job.
+func (s *IntelligenceTestService) acquireRun(ctx context.Context, id int64, dueAt *time.Time) (*IntelligenceTestConfig, IntelligenceTestRunStatus, func(), error) {
+	release, acquired, err := s.tryLockRun(ctx, id)
+	if err != nil {
+		return nil, IntelligenceTestRunStatus{}, nil, err
+	}
+	if !acquired {
+		return nil, IntelligenceTestRunStatus{}, nil, ErrIntelligenceTestAlreadyRunning
+	}
 	c, err := s.repo.GetConfig(ctx, id)
-	if err != nil { return nil, err }
-	if _, started := s.beginRun(id); !started { return nil, ErrIntelligenceTestAlreadyRunning }
+	if err != nil {
+		release()
+		return nil, IntelligenceTestRunStatus{}, nil, err
+	}
+	if dueAt != nil && (!c.Enabled || (c.NextRunAt != nil && c.NextRunAt.After(*dueAt))) {
+		release()
+		return nil, IntelligenceTestRunStatus{}, nil, nil
+	}
+	state, started := s.beginRun(id)
+	if !started {
+		release()
+		return nil, state, nil, ErrIntelligenceTestAlreadyRunning
+	}
+	return c, state, release, nil
+}
+
+func (s *IntelligenceTestService) tryLockRun(ctx context.Context, id int64) (func(), bool, error) {
+	// Never silently fall back to a process-local lock in a multi-instance job.
+	if s.db == nil {
+		return nil, false, errors.New("intelligence test database lock is unavailable")
+	}
+	return tryAcquireDBAdvisoryLockWithError(ctx, s.db, hashAdvisoryLockID("intelligence_test:config:"+strconv.FormatInt(id, 10)))
+}
+
+func (s *IntelligenceTestService) run(ctx context.Context, id int64, dueAt *time.Time) (*IntelligenceTestResult, error) {
+	c, _, release, err := s.acquireRun(ctx, id, dueAt)
+	if err != nil || c == nil {
+		return nil, err
+	}
+	defer release()
 	result, err := s.executeRun(ctx, c)
 	s.finishRun(id, result, err)
 	return result, err
@@ -234,11 +278,16 @@ func (s *IntelligenceTestService) RunNow(ctx context.Context, id int64) (*Intell
 // QueueRun detaches a manually started benchmark from the browser request.
 // A high-effort SVG can then finish even when the HTTP client times out or closes.
 func (s *IntelligenceTestService) QueueRun(ctx context.Context, id int64) (*IntelligenceTestRunStatus, error) {
-	c, err := s.repo.GetConfig(ctx, id)
-	if err != nil { return nil, err }
-	state, started := s.beginRun(id)
-	if !started { return &state, nil }
+	c, state, release, err := s.acquireRun(ctx, id, nil)
+	if errors.Is(err, ErrIntelligenceTestAlreadyRunning) {
+		state, err := s.RunStatus(ctx, id)
+		return &state, err
+	}
+	if err != nil {
+		return nil, err
+	}
 	go func() {
+		defer release()
 		jobCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
 		result, runErr := s.executeRun(jobCtx, c)
@@ -247,11 +296,41 @@ func (s *IntelligenceTestService) QueueRun(ctx context.Context, id int64) (*Inte
 	return &state, nil
 }
 
-func (s *IntelligenceTestService) RunStatus(id int64) IntelligenceTestRunStatus {
+func (s *IntelligenceTestService) RunStatus(ctx context.Context, id int64) (IntelligenceTestRunStatus, error) {
+	release, acquired, err := s.tryLockRun(ctx, id)
+	if err != nil {
+		return IntelligenceTestRunStatus{}, err
+	}
+	if !acquired {
+		s.runMu.Lock()
+		state := s.runs[id]
+		s.runMu.Unlock()
+		if !state.Running {
+			state = IntelligenceTestRunStatus{}
+		}
+		state.Running, state.Status = true, "running"
+		return state, nil
+	}
+	defer release()
+	// Polling can land on any instance. Persisted results are authoritative once
+	// the lock is released, even when this process never ran the benchmark.
+	items, err := s.repo.ListResults(ctx, id, 1)
+	if err != nil {
+		return IntelligenceTestRunStatus{}, err
+	}
 	s.runMu.Lock()
-	defer s.runMu.Unlock()
-	if state, ok := s.runs[id]; ok { return state }
-	return IntelligenceTestRunStatus{Status: "idle"}
+	state, known := s.runs[id]
+	s.runMu.Unlock()
+	// Keep a local persistence failure visible instead of reporting an older
+	// successful result when the failed run could not be saved.
+	if known && !state.Running && (len(items) == 0 || state.StartedAt.After(items[0].StartedAt)) {
+		return state, nil
+	}
+	if len(items) > 0 {
+		item := items[0]
+		return IntelligenceTestRunStatus{Status: item.Status, StartedAt: item.StartedAt, FinishedAt: &item.FinishedAt, ResultID: item.ID, Error: item.ErrorMessage}, nil
+	}
+	return IntelligenceTestRunStatus{Status: "idle"}, nil
 }
 
 func (s *IntelligenceTestService) beginRun(id int64) (IntelligenceTestRunStatus, bool) {
@@ -296,9 +375,20 @@ func (s *IntelligenceTestService) executeRun(ctx context.Context, c *Intelligenc
 func (s *IntelligenceTestService) runDue() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
-	configs, err := s.repo.ListDueConfigs(ctx, time.Now())
-	if err != nil { return }
-	for _, c := range configs { _, _ = s.RunNow(ctx, c.ID) }
+	now := time.Now()
+	configs, err := s.repo.ListDueConfigs(ctx, now)
+	if err != nil {
+		slog.Error("intelligence_test_list_due_failed", "error", err)
+		return
+	}
+	for _, c := range configs {
+		if ctx.Err() != nil {
+			return
+		}
+		if _, err := s.run(ctx, c.ID, &now); err != nil && !errors.Is(err, ErrIntelligenceTestAlreadyRunning) {
+			slog.Error("intelligence_test_run_failed", "config_id", c.ID, "error", err)
+		}
+	}
 }
 
 func (s *IntelligenceTestService) runConfig(ctx context.Context, c *IntelligenceTestConfig) (*IntelligenceTestResult, error) {

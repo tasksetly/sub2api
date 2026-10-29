@@ -674,8 +674,9 @@ func ProvideIntelligenceTestService(
 	apiKeyRepo APIKeyRepository,
 	accountRepo AccountRepository,
 	accountTest *AccountTestService,
+	db *sql.DB,
 ) *IntelligenceTestService {
-	svc := NewIntelligenceTestService(repo, apiKeyRepo, accountRepo, accountTest)
+	svc := NewIntelligenceTestService(repo, apiKeyRepo, accountRepo, accountTest, db)
 	svc.Start()
 	return svc
 }
