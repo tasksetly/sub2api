@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"sync"
@@ -9,10 +10,12 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 )
 
 const scheduledTestDefaultMaxWorkers = 10
+const scheduledTestPlanLockTTL = 6 * time.Minute
 
 // ScheduledTestRunnerService periodically scans due test plans and executes them.
 type ScheduledTestRunnerService struct {
@@ -21,6 +24,9 @@ type ScheduledTestRunnerService struct {
 	accountTestSvc *AccountTestService
 	rateLimitSvc   *RateLimitService
 	cfg            *config.Config
+	lockCache      LeaderLockCache
+	db             *sql.DB
+	instanceID     string
 
 	cron      *cron.Cron
 	startOnce sync.Once
@@ -36,6 +42,8 @@ func NewScheduledTestRunnerService(
 	accountTestSvc *AccountTestService,
 	rateLimitSvc *RateLimitService,
 	cfg *config.Config,
+	lockCache LeaderLockCache,
+	db *sql.DB,
 ) *ScheduledTestRunnerService {
 	return &ScheduledTestRunnerService{
 		planRepo:       planRepo,
@@ -43,6 +51,9 @@ func NewScheduledTestRunnerService(
 		accountTestSvc: accountTestSvc,
 		rateLimitSvc:   rateLimitSvc,
 		cfg:            cfg,
+		lockCache:      lockCache,
+		db:             db,
+		instanceID:     uuid.NewString(),
 		manualRuns:     make(map[int64]struct{}),
 	}
 }
@@ -125,6 +136,11 @@ func (s *ScheduledTestRunnerService) runScheduled() {
 }
 
 func (s *ScheduledTestRunnerService) runOnePlan(ctx context.Context, plan *ScheduledTestPlan) {
+	release, acquired := s.acquirePlanLock(ctx, plan.ID)
+	if !acquired {
+		return
+	}
+	defer release()
 	result, err := s.executePlan(ctx, plan)
 	if err != nil {
 		logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d execute error: %v", plan.ID, err)
@@ -154,10 +170,16 @@ func (s *ScheduledTestRunnerService) StartPlanNow(ctx context.Context, planID in
 		s.manualMu.Unlock()
 		return fmt.Errorf("scheduled test is already running")
 	}
+	release, acquired := s.acquirePlanLock(ctx, planID)
+	if !acquired {
+		s.manualMu.Unlock()
+		return fmt.Errorf("scheduled test is already running on another instance")
+	}
 	s.manualRuns[planID] = struct{}{}
 	s.manualMu.Unlock()
 	go func() {
 		defer func() {
+			release()
 			s.manualMu.Lock()
 			delete(s.manualRuns, planID)
 			s.manualMu.Unlock()
@@ -169,6 +191,13 @@ func (s *ScheduledTestRunnerService) StartPlanNow(ctx context.Context, planID in
 		}
 	}()
 	return nil
+}
+
+func (s *ScheduledTestRunnerService) acquirePlanLock(ctx context.Context, planID int64) (func(), bool) {
+	lockCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	key := fmt.Sprintf("scheduled_test:plan:%d", planID)
+	return tryAcquireSingletonLeaderLock(lockCtx, s.lockCache, s.db, key, s.instanceID, scheduledTestPlanLockTTL)
 }
 
 func (s *ScheduledTestRunnerService) executePlan(ctx context.Context, plan *ScheduledTestPlan) (*ScheduledTestResult, error) {
