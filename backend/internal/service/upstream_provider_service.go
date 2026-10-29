@@ -449,6 +449,7 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 	if profile.UserID > 0 {
 		snapshot.UpstreamUserID = strconv.FormatInt(profile.UserID, 10)
 	}
+	snapshot.Finance = s.syncFinance(ctx, provider, token, profile)
 
 	var groups []UpstreamGroupInfo
 	var rates map[int64]float64

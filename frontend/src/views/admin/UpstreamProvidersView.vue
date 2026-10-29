@@ -95,6 +95,7 @@
 
     <!-- 跨上游拉平的分组比价表：横向比倍率的主视图 -->
     <div class="px-4 pb-8 sm:px-6">
+      <UpstreamFinanceTable :providers="providers" :loading="loading" class="mb-6" />
       <UpstreamGroupComparisonTable
         ref="comparisonTable"
         @provision="openProvisionFromComparison"
@@ -161,6 +162,7 @@ import UpstreamProviderTable from '@/components/admin/upstream/UpstreamProviderT
 import UpstreamProviderFormDialog from '@/components/admin/upstream/UpstreamProviderFormDialog.vue'
 import UpstreamProvisionDialog from '@/components/admin/upstream/UpstreamProvisionDialog.vue'
 import UpstreamGroupComparisonTable from '@/components/admin/upstream/UpstreamGroupComparisonTable.vue'
+import UpstreamFinanceTable from '@/components/admin/upstream/UpstreamFinanceTable.vue'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()

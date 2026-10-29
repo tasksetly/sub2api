@@ -50,12 +50,31 @@ export interface UpstreamProvider {
 export interface UpstreamProviderWithStats extends UpstreamProvider {
   account_count: number
   group_count: number
-  /** 本地按该上游归集的实际花费（usage_logs.total_cost） */
+  /** 本地按请求落账的账号成本估算，与供应商成本表一致 */
   local_cost_usd: number
   local_requests: number
+  local_user_billed_usd?: number
+  finance?: UpstreamFinanceSummary | null
   /** 该上游各分组比价倍率的区间 */
   min_rate: number | null
   max_rate: number | null
+}
+
+export interface UpstreamFinanceSummary {
+  order_count: number
+  recharge_usd: number
+  unknown_credit_orders: number
+  unknown_paid_orders: number
+  paid_amounts: Record<string, number>
+  orders_synced_at: string | null
+  orders_error?: string
+  coverage: 'upstream_history' | 'observed_history'
+  used_usd: number | null
+  usage_synced_at: string | null
+  usage_error?: string
+  consumed_cost_usd: number | null
+  gross_profit_usd: number | null
+  cost_difference_usd: number | null
 }
 
 /** 上游分组快照，用于横向比价 */

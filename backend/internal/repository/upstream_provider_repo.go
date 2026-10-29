@@ -101,7 +101,11 @@ func (r *upstreamProviderRepository) GetByID(ctx context.Context, id int64) (*se
 		}
 		return nil, err
 	}
-	return r.entityToService(entity), nil
+	provider := r.entityToService(entity)
+	if err := r.loadFinance(ctx, []*service.UpstreamProvider{provider}); err != nil {
+		slog.Warn("upstream_provider_finance_load_failed", "provider_id", id, "error", err)
+	}
+	return provider, nil
 }
 
 func (r *upstreamProviderRepository) Update(ctx context.Context, provider *service.UpstreamProvider) error {
@@ -214,6 +218,23 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 		return err
 	}
 	provider.UpdatedAt = updated.UpdatedAt
+	if typeChanged || current.BaseURL != provider.BaseURL || current.Username != provider.Username {
+		// The new credential may belong to a different upstream account.
+		if _, err := r.sql.ExecContext(ctx, `DELETE FROM upstream_provider_finance WHERE upstream_provider_id = $1`, provider.ID); err != nil {
+			return fmt.Errorf("clear upstream finance after identity change: %w", err)
+		}
+		provider.Finance = nil
+	} else if tokenProvided || refreshTokenProvided || passwordChanged {
+		// Preserve the observed history on token rotation. The next successful
+		// profile sync will verify user identity before reusing these orders.
+		if _, err := r.sql.ExecContext(ctx, `UPDATE upstream_provider_finance
+            SET snapshot = snapshot || jsonb_build_object(
+                'orders_error', 'Credentials changed; synchronize to verify upstream identity',
+                'usage_error', 'Credentials changed; synchronize to verify upstream identity')
+            WHERE upstream_provider_id = $1`, provider.ID); err != nil {
+			return fmt.Errorf("invalidate upstream finance after credential change: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -267,7 +288,8 @@ func (r *upstreamProviderRepository) List(
 
 	if len(ids) > 0 {
 		if err := r.attachStats(ctx, providers, ids); err != nil {
-			// 统计失败不该让整个列表打不开，降级为无统计数据
+			// Finance and cost snapshots are supplementary; a failed snapshot read
+			// must not make upstream management unavailable.
 			slog.Warn("upstream_provider_stats_failed", "error", err)
 		}
 	}
@@ -277,24 +299,29 @@ func (r *upstreamProviderRepository) List(
 
 // attachStats 补齐账号数、分组倍率区间，以及本地实际用量成本。
 //
-// 本地成本按 accounts.upstream_provider_id 归集 usage_logs.total_cost，
-// 这是「在这个上游实际花了多少钱」的口径。
+// 本地成本沿用成本页的请求落账公式，包含已删除账号的历史用量。
 func (r *upstreamProviderRepository) attachStats(
 	ctx context.Context, providers []service.UpstreamProviderWithStats, ids []int64,
 ) error {
 	index := make(map[int64]*service.UpstreamProviderWithStats, len(providers))
+	baseProviders := make([]*service.UpstreamProvider, 0, len(providers))
 	for i := range providers {
 		index[providers[i].ID] = &providers[i]
+		baseProviders = append(baseProviders, &providers[i].UpstreamProvider)
+	}
+	if err := r.loadFinance(ctx, baseProviders); err != nil {
+		slog.Warn("upstream_provider_finance_load_failed", "error", err)
 	}
 
 	const statsQuery = `
 		SELECT a.upstream_provider_id,
-		       COUNT(DISTINCT a.id)                     AS account_count,
-		       COALESCE(SUM(u.total_cost), 0)           AS local_cost,
-		       COUNT(u.id)                              AS local_requests
+		       COUNT(DISTINCT a.id) FILTER (WHERE a.deleted_at IS NULL) AS account_count,
+		       COALESCE(SUM(COALESCE(u.account_stats_cost, u.total_cost) * COALESCE(u.account_rate_multiplier, 1)), 0) AS local_cost,
+		       COUNT(u.id) AS local_requests,
+		       COALESCE(SUM(u.actual_cost), 0) AS local_user_billed
 		FROM accounts a
 		LEFT JOIN usage_logs u ON u.account_id = a.id
-		WHERE a.upstream_provider_id = ANY($1) AND a.deleted_at IS NULL
+		WHERE a.upstream_provider_id = ANY($1)
 		GROUP BY a.upstream_provider_id`
 	rows, err := r.sql.QueryContext(ctx, statsQuery, pq.Array(ids))
 	if err != nil {
@@ -304,14 +331,15 @@ func (r *upstreamProviderRepository) attachStats(
 
 	for rows.Next() {
 		var providerID, accountCount, localRequests int64
-		var localCost float64
-		if err := rows.Scan(&providerID, &accountCount, &localCost, &localRequests); err != nil {
+		var localCost, localUserBilled float64
+		if err := rows.Scan(&providerID, &accountCount, &localCost, &localRequests, &localUserBilled); err != nil {
 			return fmt.Errorf("scan upstream provider stats: %w", err)
 		}
 		if target, ok := index[providerID]; ok {
 			target.AccountCount = accountCount
 			target.LocalCostUSD = localCost
 			target.LocalRequests = localRequests
+			target.LocalUserBilledUSD = localUserBilled
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -382,6 +410,13 @@ func (r *upstreamProviderRepository) ListSyncable(ctx context.Context) ([]servic
 	providers := make([]service.UpstreamProvider, 0, len(entities))
 	for _, entity := range entities {
 		providers = append(providers, *r.entityToService(entity))
+	}
+	baseProviders := make([]*service.UpstreamProvider, 0, len(providers))
+	for i := range providers {
+		baseProviders = append(baseProviders, &providers[i])
+	}
+	if err := r.loadFinance(ctx, baseProviders); err != nil {
+		slog.Warn("upstream_provider_finance_load_failed", "error", err)
 	}
 	return providers, nil
 }
@@ -466,7 +501,10 @@ func (r *upstreamProviderRepository) UpdateSyncSnapshot(
 	if snapshot.UpstreamUserID != "" {
 		builder.SetUpstreamUserID(snapshot.UpstreamUserID)
 	}
-	return builder.Exec(ctx)
+	if err := builder.Exec(ctx); err != nil {
+		return err
+	}
+	return r.saveFinance(ctx, id, snapshot.Finance)
 }
 
 func (r *upstreamProviderRepository) MarkSyncFailed(

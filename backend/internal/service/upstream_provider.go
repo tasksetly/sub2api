@@ -53,7 +53,8 @@ type UpstreamProvider struct {
 	UpdatedAt time.Time
 
 	// Groups 是同步下来的分组快照（按需加载）
-	Groups []UpstreamGroup
+	Groups  []UpstreamGroup
+	Finance *UpstreamFinance
 }
 
 func (p *UpstreamProvider) IsActive() bool {
@@ -126,14 +127,14 @@ func NormalizeRateCorrection(value float64) float64 {
 
 // UpstreamProviderWithStats 是列表页用的聚合视图：上游快照 + 本地实际用量成本。
 //
-// LocalCostUSD/LocalRequests 来自本地 usage_log 按 accounts.upstream_provider_id
-// 归集，是「在这个上游实际花了多少钱」的口径，与上游自己声明的倍率相互印证。
+// LocalCostUSD 是按请求落账的账号成本估算；Finance 是上游账单的独立快照。
 type UpstreamProviderWithStats struct {
 	UpstreamProvider
-	AccountCount  int64
-	GroupCount    int64
-	LocalCostUSD  float64
-	LocalRequests int64
+	AccountCount       int64
+	GroupCount         int64
+	LocalCostUSD       float64
+	LocalRequests      int64
+	LocalUserBilledUSD float64
 	// MinRate/MaxRate 是该上游各分组比价倍率的区间，便于列表页横向扫
 	MinRate *float64
 	MaxRate *float64
@@ -207,4 +208,5 @@ type UpstreamSyncSnapshot struct {
 	UpstreamConcurrency *int
 	UpstreamUserID      string
 	SyncedAt            time.Time
+	Finance             *UpstreamFinance
 }

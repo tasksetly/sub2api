@@ -51,11 +51,13 @@ type UpstreamProviderWithStats struct {
 	UpstreamProvider
 	AccountCount int64 `json:"account_count"`
 	GroupCount   int64 `json:"group_count"`
-	// LocalCostUSD 是本地按该上游归集的实际花费（usage_logs.total_cost）
-	LocalCostUSD  float64  `json:"local_cost_usd"`
-	LocalRequests int64    `json:"local_requests"`
-	MinRate       *float64 `json:"min_rate"`
-	MaxRate       *float64 `json:"max_rate"`
+	// LocalCostUSD is the same recorded account-cost estimate used by supplier costs.
+	LocalCostUSD       float64                         `json:"local_cost_usd"`
+	LocalRequests      int64                           `json:"local_requests"`
+	LocalUserBilledUSD float64                         `json:"local_user_billed_usd"`
+	Finance            *service.UpstreamFinanceSummary `json:"finance"`
+	MinRate            *float64                        `json:"min_rate"`
+	MaxRate            *float64                        `json:"max_rate"`
 }
 
 // UpstreamGroup 是上游分组快照的响应 DTO。
@@ -151,13 +153,15 @@ func UpstreamProviderWithStatsFromService(p *service.UpstreamProviderWithStats) 
 		return nil
 	}
 	return &UpstreamProviderWithStats{
-		UpstreamProvider: *base,
-		AccountCount:     p.AccountCount,
-		GroupCount:       p.GroupCount,
-		LocalCostUSD:     p.LocalCostUSD,
-		LocalRequests:    p.LocalRequests,
-		MinRate:          p.MinRate,
-		MaxRate:          p.MaxRate,
+		UpstreamProvider:   *base,
+		AccountCount:       p.AccountCount,
+		GroupCount:         p.GroupCount,
+		LocalCostUSD:       p.LocalCostUSD,
+		LocalRequests:      p.LocalRequests,
+		LocalUserBilledUSD: p.LocalUserBilledUSD,
+		Finance:            p.FinanceSummary(),
+		MinRate:            p.MinRate,
+		MaxRate:            p.MaxRate,
 	}
 }
 

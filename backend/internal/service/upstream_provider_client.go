@@ -80,15 +80,16 @@ type UpstreamLoginResult struct {
 
 // UpstreamProfile 是上游账户/额度查询返回的关键字段。
 type UpstreamProfile struct {
-	UserID           int64   `json:"id"`
-	Email            string  `json:"email"`
-	Username         string  `json:"username"`
-	Balance          float64 `json:"balance"`
-	FrozenBalance    float64 `json:"frozen_balance"`
-	Concurrency      int     `json:"concurrency"`
-	ConcurrencyKnown bool    `json:"-"`
-	BalanceKnown     bool    `json:"-"`
-	Status           string  `json:"status"`
+	UserID           int64    `json:"id"`
+	Email            string   `json:"email"`
+	Username         string   `json:"username"`
+	Balance          float64  `json:"balance"`
+	FrozenBalance    float64  `json:"frozen_balance"`
+	Concurrency      int      `json:"concurrency"`
+	ConcurrencyKnown bool     `json:"-"`
+	BalanceKnown     bool     `json:"-"`
+	UsedUSD          *float64 `json:"-"`
+	Status           string   `json:"status"`
 }
 
 // NewAPIGroupInfo 是 NewAPI 按名称返回的可用分组。NewAPI 没有 sub2api
@@ -254,6 +255,14 @@ func (c *UpstreamProviderClient) GetNewAPIProfile(ctx context.Context, baseURL, 
 		if status == "" {
 			status = "active"
 		}
+		var usedUSD *float64
+		if raw, ok := self["used_quota"]; ok && raw != nil {
+			var quota float64
+			if json.Unmarshal([]byte(fmt.Sprint(raw)), &quota) == nil && validUpstreamMoney(quota) {
+				used := quota / NewAPIQuotaPerUnit
+				usedUSD = &used
+			}
+		}
 		return &UpstreamProfile{
 			UserID:           int64(jsonNumber(self["id"])),
 			Email:            newAPIStringValue(self["email"]),
@@ -263,6 +272,7 @@ func (c *UpstreamProviderClient) GetNewAPIProfile(ctx context.Context, baseURL, 
 			Status:           status,
 			BalanceKnown:     quotaKnown,
 			ConcurrencyKnown: false,
+			UsedUSD:          usedUSD,
 		}, nil
 	}
 

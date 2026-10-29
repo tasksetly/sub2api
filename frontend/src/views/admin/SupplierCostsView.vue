@@ -39,6 +39,7 @@
       </section>
 
       <SupplierCostTable :rows="supplierCosts" :loading="loading" />
+      <UpstreamFinancePanel />
     </div>
   </AppLayout>
 </template>
@@ -54,6 +55,7 @@ import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import SupplierCostTable from '@/components/admin/usage/SupplierCostTable.vue'
+import UpstreamFinancePanel from '@/components/admin/upstream/UpstreamFinancePanel.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
