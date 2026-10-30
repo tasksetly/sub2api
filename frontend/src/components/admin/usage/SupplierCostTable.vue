@@ -45,12 +45,12 @@
             <td class="px-3 py-3 text-right tabular-nums">{{ formatTokens(row.total_tokens) }}</td>
             <td class="px-3 py-3 text-right font-mono tabular-nums">${{ formatCost(row.standard_cost) }}</td>
             <td class="px-3 py-3 text-right font-mono tabular-nums">${{ formatCost(row.account_cost) }}</td>
-            <td class="px-3 py-3 text-right font-mono tabular-nums">${{ formatCost(row.user_billed) }}</td>
+            <td class="px-3 py-3 text-right font-mono tabular-nums">￥{{ formatCost(row.user_billed) }}</td>
             <td
               class="px-3 py-3 text-right font-mono tabular-nums"
               :class="row.gross_profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'"
             >
-              ${{ formatCost(row.gross_profit) }}
+              ￥{{ formatCost(row.gross_profit) }}
             </td>
             <td
               class="px-3 py-3 text-right font-mono tabular-nums"
@@ -69,9 +69,9 @@
             <td class="px-3 py-3 text-right tabular-nums">{{ formatTokens(totals.tokens) }}</td>
             <td class="px-3 py-3 text-right font-mono tabular-nums">${{ formatCost(totals.standardCost) }}</td>
             <td class="px-3 py-3 text-right font-mono tabular-nums">${{ formatCost(totals.accountCost) }}</td>
-            <td class="px-3 py-3 text-right font-mono tabular-nums">${{ formatCost(totals.userBilled) }}</td>
+            <td class="px-3 py-3 text-right font-mono tabular-nums">￥{{ formatCost(totals.userBilled) }}</td>
             <td class="px-3 py-3 text-right font-mono tabular-nums" :class="totals.grossProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
-              ${{ formatCost(totals.grossProfit) }}
+              ￥{{ formatCost(totals.grossProfit) }}
             </td>
             <td class="px-3 py-3 text-right font-mono tabular-nums" :class="totals.grossMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
               {{ formatPercent(totals.grossMargin) }}

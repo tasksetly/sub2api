@@ -55,23 +55,23 @@ export function formatNumber(num: number | null | undefined): string {
 /**
  * 格式化货币金额
  * @param amount 金额
- * @param currency 货币代码，默认 USD
- * @returns 格式化后的字符串，如 "$1.25"
+ * @param currency 货币代码；省略时仅以￥显示内部余额
+ * @returns 格式化后的字符串，如 "￥1.25"
  */
-export function formatCurrency(amount: number | null | undefined, currency: string = 'USD'): string {
-  if (amount === null || amount === undefined) return '$0.00'
+export function formatCurrency(amount: number | null | undefined, currency?: string): string {
+  const value = amount ?? 0
 
   const locale = getLocale()
 
   // For very small amounts, show more decimals
-  const fractionDigits = amount > 0 && amount < 0.01 ? 6 : 2
+  const fractionDigits = value > 0 && value < 0.01 ? 6 : 2
 
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: currency,
+    currency: currency ?? 'USD',
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits
-  }).format(amount)
+  }).formatToParts(value).map((part) => currency == null && part.type === 'currency' ? '￥' : part.value).join('')
 }
 
 /**

@@ -796,7 +796,7 @@ export default {
           previewOpenNone: '≥ {from}：不赠送',
           noticeLabel: '充值赠送活动文案',
           noticeHint: '支持 Markdown，展示在充值页金额选择区顶部；留空则不展示。',
-          noticePlaceholder: '例如：🎁 限时活动：单笔充值满 $100 送 20%，满 $500 送 30%……',
+          noticePlaceholder: '例如：🎁 限时活动：单笔充值满 ￥100 送 20%，满 ￥500 送 30%……',
         },
         orderTimeout: '订单超时时间',
         orderTimeoutHint: '单位：分钟，至少 1 分钟',

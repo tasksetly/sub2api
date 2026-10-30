@@ -1,4 +1,5 @@
 export const DEFAULT_PAYMENT_CURRENCY = 'CNY'
+export const CREDIT_BALANCE_SYMBOL = '￥'
 
 const PAYMENT_CURRENCY_SYMBOLS: Record<string, string> = {
   USD: '$',

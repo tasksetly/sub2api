@@ -35,8 +35,8 @@
             <td class="px-3 py-3 text-right tabular-nums">{{ formatTokens(row.output_tokens) }}</td>
             <td class="px-3 py-3 text-right tabular-nums">{{ formatTokens(row.cache_tokens) }}</td>
             <td class="px-3 py-3 text-right font-mono">${{ money(row.account_cost) }}</td>
-            <td class="px-3 py-3 text-right font-mono">${{ money(row.user_billed) }}</td>
-            <td class="px-3 py-3 text-right font-mono" :class="row.gross_profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">${{ money(row.gross_profit) }}</td>
+            <td class="px-3 py-3 text-right font-mono">￥{{ money(row.user_billed) }}</td>
+            <td class="px-3 py-3 text-right font-mono" :class="row.gross_profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">￥{{ money(row.gross_profit) }}</td>
             <td class="px-4 py-3 text-right font-mono" :class="row.gross_margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">{{ percent(row.gross_margin) }}</td>
           </tr>
         </tbody>

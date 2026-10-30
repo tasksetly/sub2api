@@ -799,7 +799,7 @@ export default {
           previewOpenNone: '≥ {from}: no bonus',
           noticeLabel: 'Recharge Bonus Notice',
           noticeHint: 'Markdown supported. Shown at the top of the amount picker on the recharge page; leave empty to hide.',
-          noticePlaceholder: 'e.g. 🎁 Limited offer: get 20% extra on top-ups of $100+, 30% on $500+ …',
+          noticePlaceholder: 'e.g. 🎁 Limited offer: get 20% extra on top-ups of ￥100+, 30% on ￥500+ …',
         },
         orderTimeout: 'Order Timeout',
         orderTimeoutHint: 'In minutes, minimum 1',
