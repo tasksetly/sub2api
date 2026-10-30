@@ -18,10 +18,10 @@
             <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.inputTokens') }}</th>
             <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.outputTokens') }}</th>
             <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.cacheTokens') }}</th>
-            <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.accountCost') }}</th>
-            <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.userBilled') }}</th>
-            <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.grossProfit') }}</th>
-            <th class="px-4 py-3 text-right">{{ t('usage.supplierCost.grossMargin') }}</th>
+            <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.dailyAccountCost') }}</th>
+            <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.dailyUserBilled') }}</th>
+            <th class="px-3 py-3 text-right">{{ t('usage.supplierCost.dailyGrossProfit') }}</th>
+            <th class="px-4 py-3 text-right">{{ t('usage.supplierCost.dailyGrossMargin') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
