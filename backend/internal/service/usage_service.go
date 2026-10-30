@@ -462,7 +462,7 @@ func (s *UsageService) GetStatsWithFilters(ctx context.Context, filters usagesta
 	return stats, nil
 }
 
-// GetSupplierCostStats returns account costs grouped by the supplier assigned to each account.
+// GetSupplierCostStats returns account costs grouped by the supplier snapshot in the durable ledger.
 func (s *UsageService) GetSupplierCostStats(ctx context.Context, filters usagestats.UsageLogFilters) ([]usagestats.SupplierCostStat, error) {
 	reader, ok := s.usageRepo.(interface {
 		GetSupplierCostStats(context.Context, usagestats.UsageLogFilters) ([]usagestats.SupplierCostStat, error)
@@ -473,6 +473,22 @@ func (s *UsageService) GetSupplierCostStats(ctx context.Context, filters usagest
 	stats, err := reader.GetSupplierCostStats(ctx, filters)
 	if err != nil {
 		return nil, fmt.Errorf("get supplier cost stats: %w", err)
+	}
+	return stats, nil
+}
+
+func (s *UsageService) GetUpstreamCostDaily(ctx context.Context, filters usagestats.UsageLogFilters) ([]usagestats.UpstreamCostDailyStat, error) {
+	reader, ok := s.usageRepo.(interface {
+		GetUpstreamCostDailyFromLedger(context.Context, usagestats.UsageLogFilters) ([]usagestats.UpstreamCostDailyStat, error)
+	})
+	if !ok {
+		// Keep the supplier-cost endpoint compatible with lightweight repository
+		// implementations that predate the durable daily ledger.
+		return []usagestats.UpstreamCostDailyStat{}, nil
+	}
+	stats, err := reader.GetUpstreamCostDailyFromLedger(ctx, filters)
+	if err != nil {
+		return nil, fmt.Errorf("get upstream daily cost stats: %w", err)
 	}
 	return stats, nil
 }

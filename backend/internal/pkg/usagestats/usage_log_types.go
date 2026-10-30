@@ -326,6 +326,23 @@ type SupplierCostStat struct {
 	CostPercentage float64 `json:"cost_percentage"`
 }
 
+// UpstreamCostDailyStat is the durable upstream/model/day cost ledger row.
+type UpstreamCostDailyStat struct {
+	Date         string  `json:"date"`
+	ProviderID   int64   `json:"provider_id"`
+	ProviderName string  `json:"provider_name"`
+	ProviderType string  `json:"provider_type"`
+	Model        string  `json:"model"`
+	Requests     int64   `json:"requests"`
+	InputTokens  int64   `json:"input_tokens"`
+	OutputTokens int64   `json:"output_tokens"`
+	CacheTokens  int64   `json:"cache_tokens"`
+	AccountCost  float64 `json:"account_cost"`
+	UserBilled   float64 `json:"user_billed"`
+	GrossProfit  float64 `json:"gross_profit"`
+	GrossMargin  float64 `json:"gross_margin"`
+}
+
 // PlatformUsage 表示某用户/某 API key 在单个"有效平台"维度的用量明细。
 // Platform 取值与 ops 路径口径一致：优先 groups.platform，否则 accounts.platform。
 type PlatformUsage struct {

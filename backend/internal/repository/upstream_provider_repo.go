@@ -314,15 +314,26 @@ func (r *upstreamProviderRepository) attachStats(
 	}
 
 	const statsQuery = `
-		SELECT a.upstream_provider_id,
-		       COUNT(DISTINCT a.id) FILTER (WHERE a.deleted_at IS NULL) AS account_count,
-		       COALESCE(SUM(COALESCE(u.account_stats_cost, u.total_cost) * COALESCE(u.account_rate_multiplier, 1)), 0) AS local_cost,
-		       COUNT(u.id) AS local_requests,
-		       COALESCE(SUM(u.actual_cost), 0) AS local_user_billed
-		FROM accounts a
-		LEFT JOIN usage_logs u ON u.account_id = a.id
-		WHERE a.upstream_provider_id = ANY($1)
-		GROUP BY a.upstream_provider_id`
+		WITH account_counts AS (
+			SELECT upstream_provider_id,
+			       COUNT(DISTINCT id) FILTER (WHERE deleted_at IS NULL) AS account_count
+			FROM accounts
+			WHERE upstream_provider_id = ANY($1)
+			GROUP BY upstream_provider_id
+		), ledger AS (
+			SELECT provider_id,
+			       COALESCE(SUM(account_cost), 0) AS local_cost,
+			       COALESCE(SUM(requests), 0)::bigint AS local_requests,
+			       COALESCE(SUM(user_billed), 0) AS local_user_billed
+			FROM upstream_cost_daily_rollups
+			WHERE provider_id = ANY($1)
+			GROUP BY provider_id
+		)
+		SELECT p.id, COALESCE(a.account_count, 0), COALESCE(l.local_cost, 0),
+		       COALESCE(l.local_requests, 0), COALESCE(l.local_user_billed, 0)
+		FROM unnest($1::bigint[]) AS p(id)
+		LEFT JOIN account_counts a ON a.upstream_provider_id = p.id
+		LEFT JOIN ledger l ON l.provider_id = p.id`
 	rows, err := r.sql.QueryContext(ctx, statsQuery, pq.Array(ids))
 	if err != nil {
 		return fmt.Errorf("query upstream provider stats: %w", err)

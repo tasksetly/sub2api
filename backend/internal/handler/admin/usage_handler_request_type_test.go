@@ -43,6 +43,10 @@ func (s *adminUsageRepoCapture) GetSupplierCostStats(_ context.Context, filters 
 	return []usagestats.SupplierCostStat{}, nil
 }
 
+func (s *adminUsageRepoCapture) GetUpstreamCostDailyFromLedger(_ context.Context, _ usagestats.UsageLogFilters) ([]usagestats.UpstreamCostDailyStat, error) {
+	return []usagestats.UpstreamCostDailyStat{}, nil
+}
+
 func newAdminUsageRequestTypeTestRouter(repo *adminUsageRepoCapture) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	usageSvc := service.NewUsageService(repo, nil, nil, nil)

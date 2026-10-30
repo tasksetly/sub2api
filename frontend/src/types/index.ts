@@ -2086,6 +2086,22 @@ export interface SupplierCostStat {
   cost_percentage: number
 }
 
+export interface UpstreamCostDailyStat {
+  date: string
+  provider_id: number
+  provider_name: string
+  provider_type: string
+  model: string
+  requests: number
+  input_tokens: number
+  output_tokens: number
+  cache_tokens: number
+  account_cost: number
+  user_billed: number
+  gross_profit: number
+  gross_margin: number
+}
+
 export interface UserBreakdownItem {
   user_id: number
   email: string

@@ -39,6 +39,7 @@
       </section>
 
       <SupplierCostTable :rows="supplierCosts" :loading="loading" />
+      <UpstreamCostDailyTable :rows="upstreamCostDaily" :loading="loading" />
       <UpstreamFinancePanel />
     </div>
   </AppLayout>
@@ -49,12 +50,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminUsageAPI } from '@/api/admin/usage'
-import type { SupplierCostStat } from '@/types'
+import type { SupplierCostStat, UpstreamCostDailyStat } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import SupplierCostTable from '@/components/admin/usage/SupplierCostTable.vue'
+import UpstreamCostDailyTable from '@/components/admin/usage/UpstreamCostDailyTable.vue'
 import UpstreamFinancePanel from '@/components/admin/upstream/UpstreamFinancePanel.vue'
 
 const { t } = useI18n()
@@ -81,6 +83,7 @@ const startDate = ref(defaultRange.start)
 const endDate = ref(defaultRange.end)
 const supplierSelection = ref<string | null>(null)
 const supplierCosts = ref<SupplierCostStat[]>([])
+const upstreamCostDaily = ref<UpstreamCostDailyStat[]>([])
 const knownSuppliers = ref<Set<string>>(new Set())
 const loading = ref(false)
 let requestSeq = 0
@@ -115,11 +118,13 @@ const loadSupplierCosts = async () => {
     })
     if (seq !== requestSeq) return
     supplierCosts.value = response.suppliers || []
+    upstreamCostDaily.value = response.daily || []
     rememberSuppliers(supplierCosts.value)
   } catch (error) {
     if (seq !== requestSeq) return
     console.error('Failed to load supplier cost stats:', error)
     supplierCosts.value = []
+    upstreamCostDaily.value = []
     appStore.showError(t('usage.supplierCost.loadFailed'))
   } finally {
     if (seq === requestSeq) loading.value = false

@@ -28,6 +28,9 @@ const (
 	// 启动回填耗时可能远长于周期聚合，因此使用独立锁并让 TTL 严格大于回填超时。
 	dashboardAggregationGroupUsageBackfillLeaderLockKey = "dashboard:aggregation:group-usage-backfill:leader"
 	dashboardAggregationGroupUsageBackfillLeaderLockTTL = defaultDashboardAggregationBackfillTimeout + time.Minute
+	upstreamCostLedgerScheduleName = "upstream:cost-ledger"
+	upstreamCostLedgerLeaderLockKey = "upstream:cost-ledger:leader"
+	upstreamCostLedgerLeaderLockTTL = 5 * time.Minute
 )
 
 var (
@@ -96,6 +99,10 @@ func (s *DashboardAggregationService) Start() {
 	if s == nil || s.repo == nil || s.timingWheel == nil {
 		return
 	}
+	// Cost ledger synchronization is independent from dashboard aggregation so
+	// disabling dashboard charts cannot disable durable cost accounting.
+	s.timingWheel.ScheduleRecurring(upstreamCostLedgerScheduleName, time.Minute, s.runScheduledCostLedger)
+	go s.runScheduledCostLedger()
 	if !s.cfg.Enabled {
 		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 聚合作业已禁用")
 		// Explicit runtime retention remains available without dashboard aggregation.
@@ -276,6 +283,23 @@ func (s *DashboardAggregationService) runScheduledAggregation() {
 	)
 
 	s.maybeCleanupRetention(ctx, now)
+}
+
+func (s *DashboardAggregationService) runScheduledCostLedger() {
+	ledger, ok := s.repo.(UpstreamCostLedgerSyncRepository)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultDashboardAggregationTimeout)
+	defer cancel()
+	release, acquired := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, upstreamCostLedgerLeaderLockKey, s.instanceID, upstreamCostLedgerLeaderLockTTL)
+	if !acquired {
+		return
+	}
+	defer release()
+	if err := ledger.SyncUpstreamCostLedger(ctx, time.Now().UTC()); err != nil {
+		logger.LegacyPrintf("service.dashboard_aggregation", "[DashboardAggregation] 上游成本台账同步失败: %v", err)
+	}
 }
 
 func (s *DashboardAggregationService) runScheduledGroupUsageSync() {

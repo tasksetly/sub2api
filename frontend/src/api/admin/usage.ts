@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from '../client'
-import type { AdminUsageLog, UsageQueryParams, PaginatedResponse, UsageRequestType, SupplierCostStat } from '@/types'
+import type { AdminUsageLog, UsageQueryParams, PaginatedResponse, UsageRequestType, SupplierCostStat, UpstreamCostDailyStat } from '@/types'
 import type { EndpointStat } from '@/types'
 
 // ==================== Types ====================
@@ -28,6 +28,7 @@ export interface AdminUsageStatsResponse {
 
 export interface SupplierCostStatsResponse {
   suppliers: SupplierCostStat[]
+  daily: UpstreamCostDailyStat[]
 }
 
 export interface SimpleUser {

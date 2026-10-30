@@ -468,7 +468,12 @@ func (h *UsageHandler) SupplierCosts(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, gin.H{"suppliers": stats})
+	daily, err := h.usageService.GetUpstreamCostDaily(c.Request.Context(), filters)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"suppliers": stats, "daily": daily})
 }
 
 // SearchUsers handles searching users by email keyword
