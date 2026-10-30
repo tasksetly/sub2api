@@ -48,7 +48,10 @@ async function syncAll() {
   syncing.value = true
   try {
     const result = await upstreamProvidersAPI.syncAll()
-    appStore.showSuccess(t('admin.upstreamProviders.syncAllResult', result))
+    appStore.showSuccess(t('admin.upstreamProviders.syncAllResult', {
+      succeeded: result.succeeded,
+      failed: result.failed,
+    }))
   } catch {
     error.value = t('admin.upstreamProviders.financeSyncFailed')
     syncing.value = false
