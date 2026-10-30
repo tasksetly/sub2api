@@ -11,25 +11,32 @@
     <div v-else-if="error" class="p-6 text-sm text-red-600 dark:text-red-400">{{ error }}</div>
     <div v-else-if="!providers.length" class="p-6 text-center text-sm text-gray-500">{{ t('admin.upstreamProviders.noProviders') }}</div>
     <div v-else class="overflow-x-auto">
-      <table class="min-w-[1100px] w-full text-sm">
+      <table class="min-w-[1180px] w-full text-sm">
         <thead class="bg-gray-50 text-xs text-gray-500 dark:bg-dark-800">
           <tr>
             <th class="px-4 py-3 text-left">{{ t('admin.upstreamProviders.colName') }}</th>
+            <th class="px-4 py-3 text-right" :title="t('admin.upstreamProviders.financeBalanceHint')">{{ t('admin.upstreamProviders.financeBalance') }}</th>
             <th class="px-4 py-3 text-right">{{ t('admin.upstreamProviders.financeRecharge') }}</th>
             <th class="px-4 py-3 text-right">{{ t('admin.upstreamProviders.financePaid') }}</th>
             <th class="px-4 py-3 text-right">{{ t('admin.upstreamProviders.financeConsumed') }}</th>
             <th class="px-4 py-3 text-right">{{ t('admin.upstreamProviders.financeCost') }}</th>
             <th class="px-4 py-3 text-right">{{ t('admin.upstreamProviders.financeBilled') }}</th>
             <th class="px-4 py-3 text-right">{{ t('admin.upstreamProviders.financeProfit') }}</th>
-            <th class="px-4 py-3 text-right">{{ t('admin.upstreamProviders.financeDifference') }}</th>
+            <th class="px-4 py-3 text-right" :title="t('admin.upstreamProviders.financeDifferenceHint')">{{ t('admin.upstreamProviders.financeDifference') }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
           <tr v-for="provider in providers" :key="provider.id" class="align-top text-gray-700 dark:text-gray-200">
             <td class="px-4 py-3">
-              <div class="font-medium">{{ provider.name }}</div>
+              <UpstreamProviderName :name="provider.name" :notes="provider.notes" :sync-error="provider.last_sync_error" />
               <div class="text-xs text-gray-500">{{ provider.provider_type }}</div>
-              <p v-if="provider.last_sync_error" class="mt-1 max-w-xs text-xs text-red-600 dark:text-red-400">{{ provider.last_sync_error }}</p>
+            </td>
+            <td class="px-4 py-3 text-right">
+              <span v-if="provider.balance != null" class="font-mono">{{ money(provider.balance) }}</span>
+              <span v-else class="text-gray-400">—</span>
+              <div v-if="provider.frozen_balance != null && provider.frozen_balance > 0" class="text-xs text-gray-500">
+                {{ t('admin.upstreamProviders.frozenLabel') }}: {{ money(provider.frozen_balance) }}
+              </div>
             </td>
             <td class="px-4 py-3 text-right">
               <template v-if="provider.finance?.orders_synced_at">
@@ -70,6 +77,7 @@
 import { useI18n } from 'vue-i18n'
 import type { UpstreamProviderWithStats } from '@/types/upstreamProvider'
 import { formatDateTime } from '@/utils/format'
+import UpstreamProviderName from './UpstreamProviderName.vue'
 withDefaults(defineProps<{ providers: UpstreamProviderWithStats[]; loading?: boolean; error?: string }>(), { loading: false, error: '' })
 const { t } = useI18n()
 const currencyLabel = (currency: string) => currency.startsWith('UNSPECIFIED') ? t('admin.upstreamProviders.financeUnspecifiedCurrency') + (currency.includes('/') ? ` (${currency.split('/')[1]})` : '') : currency

@@ -48,6 +48,8 @@ export default {
     upstreamProviders: {
       financeTitle: 'Cumulative upstream funding and costs',
       financeHint: 'Cumulative snapshots for all upstreams, independent of the cost page date and supplier filters. Only credited orders count; completed refunds are deducted. Payments are grouped by original currency without FX conversion. Converted cost = upstream consumption × recharge correction; profit difference = local billed − converted cost; cost difference = local estimated cost − converted cost. Other upstream usage, log cleanup and sync timing can affect reconciliation.',
+      financeBalance: 'Account balance',
+      financeBalanceHint: 'sub2api shows the upstream account balance; NewAPI PATs show account quota, while relay keys show that key’s available quota.',
       financeRecharge: 'Net credited total',
       financePaid: 'Net paid (original currency)',
       financeConsumed: 'Upstream consumption',
@@ -55,6 +57,7 @@ export default {
       financeBilled: 'Local billed total',
       financeProfit: 'Profit difference',
       financeDifference: 'Cost difference',
+      financeDifferenceHint: 'Local estimated cost − converted upstream cumulative consumption; positive means the local estimate is higher.',
       financeOrders: '{count} valid orders',
       financeObserved: 'Observed NewAPI orders: the upstream may expose only 30 days. Initial sync is not a complete history.',
       financeUnknownUnits: '{count} orders excluded from credits due to unknown plugin units',

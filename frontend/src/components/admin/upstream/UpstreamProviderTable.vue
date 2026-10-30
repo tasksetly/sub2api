@@ -33,7 +33,7 @@
             </td>
 
             <td class="px-3 py-3">
-              <div class="font-medium text-gray-900 dark:text-white">{{ provider.name }}</div>
+              <UpstreamProviderName :name="provider.name" :notes="provider.notes" class="text-gray-900 dark:text-white" />
               <span class="badge badge-gray">
                 {{
                   provider.provider_type === 'newapi'
@@ -265,6 +265,7 @@ import { useI18n } from 'vue-i18n'
 import type { UpstreamProviderWithStats, UpstreamGroup } from '@/types/upstreamProvider'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTime } from '@/utils/format'
+import UpstreamProviderName from './UpstreamProviderName.vue'
 
 interface Props {
   providers: UpstreamProviderWithStats[]
