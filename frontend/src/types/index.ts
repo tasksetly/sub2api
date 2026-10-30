@@ -2539,6 +2539,7 @@ export interface ScheduledTestPlan {
   failure_disable?: boolean
   failure_temp_unschedulable_minutes?: number
   success_add_group_id?: number | null
+  success_add_group_ids?: number[]
   success_enable?: boolean
   success_recover?: boolean
   last_run_at: string | null
@@ -2588,6 +2589,7 @@ export interface CreateScheduledTestPlanRequest {
   failure_disable?: boolean
   failure_temp_unschedulable_minutes?: number
   success_add_group_id?: number | null
+  success_add_group_ids?: number[]
   success_enable?: boolean
   success_recover?: boolean
 }
@@ -2609,6 +2611,7 @@ export interface UpdateScheduledTestPlanRequest {
   failure_disable?: boolean
   failure_temp_unschedulable_minutes?: number
   success_add_group_id?: number | null
+  success_add_group_ids?: number[]
   success_enable?: boolean
   success_recover?: boolean
 }

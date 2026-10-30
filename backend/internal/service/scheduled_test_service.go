@@ -75,6 +75,18 @@ func validateScheduledTestActions(plan *ScheduledTestPlan) error {
 	if plan.PromptText != "" && plan.ExpectedAnswer == "" { return fmt.Errorf("expected answer is required when a prompt is configured") }
 	if plan.FailureRemoveGroupID != nil && *plan.FailureRemoveGroupID <= 0 { return fmt.Errorf("failure group id must be positive") }
 	if plan.SuccessAddGroupID != nil && *plan.SuccessAddGroupID <= 0 { return fmt.Errorf("success group id must be positive") }
+	seenGroupIDs := make(map[int64]struct{}, len(plan.SuccessAddGroupIDs))
+	groupIDs := make([]int64, 0, len(plan.SuccessAddGroupIDs))
+	for _, groupID := range plan.SuccessAddGroupIDs {
+		if groupID <= 0 {
+			return fmt.Errorf("success group ids must be positive")
+		}
+		if _, exists := seenGroupIDs[groupID]; !exists {
+			seenGroupIDs[groupID] = struct{}{}
+			groupIDs = append(groupIDs, groupID)
+		}
+	}
+	plan.SuccessAddGroupIDs = groupIDs
 	return nil
 }
 

@@ -313,10 +313,16 @@ func (s *ScheduledTestRunnerService) applySuccessActions(ctx context.Context, pl
 	if repo == nil {
 		return
 	}
-	if plan.SuccessAddGroupID != nil {
+	groupIDs := plan.SuccessAddGroupIDs
+	if len(groupIDs) == 0 && plan.SuccessAddGroupID != nil {
+		groupIDs = []int64{*plan.SuccessAddGroupID}
+	}
+	if len(groupIDs) > 0 {
 		if mutation, ok := repo.(AccountGroupMutationRepository); ok {
-			if err := mutation.AddToGroup(ctx, plan.AccountID, *plan.SuccessAddGroupID, 1); err != nil {
-				logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d add group failed: %v", plan.ID, err)
+			for _, groupID := range groupIDs {
+				if err := mutation.AddToGroup(ctx, plan.AccountID, groupID, 1); err != nil {
+					logger.LegacyPrintf("service.scheduled_test_runner", "[ScheduledTestRunner] plan=%d add group=%d failed: %v", plan.ID, groupID, err)
+				}
 			}
 		}
 	}

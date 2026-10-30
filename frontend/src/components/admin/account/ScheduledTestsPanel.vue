@@ -106,7 +106,16 @@
               <div class="sm:col-span-2"><div class="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">失败：移除账号当前绑定的分组</div><div v-if="boundGroups.length" class="flex flex-wrap gap-2"><label v-for="group in boundGroups" :key="group.id" class="flex items-center gap-1.5 text-sm"><input v-model="newPlan.failure_remove_group_ids" type="checkbox" :value="Number(group.id)" class="rounded border-gray-300" />{{ group.name }}</label></div><span v-else class="text-xs text-gray-400">该账号当前没有绑定分组</span></div>
               <Input v-model="newPlan.failure_temp_unschedulable_minutes" type="number" label="失败：临时不可调度（分钟，0=不操作）" />
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="newPlan.failure_disable" />失败：关闭账号</label>
-              <Select v-model="newPlan.success_add_group_id" :options="[{ value: '', label: '成功：不加入分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '成功：加入 ' + g.name }))]" />
+              <div class="sm:col-span-2">
+                <div class="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">成功：加入指定分组（可多选，不选则不操作）</div>
+                <div v-if="platformGroups.length" class="flex flex-wrap gap-2">
+                  <label v-for="group in platformGroups" :key="group.id" class="flex items-center gap-1.5 text-sm">
+                    <input v-model="newPlan.success_add_group_ids" type="checkbox" :value="Number(group.id)" class="rounded border-gray-300" />
+                    {{ group.name }}
+                  </label>
+                </div>
+                <span v-else class="text-xs text-gray-400">该平台暂无可用分组</span>
+              </div>
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="newPlan.success_enable" />成功：开启账号</label>
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="newPlan.success_recover" />成功：恢复调度与错误状态</label>
             </div>
@@ -348,7 +357,16 @@
               <div class="sm:col-span-2"><div class="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">失败：移除账号当前绑定的分组</div><div v-if="boundGroups.length" class="flex flex-wrap gap-2"><label v-for="group in boundGroups" :key="group.id" class="flex items-center gap-1.5 text-sm"><input v-model="editForm.failure_remove_group_ids" type="checkbox" :value="Number(group.id)" class="rounded border-gray-300" />{{ group.name }}</label></div><span v-else class="text-xs text-gray-400">该账号当前没有绑定分组</span></div>
               <Input v-model="editForm.failure_temp_unschedulable_minutes" type="number" label="失败：临时不可调度（分钟，0=不操作）" />
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="editForm.failure_disable" />失败：关闭账号</label>
-              <Select v-model="editForm.success_add_group_id" :options="[{ value: '', label: '成功：不加入分组' }, ...(groups || []).map(g => ({ value: String(g.id), label: '成功：加入 ' + g.name }))]" />
+              <div class="sm:col-span-2">
+                <div class="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">成功：加入指定分组（可多选，不选则不操作）</div>
+                <div v-if="platformGroups.length" class="flex flex-wrap gap-2">
+                  <label v-for="group in platformGroups" :key="group.id" class="flex items-center gap-1.5 text-sm">
+                    <input v-model="editForm.success_add_group_ids" type="checkbox" :value="Number(group.id)" class="rounded border-gray-300" />
+                    {{ group.name }}
+                  </label>
+                </div>
+                <span v-else class="text-xs text-gray-400">该平台暂无可用分组</span>
+              </div>
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="editForm.success_enable" />成功：开启账号</label>
               <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><Toggle v-model="editForm.success_recover" />成功：恢复调度与错误状态</label>
             </div>
@@ -540,7 +558,7 @@ import { Icon } from '@/components/icons'
 import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime } from '@/utils/format'
-import type { ScheduledTestPlan, ScheduledTestResult, ScheduledTestPromptTemplate, AdminGroup } from '@/types'
+import type { ScheduledTestPlan, ScheduledTestResult, ScheduledTestPromptTemplate, AdminGroup, AccountPlatform } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -548,6 +566,7 @@ const appStore = useAppStore()
 const props = defineProps<{
   show: boolean
   accountId: number | null
+  accountPlatform?: AccountPlatform
   modelOptions: SelectOption[]
   groups?: AdminGroup[]
   accountGroupIds?: number[]
@@ -583,7 +602,8 @@ const newPromptTemplateId = ref('')
 const editPromptTemplateId = ref('')
 const templateSaving = ref(false)
 const promptTemplateOptions = computed(() => promptTemplates.value.map((item) => ({ value: String(item.id), label: item.name })))
-const boundGroups = computed(() => (props.groups || []).filter((group) => (props.accountGroupIds || []).includes(Number(group.id))))
+const platformGroups = computed(() => (props.groups || []).filter((group) => group.platform === props.accountPlatform))
+const boundGroups = computed(() => platformGroups.value.filter((group) => (props.accountGroupIds || []).includes(Number(group.id))))
 const editForm = reactive({
   prompt_text: '',
   expected_answer: '',
@@ -591,7 +611,7 @@ const editForm = reactive({
   failure_remove_group_ids: [] as number[],
   failure_disable: false,
   failure_temp_unschedulable_minutes: '0',
-  success_add_group_id: '',
+  success_add_group_ids: [] as number[],
   success_enable: false,
   success_recover: false,
   model_id: '' as string,
@@ -612,7 +632,7 @@ const newPlan = reactive({
   failure_remove_group_ids: [] as number[],
   failure_disable: false,
   failure_temp_unschedulable_minutes: '0',
-  success_add_group_id: '',
+  success_add_group_ids: [] as number[],
   success_enable: false,
   success_recover: false,
   model_id: '' as string,
@@ -633,7 +653,7 @@ const resetNewPlan = () => {
   newPlan.failure_remove_group_ids = []
   newPlan.failure_disable = false
   newPlan.failure_temp_unschedulable_minutes = '0'
-  newPlan.success_add_group_id = ''
+  newPlan.success_add_group_ids = []
   newPlan.success_enable = false
   newPlan.success_recover = false
   newPlan.model_id = ''
@@ -664,6 +684,8 @@ watch(
       expandedResultIds.clear()
       showAddForm.value = false
       showDeleteConfirm.value = false
+      editingPlanId.value = null
+      resetNewPlan()
     }
   }
 )
@@ -724,7 +746,7 @@ const handleCreate = async () => {
       failure_remove_group_ids: newPlan.failure_remove_group_ids,
       failure_disable: newPlan.failure_disable,
       failure_temp_unschedulable_minutes: Number(newPlan.failure_temp_unschedulable_minutes) || 0,
-      success_add_group_id: newPlan.success_add_group_id ? Number(newPlan.success_add_group_id) : null,
+      success_add_group_ids: newPlan.success_add_group_ids,
       success_enable: newPlan.success_enable,
       success_recover: newPlan.success_recover,
       cron_expression: newPlan.cron_expression,
@@ -766,7 +788,8 @@ const startEdit = (plan: ScheduledTestPlan) => {
   editForm.failure_remove_group_ids = plan.failure_remove_group_ids?.length ? [...plan.failure_remove_group_ids] : (plan.failure_remove_group_id ? [plan.failure_remove_group_id] : [])
   editForm.failure_disable = plan.failure_disable === true
   editForm.failure_temp_unschedulable_minutes = String(plan.failure_temp_unschedulable_minutes || 0)
-  editForm.success_add_group_id = plan.success_add_group_id ? String(plan.success_add_group_id) : ''
+  const successGroupIds = plan.success_add_group_ids ?? (plan.success_add_group_id ? [plan.success_add_group_id] : [])
+  editForm.success_add_group_ids = successGroupIds.filter((id) => platformGroups.value.some((group) => Number(group.id) === id))
   editForm.success_enable = plan.success_enable === true
   editForm.success_recover = plan.success_recover === true
   editForm.model_id = plan.model_id
@@ -797,7 +820,7 @@ const handleEdit = async () => {
       failure_remove_group_ids: editForm.failure_remove_group_ids,
       failure_disable: editForm.failure_disable,
       failure_temp_unschedulable_minutes: Number(editForm.failure_temp_unschedulable_minutes) || 0,
-      success_add_group_id: editForm.success_add_group_id ? Number(editForm.success_add_group_id) : 0,
+      success_add_group_ids: editForm.success_add_group_ids,
       success_enable: editForm.success_enable,
       success_recover: editForm.success_recover,
       cron_expression: editForm.cron_expression,

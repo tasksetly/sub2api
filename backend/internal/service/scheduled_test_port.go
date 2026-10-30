@@ -31,6 +31,7 @@ type ScheduledTestPlan struct {
 	FailureDisable bool `json:"failure_disable"`
 	FailureTempUnschedulableMinutes int `json:"failure_temp_unschedulable_minutes"`
 	SuccessAddGroupID *int64 `json:"success_add_group_id,omitempty"`
+	SuccessAddGroupIDs []int64 `json:"success_add_group_ids,omitempty"`
 	SuccessEnable bool `json:"success_enable"`
 	SuccessRecover bool `json:"success_recover"`
 	LastRunAt      *time.Time `json:"last_run_at"`

@@ -40,6 +40,7 @@ type createScheduledTestPlanRequest struct {
 	FailureDisable             *bool  `json:"failure_disable"`
 	FailureTempUnschedulableMinutes *int `json:"failure_temp_unschedulable_minutes"`
 	SuccessAddGroupID          *int64 `json:"success_add_group_id"`
+	SuccessAddGroupIDs         []int64 `json:"success_add_group_ids"`
 	SuccessEnable              *bool  `json:"success_enable"`
 	SuccessRecover             *bool  `json:"success_recover"`
 }
@@ -61,6 +62,7 @@ type updateScheduledTestPlanRequest struct {
 	FailureDisable             *bool  `json:"failure_disable"`
 	FailureTempUnschedulableMinutes *int `json:"failure_temp_unschedulable_minutes"`
 	SuccessAddGroupID          *int64 `json:"success_add_group_id"`
+	SuccessAddGroupIDs         []int64 `json:"success_add_group_ids"`
 	SuccessEnable              *bool  `json:"success_enable"`
 	SuccessRecover             *bool  `json:"success_recover"`
 }
@@ -144,6 +146,10 @@ func (h *ScheduledTestHandler) Create(c *gin.Context) {
 	if req.FailureDisable != nil { plan.FailureDisable = *req.FailureDisable }
 	if req.FailureTempUnschedulableMinutes != nil { plan.FailureTempUnschedulableMinutes = *req.FailureTempUnschedulableMinutes }
 	plan.SuccessAddGroupID = req.SuccessAddGroupID
+	if req.SuccessAddGroupIDs != nil {
+		plan.SuccessAddGroupIDs = req.SuccessAddGroupIDs
+		plan.SuccessAddGroupID = nil
+	}
 	if req.SuccessEnable != nil { plan.SuccessEnable = *req.SuccessEnable }
 	if req.SuccessRecover != nil { plan.SuccessRecover = *req.SuccessRecover }
 
@@ -212,11 +218,18 @@ func (h *ScheduledTestHandler) Update(c *gin.Context) {
 	if req.FailureRemoveGroupIDs != nil { existing.FailureRemoveGroupIDs = req.FailureRemoveGroupIDs }
 	if req.FailureDisable != nil { existing.FailureDisable = *req.FailureDisable }
 	if req.FailureTempUnschedulableMinutes != nil { existing.FailureTempUnschedulableMinutes = *req.FailureTempUnschedulableMinutes }
-	if req.SuccessAddGroupID != nil { if *req.SuccessAddGroupID <= 0 {
+	if req.SuccessAddGroupIDs != nil {
+		existing.SuccessAddGroupIDs = req.SuccessAddGroupIDs
+		existing.SuccessAddGroupID = nil
+	} else if req.SuccessAddGroupID != nil {
+		// Legacy clients replace the selection through the single-group field.
+		existing.SuccessAddGroupIDs = nil
+		if *req.SuccessAddGroupID <= 0 {
 			existing.SuccessAddGroupID = nil
 		} else {
 			existing.SuccessAddGroupID = req.SuccessAddGroupID
-		} }
+		}
+	}
 	if req.SuccessEnable != nil { existing.SuccessEnable = *req.SuccessEnable }
 	if req.SuccessRecover != nil { existing.SuccessRecover = *req.SuccessRecover }
 
