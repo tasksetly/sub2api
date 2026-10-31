@@ -186,7 +186,7 @@ const ALL_GROUP = '__all__'
 const route = useRoute()
 const appStore = useAppStore()
 
-const loading = ref(true)
+const loading = ref(false)
 const hasLoaded = ref(false)
 const error = ref('')
 const selectedGroup = ref(ALL_GROUP)
