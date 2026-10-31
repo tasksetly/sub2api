@@ -175,6 +175,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useIntervalFn } from '@vueuse/core'
 import { useRoute } from 'vue-router'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
@@ -321,6 +322,7 @@ function formatDate(item: IntelligenceTestItem) {
 }
 
 async function loadResults() {
+  if (loading.value) return
   loading.value = true
   error.value = ''
   try {
@@ -332,6 +334,8 @@ async function loadResults() {
     loading.value = false
   }
 }
+
+useIntervalFn(() => { void loadResults() }, 60_000)
 
 function setGroupRef(name: string, element: unknown) {
   if (element instanceof HTMLElement) groupRefs.set(name, element)

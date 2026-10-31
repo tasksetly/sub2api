@@ -133,21 +133,16 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING i
 	return row.Scan(&item.ID, &item.CreatedAt)
 }
 
-func (r *intelligenceTestRepository) PruneResults(ctx context.Context, configID int64, keepCount int) error {
-	if keepCount <= 0 {
-		keepCount = 20
-	}
+func (r *intelligenceTestRepository) PruneResults(ctx context.Context, configID int64) error {
+	// The display limit must not delete valid SVG history.
 	_, err := r.db.ExecContext(ctx, `WITH ranked AS (
-    SELECT id, (check_ok AND svg_content <> '') AS is_svg,
-           ROW_NUMBER() OVER (
-               PARTITION BY (check_ok AND svg_content <> '')
-               ORDER BY created_at DESC, id DESC
-           ) AS rn
+    SELECT id, ROW_NUMBER() OVER (ORDER BY created_at DESC, id DESC) AS rn
     FROM intelligence_test_results WHERE question_id = $1
+      AND (check_ok = FALSE OR svg_content = '')
 )
 DELETE FROM intelligence_test_results AS result USING ranked
 WHERE result.id = ranked.id
-  AND ((ranked.is_svg AND ranked.rn > $2) OR (NOT ranked.is_svg AND ranked.rn > 20))`, configID, keepCount)
+  AND ranked.rn > 20`, configID)
 	return err
 }
 

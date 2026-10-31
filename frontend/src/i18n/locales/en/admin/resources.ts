@@ -32,7 +32,7 @@ export default {
       cronTooltipExampleWeekly: '0 9 * * 1: run every Monday at 09:00',
       cronTooltipRange: 'Recommended range: use standard 5-field cron. For health checks, start with a moderate frequency such as every 30 minutes, every hour, or once a day instead of running too often.',
       maxResultsTooltipTitle: 'What Max Results means:',
-      maxResultsTooltipMeaning: 'Sets how many historical test results are kept for a single plan so the result list does not grow without limit.',
+      maxResultsTooltipMeaning: 'Limits the history kept for each plan. Scheduled tests continue running when this limit is reached.',
       maxResultsTooltipBody: 'Only the newest test results are kept. Once the number of saved results exceeds this value, older records are pruned automatically so the history list and storage stay under control.',
       maxResultsTooltipExample: 'For example, 100 means keeping at most the latest 100 test results. When the 101st result is saved, the oldest one is removed.',
       maxResultsTooltipRange: 'Recommended range: usually 20 to 200. Use 20-50 when you only care about recent health status, or 100-200 if you want a longer trend history.',

@@ -91,7 +91,7 @@ type IntelligenceTestRepository interface {
 	UpdateRun(context.Context, int64, time.Time, time.Time) error
 	ListAPIKeyOptions(context.Context) ([]*IntelligenceTestAPIKeyOption, error)
 	InsertResult(context.Context, *IntelligenceTestResult) error
-	PruneResults(context.Context, int64, int) error
+	PruneResults(context.Context, int64) error
 	ListResults(context.Context, int64, int) ([]*IntelligenceTestResult, error)
 	ListSVGResults(context.Context, int64, int) ([]*IntelligenceTestResult, error)
 }
@@ -432,7 +432,7 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 	writeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := s.repo.InsertResult(writeCtx, result); err != nil { return result, err }
-	if err := s.repo.PruneResults(writeCtx, result.ConfigID, c.KeepCount); err != nil { return result, err }
+	if err := s.repo.PruneResults(writeCtx, result.ConfigID); err != nil { return result, err }
 	return result, nil
 }
 

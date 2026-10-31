@@ -32,7 +32,7 @@ export default {
       cronTooltipExampleWeekly: '0 9 * * 1：每周一 09:00 运行一次',
       cronTooltipRange: '推荐填写范围：使用标准 5 字段 cron；如果只是健康检查，建议从每 30 分钟、每 1 小时或每天固定时间开始，不建议一开始就设置过高频率。',
       maxResultsTooltipTitle: '最大结果数说明：',
-      maxResultsTooltipMeaning: '用于限制单个计划最多保留多少条历史测试结果，避免结果列表无限增长。',
+      maxResultsTooltipMeaning: '仅限制单个计划保留的历史结果数；定时检测会持续执行，不会在记录满额后停止。',
       maxResultsTooltipBody: '系统只会保留最近的测试结果；当保存数量超过这个值时，更早的历史记录会自动清理，避免列表过长和存储持续增长。',
       maxResultsTooltipExample: '例如填写 100，表示最多保存最近 100 次测试结果；第 101 次结果写入后，最早的一条会被清理。',
       maxResultsTooltipRange: '推荐填写范围：一般可填 20 到 200。只关注近期可用性时可填 20-50；需要回看较长时间的波动趋势时可填 100-200。',

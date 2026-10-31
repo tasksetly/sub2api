@@ -21,7 +21,7 @@
 
       <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900">
         <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-dark-700">
-          <div><h2 class="font-semibold text-gray-900 dark:text-white">已配置测试</h2><p class="text-xs text-gray-500 dark:text-dark-400">每个配置保留最近的有效 SVG（默认 20 个）</p></div>
+          <div><h2 class="font-semibold text-gray-900 dark:text-white">已配置测试</h2><p class="text-xs text-gray-500 dark:text-dark-400">公开页展示每个配置最新的 Top N 有效 SVG（默认 20 个）</p></div>
           <button class="btn btn-secondary" :disabled="loading" title="刷新" @click="load"><Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" /></button>
         </div>
         <div v-if="loading" class="p-10 text-center text-sm text-gray-500">加载中...</div>
@@ -51,7 +51,8 @@
           <div><label class="input-label">推理等级</label><select v-model="form.reasoning_effort" class="input"><option value="">模型默认</option><option value="low">低 (low)</option><option value="medium">中 (medium)</option><option value="high">高 (high)</option><option value="xhigh">极高 (xhigh)</option><option value="max">最大 (max)</option></select><p class="mt-1 text-xs text-gray-500">可选等级取决于模型；不支持的等级会由上游拒绝。</p></div>
           <div><label class="input-label">提示词</label><textarea v-model="form.prompt_text" class="input min-h-32" required placeholder="请输出一个完整的 SVG，不要附加 Markdown 代码块。" /></div>
           <p class="text-xs text-gray-500">系统提示词会固定要求模型只输出 SVG；若需动态作品，请在题目中明确要求使用 SVG animate 或 CSS 动画。</p>
-          <div class="grid gap-4 sm:grid-cols-2"><div><label class="input-label">Cron（默认每小时）</label><input v-model="form.cron_expression" class="input" placeholder="0 * * * *" /></div><div><label class="input-label">保留结果数</label><input v-model.number="form.keep_count" type="number" min="1" max="100" class="input" /></div></div>
+          <div class="grid gap-4 sm:grid-cols-2"><div><label class="input-label">Cron（默认每小时）</label><input v-model="form.cron_expression" class="input" placeholder="0 * * * *" /></div><div><label class="input-label">展示 Top N</label><input v-model.number="form.keep_count" type="number" min="1" max="100" class="input" /></div></div>
+          <p class="text-xs text-gray-500">仅限制展示最新的有效 SVG 数量；定时测试会持续执行，新结果会自动更新到展示页。</p>
           <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-dark-300"><input v-model="form.enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600" />启用定时测试</label>
           <div class="flex justify-end gap-2"><button type="button" class="btn btn-secondary" @click="dialogOpen = false">取消</button><button type="submit" class="btn btn-primary" :disabled="saving">{{ saving ? '保存中...' : '保存配置' }}</button></div>
         </form>
