@@ -42,7 +42,7 @@ func TestIntelligenceTestScheduledRunSkipsLockHeldByPeer(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 	repo := &intelligenceTestLockRepo{config: &IntelligenceTestConfig{ID: 7}}
-	svc := NewIntelligenceTestService(repo, nil, nil, nil, db)
+	svc := NewIntelligenceTestService(repo, nil, nil, nil, nil, db)
 	mock.ExpectQuery(`SELECT pg_try_advisory_lock\(\$1\)`).WithArgs(intelligenceTestLockID(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"acquired"}).AddRow(false))
 
@@ -63,7 +63,7 @@ func TestIntelligenceTestScheduledRunRechecksConfigAfterLock(t *testing.T) {
 			require.NoError(t, err)
 			defer db.Close()
 			repo := &intelligenceTestLockRepo{config: config}
-			svc := NewIntelligenceTestService(repo, nil, nil, nil, db)
+			svc := NewIntelligenceTestService(repo, nil, nil, nil, nil, db)
 			mock.ExpectQuery(`SELECT pg_try_advisory_lock\(\$1\)`).WithArgs(intelligenceTestLockID(7)).
 				WillReturnRows(sqlmock.NewRows([]string{"acquired"}).AddRow(true))
 			mock.ExpectExec(`SELECT pg_advisory_unlock\(\$1\)`).WithArgs(intelligenceTestLockID(7)).
@@ -82,7 +82,7 @@ func TestIntelligenceTestManualRunUsesSameLockAsSchedule(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	svc := NewIntelligenceTestService(nil, nil, nil, nil, db)
+	svc := NewIntelligenceTestService(nil, nil, nil, nil, nil, db)
 	mock.ExpectQuery(`SELECT pg_try_advisory_lock\(\$1\)`).WithArgs(intelligenceTestLockID(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"acquired"}).AddRow(false))
 
@@ -96,7 +96,7 @@ func TestIntelligenceTestLockFailureDoesNotRunLocally(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	svc := NewIntelligenceTestService(nil, nil, nil, nil, db)
+	svc := NewIntelligenceTestService(nil, nil, nil, nil, nil, db)
 	mock.ExpectQuery(`SELECT pg_try_advisory_lock\(\$1\)`).WithArgs(intelligenceTestLockID(7)).
 		WillReturnError(errors.New("database unavailable"))
 
@@ -115,7 +115,7 @@ func TestIntelligenceTestRunStatusOnAnotherInstance(t *testing.T) {
 			defer db.Close()
 			finished := time.Now()
 			repo := &intelligenceTestLockRepo{results: []*IntelligenceTestResult{{ID: 42, Status: "validated", FinishedAt: finished}}}
-			svc := NewIntelligenceTestService(repo, nil, nil, nil, db)
+			svc := NewIntelligenceTestService(repo, nil, nil, nil, nil, db)
 			mock.ExpectQuery(`SELECT pg_try_advisory_lock\(\$1\)`).WithArgs(intelligenceTestLockID(7)).
 				WillReturnRows(sqlmock.NewRows([]string{"acquired"}).AddRow(!running))
 			if !running {

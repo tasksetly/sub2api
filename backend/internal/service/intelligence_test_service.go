@@ -1,16 +1,12 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"net/http/httptest"
 	"regexp"
 	"sort"
 	"strconv"
@@ -19,10 +15,7 @@ import (
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/domain"
-	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
-	"github.com/tidwall/gjson"
 )
 
 var (
@@ -423,7 +416,10 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 					if run.ErrorCode >= 100 { result.ErrorMessage = "upstream HTTP " + strconv.Itoa(run.ErrorCode) }
 					if errors.Is(ctx.Err(), context.DeadlineExceeded) { result.ErrorMessage = "benchmark timed out" }
 				}
-			} else { result.ErrorMessage = "upstream test failed" }
+			} else {
+				result.ErrorMessage = "upstream test failed"
+				slog.Error("intelligence_test_upstream_failed", "config_id", c.ID, "error", runErr)
+			}
 		}
 	} else if err != nil { result.ErrorMessage = "API key lookup failed" } else { result.ErrorMessage = "API key is not bound to a group" }
 	if result.FinishedAt.IsZero() { result.FinishedAt = time.Now(); result.LatencyMs = result.FinishedAt.Sub(started).Milliseconds() }
@@ -436,37 +432,18 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 	return result, nil
 }
 
-// runThroughGateway uses the configured API key group and the normal account
-// scheduler before forwarding the synthetic Anthropic request. It intentionally
-// avoids selecting a fixed account from the group.
+// Keep group load-aware selection, then probe the account's native protocol.
 func (s *IntelligenceTestService) runThroughGateway(ctx context.Context, key *APIKey, c *IntelligenceTestConfig) (*ScheduledTestResult, error) {
-	body, err := json.Marshal(map[string]any{
-		"model": c.ModelID, "max_tokens": 4096, "stream": false,
-		"system": intelligenceTestSVGSystemPrompt,
-		"messages": []map[string]string{{"role": "user", "content": c.PromptText}},
-	})
-	if err != nil { return nil, err }
-	parsed, err := ParseGatewayRequest(NewRequestBodyRef(body), domain.PlatformAnthropic)
-	if err != nil { return nil, err }
-	parsed.GroupID = key.GroupID
+	if s.accountTest == nil { return nil, fmt.Errorf("account test service unavailable") }
 	selection, err := s.gateway.SelectAccountWithLoadAwareness(ctx, key.GroupID, "", c.ModelID, nil, "", key.UserID)
 	if err != nil { return nil, err }
 	if selection == nil || selection.Account == nil { return nil, fmt.Errorf("no schedulable account in the API key group") }
 	if selection.ReleaseFunc != nil { defer selection.ReleaseFunc() }
 
-	recorder := httptest.NewRecorder()
-	ginCtx, _ := gin.CreateTestContext(recorder)
-	ginCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body)).WithContext(ctx)
-	ginCtx.Request.Header.Set("Content-Type", "application/json")
-	forwarded, err := s.gateway.Forward(ctx, ginCtx, selection.Account, parsed)
-	if err != nil { return nil, err }
-	if forwarded == nil { return nil, fmt.Errorf("gateway returned no result") }
-	responseText := gjson.GetBytes(recorder.Body.Bytes(), "content.0.text").String()
-	if responseText == "" { responseText = recorder.Body.String() }
-	status := "success"
-	if recorder.Code >= http.StatusBadRequest { status = "failed" }
-	now := time.Now()
-	return &ScheduledTestResult{Status: status, ResponseText: responseText, LatencyMs: forwarded.Duration.Milliseconds(), StartedAt: now.Add(-forwarded.Duration), FinishedAt: now}, nil
+	return s.accountTest.RunTestBackgroundWithOptions(ctx, selection.Account.ID, c.ModelID, c.PromptText, AccountTestOptions{
+		ReasoningEffort: c.ReasoningEffort,
+		SystemPrompt:    intelligenceTestSVGSystemPrompt,
+	})
 }
 
 func extractSVG(value string) string {

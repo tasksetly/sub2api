@@ -3469,7 +3469,7 @@ func parseTestSSEErrorCode(body string) int {
 	return 0
 }
 
-var testHTTPErrorCodePattern = regexp.MustCompile(`(?i)(?:http|status|code)[^0-9]{0,8}([1-5][0-9]{2})`)
+var testHTTPErrorCodePattern = regexp.MustCompile(`(?i)(?:http|status|code|returned)[^0-9]{0,8}([1-5][0-9]{2})`)
 
 func parseHTTPErrorCode(message string) int {
 	match := testHTTPErrorCodePattern.FindStringSubmatch(message)
