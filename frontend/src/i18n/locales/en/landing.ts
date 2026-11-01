@@ -14,12 +14,12 @@ export default {
     getStarted: 'Sign Up and Get Started',
     goToDashboard: 'Go to Dashboard',
     // User-focused value proposition
-    heroSubtitle: 'API access for Codex CLI with usage-based billing. Sign up, create an API key, and start calling the API.',
-    heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
+    heroSubtitle: 'API access for AI coding tools with usage-based billing. Create an API key, follow the quickstart, and make a first request.',
+    heroDescription: 'Use one API key and dashboard to view the models and channels currently available to you.',
     tags: {
       subscriptionToApi: 'Codex CLI API Access',
-      stickySession: '5.6+',
-      realtimeBilling: 'Token Rates from 0.1x'
+      stickySession: 'View available model catalog',
+      realtimeBilling: 'View model and channel pricing'
     },
     // Pain points section
     painPoints: {
@@ -54,7 +54,7 @@ export default {
       multiAccount: 'Unified Access and Management',
       multiAccountDesc: 'Create an API key after signup, manage usage in one place, and use the models you need.',
       balanceQuota: 'Usage-Based Balance Billing',
-      balanceQuotaDesc: 'Each CNY 1 recharge becomes USD 1 of balance. Token usage starts at 0.1x the model reference price.'
+      balanceQuotaDesc: 'Each CNY 1 recharge becomes USD 1 of balance; platform balance units are not foreign-exchange rates. Actual charges follow model and channel pricing conditions.'
     },
     // Comparison section
     comparison: {
@@ -73,7 +73,7 @@ export default {
         models: {
           feature: 'Model Selection',
           official: 'Single provider only',
-          us: 'Switch between models freely'
+          us: 'Choose currently available models'
         },
         management: {
           feature: 'Account Management',
@@ -83,7 +83,7 @@ export default {
         stability: {
           feature: 'Stability',
           official: 'Single account rate limits',
-          us: 'Multi-account pool, auto-failover'
+          us: 'Choose an available channel as needed'
         },
         control: {
           feature: 'Usage Control',

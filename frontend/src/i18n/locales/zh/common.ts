@@ -247,6 +247,7 @@ export default {
     passkeyFailed: 'Passkey 登录失败，请重试。',
     createAccount: '创建账户',
     signUpToStart: '注册以开始使用 {siteName}',
+    apiAccessSubtitle: '面向 AI 编程工具用户的 API 接入服务',
     signUp: '注册',
     processing: '处理中...',
     continue: '继续',

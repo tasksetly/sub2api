@@ -71,9 +71,9 @@
         <a class="button secondary" href="#pricing">查看计费说明</a>
       </div>
       <div class="facts" aria-label="服务摘要">
-        <div class="fact"><strong>GPT 5.4 / 5.6+</strong><span>以控制台实际可用模型为准</span></div>
+        <div class="fact"><strong>当前可用模型目录</strong><span>以控制台实际可用模型为准</span></div>
         <div class="fact"><strong>1 CNY = 1 USD</strong><span>充值余额按此规则折算</span></div>
-        <div class="fact"><strong>0.1 倍起</strong><span>Token 消耗按模型基准价格计费</span></div>
+        <div class="fact"><strong>查看模型与通道价格</strong><span>输入、输出及适用条件以控制台为准</span></div>
       </div>
     </main>
     <section>
@@ -92,7 +92,7 @@
         <table class="price-table">
           <tbody>
             <tr><th scope="row">充值余额</th><td>充值 1 CNY 折算为 1 USD 余额。</td></tr>
-            <tr><th scope="row">Token 消耗</th><td>按模型基准价格的 0.1 倍起计算；不同模型的最终模型名、输入/输出价格与适用条件以控制台当前价格为准。</td></tr>
+            <tr><th scope="row">Token 消耗</th><td>上游参考价、平台显示价格、通道倍率以及输入/输出/缓存和适用条件按模型分别展示；具体以控制台当前价格为准。</td></tr>
             <tr><th scope="row">开始使用</th><td>注册后创建 API Key，按控制台当前显示的模型和价格使用服务。</td></tr>
           </tbody>
         </table>

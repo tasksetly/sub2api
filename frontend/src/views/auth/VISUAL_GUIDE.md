@@ -40,7 +40,7 @@ Centered: Both horizontally and vertically
 ┌─────────────────────────────────────────────┐
 │                                             │
 │         🔷 Sub2API                          │
-│    Subscription to API Conversion Platform  │
+│    API access for AI coding tools           │
 │                                             │
 │  ┌─────────────────────────────────────┐   │
 │  │                                     │   │
@@ -134,7 +134,7 @@ Centered: Both horizontally and vertically
 ┌─────────────────────────────────────────────┐
 │                                             │
 │         🔷 Sub2API                          │
-│    Subscription to API Conversion Platform  │
+│    API access for AI coding tools           │
 │                                             │
 │  ┌─────────────────────────────────────┐   │
 │  │                                     │   │

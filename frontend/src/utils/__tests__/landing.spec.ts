@@ -19,7 +19,7 @@ describe('resolveHomeSubtitle', () => {
   it('replaces the generic English default with localized copy on Chinese pages', () => {
     expect(
       resolveHomeSubtitle(
-        'Subscription to API Conversion Platform',
+        'API access for AI coding tools',
         'zh-CN',
         '一个 API Key，接入你常用的 AI 模型',
       ),

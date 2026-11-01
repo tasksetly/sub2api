@@ -12,6 +12,7 @@ export function getHomeDocsUrl(configuredUrl: string): string {
 const GENERIC_ENGLISH_SUBTITLES = new Set([
   'AI API Gateway Platform',
   'Subscription to API Conversion Platform',
+  'API access for AI coding tools',
 ])
 
 export function resolveHomeSubtitle(

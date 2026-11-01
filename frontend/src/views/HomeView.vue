@@ -447,7 +447,7 @@ const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appS
 const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteSubtitle = computed(() =>
   resolveHomeSubtitle(
-    appStore.cachedPublicSettings?.site_subtitle || 'AI API Gateway Platform',
+    appStore.cachedPublicSettings?.site_subtitle || 'API access for AI coding tools',
     String(locale.value),
     t('home.heroSubtitle'),
   ),

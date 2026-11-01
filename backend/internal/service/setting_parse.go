@@ -365,7 +365,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		SiteLogo:                               settings[SettingKeySiteLogo],
 		SiteContentLogo:                        settings[SettingKeySiteContentLogo],
 		SiteFavicon:                            settings[SettingKeySiteFavicon],
-		SiteSubtitle:                           s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
+		SiteSubtitle:                           s.getStringOrDefault(settings, SettingKeySiteSubtitle, "API access for AI coding tools"),
 		APIBaseURL:                             settings[SettingKeyAPIBaseURL],
 		ContactInfo:                            settings[SettingKeyContactInfo],
 		DocURL:                                 settings[SettingKeyDocURL],

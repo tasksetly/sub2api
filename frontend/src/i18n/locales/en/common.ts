@@ -247,6 +247,7 @@ export default {
     passkeyFailed: 'Passkey sign-in failed. Please try again.',
     createAccount: 'Create Account',
     signUpToStart: 'Sign up to start using {siteName}',
+    apiAccessSubtitle: 'API access for AI coding tools',
     signUp: 'Sign up',
     processing: 'Processing...',
     continue: 'Continue',

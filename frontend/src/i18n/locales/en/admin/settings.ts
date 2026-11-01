@@ -675,7 +675,7 @@ export default {
         siteNamePlaceholder: 'Sub2API',
         siteNameHint: 'Displayed in emails and page titles',
         siteSubtitle: 'Site Subtitle',
-        siteSubtitlePlaceholder: 'Subscription to API Conversion Platform',
+        siteSubtitlePlaceholder: 'API access for AI coding tools',
         siteSubtitleHint: 'Displayed on login and register pages',
         apiBaseUrl: 'API Base URL',
         apiBaseUrlPlaceholder: 'https://api.example.com',

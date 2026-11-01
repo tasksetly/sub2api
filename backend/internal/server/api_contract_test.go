@@ -1178,7 +1178,7 @@ func TestAPIContracts(t *testing.T) {
 					"site_logo": "",
 					"site_content_logo": "",
 					"site_favicon": "",
-					"site_subtitle": "Subscription to API Conversion Platform",
+					"site_subtitle": "API access for AI coding tools",
 					"api_base_url": "",
 					"api_key_acl_trust_forwarded_ip": false,
 					"forwarded_client_ip_headers": [],

@@ -14,12 +14,12 @@ export default {
     getStarted: '注册并开始使用',
     goToDashboard: '进入控制台',
     // 新增：面向用户的价值主张
-    heroSubtitle: 'Codex CLI API 接入，余额按量计费。注册后即可创建 API Key，快速开始调用。',
-    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
+    heroSubtitle: '面向 AI 编程工具的 API 接入服务，按用量计费。注册、创建 API Key、阅读快速开始文档，然后发起第一次调用。',
+    heroDescription: '使用一个 API Key 和控制台，按需查看当前可用模型与通道。',
     tags: {
       subscriptionToApi: 'Codex CLI API 接入',
-      stickySession: '5.6+',
-      realtimeBilling: 'Token 0.1 倍起'
+      stickySession: '查看可用模型目录',
+      realtimeBilling: '查看模型与通道价格'
     },
     // 用户痛点区块
     painPoints: {
@@ -54,7 +54,7 @@ export default {
       multiAccount: '统一管理与调用',
       multiAccountDesc: '注册后创建 API Key，集中管理用量并按需调用多种 AI 模型。',
       balanceQuota: '余额按量计费',
-      balanceQuotaDesc: '充值 1 CNY 折算 1 USD 余额，Token 消耗按模型基准价格 0.1 倍起。'
+      balanceQuotaDesc: '充值 1 CNY 计入 1 USD 计价余额；平台余额单位不代表外汇汇率。实际费用按模型与通道的价格条件计算。'
     },
     // 优势对比
     comparison: {
@@ -73,7 +73,7 @@ export default {
         models: {
           feature: '模型选择',
           official: '单一服务商',
-          us: '多模型随意切换'
+          us: '按需选择当前可用模型'
         },
         management: {
           feature: '账号管理',
@@ -83,7 +83,7 @@ export default {
         stability: {
           feature: '服务稳定性',
           official: '单账号易触发限制',
-          us: '多账号池，自动切换'
+          us: '按需选择可用通道'
         },
         control: {
           feature: '用量控制',

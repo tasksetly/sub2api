@@ -1,5 +1,8 @@
 <template>
   <div class="plaza-pricing-table overflow-x-auto" :style="accentStyle">
+    <p class="mb-3 px-5 text-xs leading-5 text-gray-500 dark:text-dark-400">
+      {{ t('modelPlaza.table.pricingNote') }}
+    </p>
     <table class="w-full min-w-[1000px] table-auto border-collapse text-sm tabular-nums">
       <colgroup>
         <col class="w-[25%]" />

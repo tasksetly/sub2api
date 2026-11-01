@@ -669,7 +669,7 @@ export default {
         siteNamePlaceholder: 'Sub2API',
         siteSubtitle: '站点副标题',
         siteSubtitleHint: '显示在登录和注册页面',
-        siteSubtitlePlaceholder: '订阅转 API 转换平台',
+        siteSubtitlePlaceholder: '面向 AI 编程工具用户的 API 接入服务',
         apiBaseUrl: 'API 端点地址',
         apiBaseUrlHint: '用于"使用密钥"、"导入到 CC Switch"和回调地址建议，留空则使用当前站点地址',
         apiBaseUrlPlaceholder: 'https://api.example.com',
