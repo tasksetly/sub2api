@@ -14,7 +14,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import PlazaNavBar from '@/components/modelPlaza/PlazaNavBar.vue'
@@ -26,6 +27,7 @@ import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const { locale } = useI18n()
 
 // embedded=1 但未登录(如转发的链接)自动降级为独立形态。
 const isEmbedded = computed(() => route.query.embedded === '1' && authStore.isAuthenticated)
@@ -34,15 +36,22 @@ const data = ref<ModelPlazaResponse | null>(null)
 const loading = ref(true)
 const loadFailed = ref(false)
 
-onMounted(async () => {
+onMounted(() => {
   // 独立形态导航条需要站点名/Logo;有 __APP_CONFIG__ 注入时同步命中缓存。
   void appStore.fetchPublicSettings()
-  try {
-    data.value = await getModelPlaza()
-  } catch {
-    loadFailed.value = true
-  } finally {
-    loading.value = false
-  }
 })
+
+watch(locale, async (_locale, _previous, onCleanup) => {
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  loadFailed.value = false
+  try {
+    const response = await getModelPlaza({ signal: controller.signal })
+    if (!controller.signal.aborted) data.value = response
+  } catch {
+    if (!controller.signal.aborted) loadFailed.value = true
+  } finally {
+    if (!controller.signal.aborted) loading.value = false
+  }
+}, { immediate: true })
 </script>

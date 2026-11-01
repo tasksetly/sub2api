@@ -7,7 +7,7 @@
     <header class="border-b border-gray-100 px-5 py-4 dark:border-dark-700/60">
       <div class="flex flex-wrap items-center gap-2">
         <GroupBadge
-          :name="group.name"
+          :name="groupDisplayName(group.name, t)"
           :platform="group.platform as GroupPlatform"
           :subscription-type="(group.subscription_type || 'standard') as SubscriptionType"
           :rate-multiplier="group.rate_multiplier"
@@ -18,6 +18,24 @@
           :peak-rate-multiplier="group.peak_rate_multiplier"
           always-show-rate
         />
+        <HelpTooltip>
+          <template #trigger="{ open, close, show }">
+            <button
+              type="button"
+              class="rounded p-1 text-gray-400 hover:text-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-600 dark:text-dark-400"
+              :aria-label="t('modelPlaza.detail.groupNoteLabel')"
+              :aria-describedby="groupNoteId"
+              :aria-expanded="show"
+              @focus="open"
+              @blur="close"
+              @click.stop="open"
+              @keydown.esc.stop="close"
+            >
+              <Icon name="infoCircle" size="sm" aria-hidden="true" />
+            </button>
+          </template>
+          <span :id="groupNoteId">{{ t('modelPlaza.detail.groupNote') }}</span>
+        </HelpTooltip>
         <span
           v-if="group.is_exclusive"
           class="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-600 dark:bg-purple-900/20 dark:text-purple-400"
@@ -74,10 +92,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
+import HelpTooltip from '@/components/common/HelpTooltip.vue'
+import { groupDisplayName } from './groupDisplayName'
 import PlazaModelPricingTable from './PlazaModelPricingTable.vue'
 import type { ModelPlazaGroup } from '@/api/modelPlaza'
 import type { GroupPlatform, SubscriptionType } from '@/types'
@@ -91,6 +111,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const groupNoteId = useId()
 
 /** 高峰窗口描述(含倍率与服务器时区标注);分组未启用高峰为空串。 */
 const peakWindow = computed(() => {

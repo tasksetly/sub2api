@@ -734,6 +734,14 @@ export default {
 
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
+    groupNames: {
+      anthropic: 'Anthropic 默认分组',
+      openai: 'OpenAI 默认分组',
+      gemini: 'Gemini 默认分组',
+      grok: 'Grok 默认分组',
+      antigravity1: 'Antigravity 默认分组 1',
+      antigravity2: 'Antigravity 默认分组 2'
+    },
     title: '模型广场',
     description: '按分组浏览可用模型与价格',
     loading: '加载中...',
@@ -754,6 +762,8 @@ export default {
       subscription: '订阅'
     },
     detail: {
+      groupNoteLabel: '关于分组显示名称',
+      groupNote: '本地化分组标签仅用于显示。可用模型及适用的渠道与计价条件，请查看目录和模型详情。',
       noModels: '该分组暂未配置模型',
       noPricing: '未配置定价',
       peakNote: '高峰时段 {window} 计费倍率 ×{multiplier}',

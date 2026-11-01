@@ -70,6 +70,7 @@ import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
 import PlazaFilterBar from './PlazaFilterBar.vue'
 import PlazaGroupSection from './PlazaGroupSection.vue'
+import { groupDisplayName } from './groupDisplayName'
 import type { ModelPlazaGroup, ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
 
@@ -110,7 +111,7 @@ const platforms = computed(() =>
 const groupOptions = computed(() =>
   (props.response?.groups ?? []).map((g) => ({
     id: g.id,
-    name: g.name,
+    name: groupDisplayName(g.name, t),
     platform: g.platform,
     rate: effectiveRate(g)
   }))

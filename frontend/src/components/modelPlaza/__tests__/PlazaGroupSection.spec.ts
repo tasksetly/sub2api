@@ -1,17 +1,23 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
+import { createI18n } from 'vue-i18n'
+import en from '@/i18n/locales/en/dashboard'
+import zh from '@/i18n/locales/zh/dashboard'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import PlazaGroupSection from '../PlazaGroupSection.vue'
 import PlazaModelPricingTable from '../PlazaModelPricingTable.vue'
 import type { ModelPlazaGroup, PlazaModel } from '@/api/modelPlaza'
 
-vi.mock('vue-i18n', async () => {
-  const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
-  return {
-    ...actual,
-    useI18n: () => ({
-      t: (key: string) => key
-    })
-  }
+const i18n = createI18n({
+  legacy: false,
+  locale: 'en',
+  messages: { en, zh }
+})
+
+beforeEach(() => {
+  i18n.global.locale.value = 'en'
 })
 
 vi.mock('@/stores/app', () => ({
@@ -80,16 +86,18 @@ function mountSection(g: ModelPlazaGroup) {
   return mount(PlazaGroupSection, {
     props: { group: g },
     global: {
+      plugins: [i18n],
       stubs: {
         GroupBadge: true,
         Icon: true,
+        teleport: true,
         PlazaModelPricingTable: true
       }
     }
   })
 }
 
-const NOTE = 'modelPlaza.detail.longContextDisabledNote'
+const NOTE = en.modelPlaza.detail.longContextDisabledNote
 
 describe('PlazaGroupSection 长上下文说明', () => {
   it('passes video-specific rates to the pricing table', () => {
@@ -145,5 +153,64 @@ describe('PlazaGroupSection 高峰配置传递', () => {
   it('分组未启用高峰时窗口描述为空串', () => {
     const wrapper = mountSection(group())
     expect(wrapper.findComponent(PlazaModelPricingTable).props('peakWindow')).toBe('')
+  })
+})
+
+describe('PlazaGroupSection localized display', () => {
+  it('updates a verified default label with the locale without changing group data or pricing', async () => {
+    const g = group({ name: 'openai-default', user_rate_multiplier: 0.7 })
+    const original = JSON.stringify(g)
+    const wrapper = mountSection(g)
+    const table = wrapper.getComponent(PlazaModelPricingTable)
+    const pricingProps = { ...table.props() }
+
+    expect(wrapper.getComponent(GroupBadge).props('name')).toBe('OpenAI Default')
+    i18n.global.locale.value = 'zh'
+    await nextTick()
+    expect(wrapper.getComponent(GroupBadge).props('name')).toBe('OpenAI 默认分组')
+    expect(table.props()).toEqual(pricingProps)
+    expect(JSON.stringify(g)).toBe(original)
+    wrapper.unmount()
+  })
+
+  it.each([' Custom 标准 ', 'openai-default-custom', 'OPENAI-DEFAULT', '__proto__', 'toString'])(
+    'preserves the exact custom name %s in both locales', async (name) => {
+      const wrapper = mountSection(group({ name }))
+      expect(wrapper.getComponent(GroupBadge).props('name')).toBe(name)
+      i18n.global.locale.value = 'zh'
+      await nextTick()
+      expect(wrapper.getComponent(GroupBadge).props('name')).toBe(name)
+      wrapper.unmount()
+    }
+  )
+
+  it('hides the note until hover, keyboard focus or click, and links its accessible trigger', async () => {
+    const wrapper = mountSection(group())
+    const help = wrapper.getComponent(HelpTooltip)
+    const trigger = help.get('button')
+    const tooltip = help.get('[role="tooltip"]')
+    expect(trigger.attributes('type')).toBe('button')
+    expect(trigger.attributes('aria-label')).toBe(en.modelPlaza.detail.groupNoteLabel)
+    expect(help.get('span[id]').attributes('id')).toBe(trigger.attributes('aria-describedby'))
+    expect(tooltip.text()).toContain(en.modelPlaza.detail.groupNote)
+    expect(tooltip.isVisible()).toBe(false)
+
+    await help.trigger('mouseenter')
+    expect(tooltip.isVisible()).toBe(true)
+    await help.trigger('mouseleave')
+    expect(tooltip.isVisible()).toBe(false)
+    await trigger.trigger('focus')
+    expect(tooltip.isVisible()).toBe(true)
+    await trigger.trigger('keydown', { key: 'Escape' })
+    expect(tooltip.isVisible()).toBe(false)
+    await trigger.trigger('click')
+    expect(tooltip.isVisible()).toBe(true)
+    await trigger.trigger('blur')
+    expect(tooltip.isVisible()).toBe(false)
+    i18n.global.locale.value = 'zh'
+    await nextTick()
+    expect(trigger.attributes('aria-label')).toBe(zh.modelPlaza.detail.groupNoteLabel)
+    expect(tooltip.text()).toContain(zh.modelPlaza.detail.groupNote)
+    wrapper.unmount()
   })
 })

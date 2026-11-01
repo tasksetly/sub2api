@@ -110,7 +110,7 @@ onBeforeUnmount(() => {
     @click="onClick"
   >
     <!-- Trigger Icon -->
-    <slot name="trigger">
+    <slot name="trigger" :open="openTooltip" :close="closeTooltip" :show="show">
       <svg
         class="h-4 w-4 cursor-help text-gray-400 transition-colors hover:text-primary-600 dark:text-gray-500 dark:hover:text-primary-400"
         fill="none"

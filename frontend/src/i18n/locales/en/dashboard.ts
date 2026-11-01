@@ -729,6 +729,14 @@ export default {
 
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
+    groupNames: {
+      anthropic: 'Anthropic Default',
+      openai: 'OpenAI Default',
+      gemini: 'Gemini Default',
+      grok: 'Grok Default',
+      antigravity1: 'Antigravity Default 1',
+      antigravity2: 'Antigravity Default 2'
+    },
     title: 'Model Plaza',
     description: 'Browse available models and pricing by group',
     loading: 'Loading...',
@@ -749,6 +757,8 @@ export default {
       subscription: 'Subscription'
     },
     detail: {
+      groupNoteLabel: 'About group display names',
+      groupNote: 'Localized group labels are display names only. See the catalog and model details for available models and applicable channel and pricing conditions.',
       noModels: 'No models configured for this group',
       noPricing: 'Pricing not configured',
       peakNote: 'Peak hours {window}: billing rate ×{multiplier}',
