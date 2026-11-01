@@ -28,6 +28,7 @@ type UsageCleanupService struct {
 	timingWheel *TimingWheelService
 	dashboard   *DashboardAggregationService
 	cfg         *config.Config
+	db          *sql.DB
 
 	running   int32
 	startOnce sync.Once
@@ -171,6 +172,15 @@ func (s *UsageCleanupService) runOnce() {
 	}
 	ctx, cancel := context.WithTimeout(parent, svc.taskTimeout())
 	defer cancel()
+
+	// Manual and scheduled retention deletion share the same cross-process lock.
+	if svc.db != nil {
+		release, ok := tryAcquireDBAdvisoryLock(ctx, svc.db, hashAdvisoryLockID(usageRetentionLockKey))
+		if !ok {
+			return
+		}
+		defer release()
+	}
 
 	task, err := svc.repo.ClaimNextPendingTask(ctx, int64(svc.taskTimeout().Seconds()))
 	if err != nil {

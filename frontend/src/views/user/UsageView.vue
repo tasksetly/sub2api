@@ -1,6 +1,10 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
+      <p v-if="retentionPolicy" role="status" class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+        {{ retentionPolicy.enabled ? t('admin.settings.usageRetention.userNotice', { days: retentionPolicy.retention_days }) : t('admin.settings.usageRetention.userDisabled') }}
+      </p>
+      <p v-if="retentionLoadError" role="alert" class="text-sm text-amber-700 dark:text-amber-400">{{ t('admin.settings.usageRetention.loadFailed') }}</p>
       <UsageStatsCards :stats="usageStats" :show-account-cost="false" :strike-standard-cost="true" />
 
       <div class="space-y-4">
@@ -221,6 +225,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getUsageRetentionSettings, type UsageRetentionSettings } from '@/api/usageRetention'
 import { useAppStore } from '@/stores/app'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { keysAPI, usageAPI, userGroupsAPI } from '@/api'
@@ -257,6 +262,8 @@ import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const retentionPolicy = ref<UsageRetentionSettings | null>(null)
+const retentionLoadError = ref(false)
 
 type DistributionMetric = 'tokens' | 'actual_cost'
 type EndpointSource = 'inbound' | 'upstream' | 'path'
@@ -899,6 +906,7 @@ const switchToErrors = () => {
 }
 
 onMounted(() => {
+  void getUsageRetentionSettings().then(policy => { retentionPolicy.value = policy }).catch(() => { retentionLoadError.value = true })
   loadSavedColumns()
   loadSavedErrColumns()
   document.addEventListener('click', handleColumnClickOutside)

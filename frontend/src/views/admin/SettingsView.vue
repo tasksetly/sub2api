@@ -1755,6 +1755,8 @@
             </div>
           </div>
 
+          <UsageRetentionSettings />
+
           <!-- API Key IP ACL Settings -->
           <div class="card">
             <div
@@ -9012,6 +9014,7 @@ import Toggle from "@/components/common/Toggle.vue";
 import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
 import BackupSettings from "@/views/admin/BackupView.vue";
+import UsageRetentionSettings from "@/views/admin/settings/UsageRetentionSettings.vue";
 import TicketStorageSettings from "@/views/admin/settings/TicketStorageSettings.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
 import RechargeBonusTierEditor from "@/components/admin/settings/RechargeBonusTierEditor.vue";

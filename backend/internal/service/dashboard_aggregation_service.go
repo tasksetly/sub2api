@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -28,9 +27,9 @@ const (
 	// 启动回填耗时可能远长于周期聚合，因此使用独立锁并让 TTL 严格大于回填超时。
 	dashboardAggregationGroupUsageBackfillLeaderLockKey = "dashboard:aggregation:group-usage-backfill:leader"
 	dashboardAggregationGroupUsageBackfillLeaderLockTTL = defaultDashboardAggregationBackfillTimeout + time.Minute
-	upstreamCostLedgerScheduleName = "upstream:cost-ledger"
-	upstreamCostLedgerLeaderLockKey = "upstream:cost-ledger:leader"
-	upstreamCostLedgerLeaderLockTTL = 5 * time.Minute
+	upstreamCostLedgerScheduleName                      = "upstream:cost-ledger"
+	upstreamCostLedgerLeaderLockKey                     = "upstream:cost-ledger:leader"
+	upstreamCostLedgerLeaderLockTTL                     = 5 * time.Minute
 )
 
 var (
@@ -367,7 +366,7 @@ func (s *DashboardAggregationService) backfillRange(ctx context.Context, start, 
 		updateErr == nil,
 	)
 
-	s.maybeCleanupRetention(ctx, endUTC)
+	s.maybeCleanupRetention(ctx, time.Now().UTC())
 	return nil
 }
 
@@ -382,6 +381,14 @@ func (s *DashboardAggregationService) aggregateRange(ctx context.Context, start,
 }
 
 func (s *DashboardAggregationService) maybeCleanupRetention(ctx context.Context, now time.Time) {
+	// Hold a database session lock for the entire deletion, independent of Redis TTLs.
+	if s.db != nil {
+		release, ok := tryAcquireDBAdvisoryLock(ctx, s.db, hashAdvisoryLockID(usageRetentionLockKey))
+		if !ok {
+			return
+		}
+		defer release()
+	}
 	lastAny := s.lastRetentionCleanup.Load()
 	if lastAny != nil {
 		if last, ok := lastAny.(time.Time); ok && now.Sub(last) < dashboardAggregationRetentionInterval {
@@ -397,7 +404,7 @@ func (s *DashboardAggregationService) maybeCleanupRetention(ctx context.Context,
 	}
 	hourlyCutoff := now.AddDate(0, 0, -s.cfg.Retention.HourlyDays)
 	dailyCutoff := now.AddDate(0, 0, -s.cfg.Retention.DailyDays)
-	usageCutoff := now.AddDate(0, 0, -usageDays)
+	usageCutoff := now.Add(-time.Duration(usageDays) * 24 * time.Hour)
 	dedupDays := s.cfg.Retention.UsageBillingDedupDays
 	if dedupDays <= 0 {
 		dedupDays = 365
@@ -430,33 +437,14 @@ func (s *DashboardAggregationService) maybeCleanupRetention(ctx context.Context,
 }
 
 func (s *DashboardAggregationService) requestRetentionDays(ctx context.Context) (int, error) {
-	days := s.cfg.Retention.UsageLogsDays
-	if !s.cfg.Enabled {
-		days = 0
-	}
-	if s.settingRepo == nil {
-		return days, nil
-	}
-	raw, err := s.settingRepo.GetValue(ctx, SettingKeyOpsRuntimeLogConfig)
-	if errors.Is(err, ErrSettingNotFound) {
-		return days, nil
-	}
+	policy, err := readUsageRetention(ctx, s.settingRepo, s.cfg)
 	if err != nil {
 		return 0, err
 	}
-	var cfg struct {
-		RequestRetentionDays *int `json:"request_retention_days"`
+	if !policy.Enabled {
+		return 0, nil
 	}
-	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
-		return 0, err
-	}
-	if cfg.RequestRetentionDays != nil {
-		days = *cfg.RequestRetentionDays
-		if days < 0 || days > 3650 {
-			return 0, fmt.Errorf("invalid request_retention_days: %d", days)
-		}
-	}
-	return days, nil
+	return policy.RetentionDays, nil
 }
 
 func (s *DashboardAggregationService) runScheduledRetention() {

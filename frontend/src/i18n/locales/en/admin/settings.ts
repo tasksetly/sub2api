@@ -1,5 +1,18 @@
 export default {
     settings: {
+      usageRetention: {
+        title: "Usage record cleanup",
+        enabled: "Enable automatic cleanup",
+        days: "Retention days (1–3650)",
+        scope: "Delete expired request usage records for all users. Error logs, system logs, orders and backups are excluded. Aggregate statistics keep their existing retention policies.",
+        warning: "Cleanup runs every 6 hours using record creation time and N × 24 hours. Changes apply at the next cleanup and publish an in-app announcement. Deletion is permanent and does not refund charges or reset balances or quotas. Save this section separately.",
+        confirm: "Permanently delete usage records older than {days} days on scheduled runs? Historical statistics may be affected. Export any records you need before saving.",
+        userNotice: "Usage details are kept for {days} days; older records are deleted every 6 hours. Export records you need. Deleted records cannot be restored and historical statistics may be affected. Cleanup does not refund charges or reset balances, subscriptions or quotas.",
+        userDisabled: "Automatic usage record cleanup is disabled. Previously deleted records cannot be restored.",
+        loadFailed: "Unable to read the usage retention policy. Please refresh and try again.",
+        saveFailed: "Failed to save the usage retention policy",
+        settingsLink: "Manage usage retention in Settings → Security",
+      },
       title: 'System Settings',
       description: 'Manage registration, email verification, default values, and SMTP settings',
       tabs: {

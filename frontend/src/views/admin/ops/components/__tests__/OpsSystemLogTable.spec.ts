@@ -172,30 +172,25 @@ describe('rolling log retention settings', () => {
     mockUpdateRuntimeLogConfig.mockImplementation(async config => config)
   })
 
-  it('loads and saves separate operations and request retention windows', async () => {
+  it('saves operations retention and links to the central usage policy', async () => {
     const wrapper = mountTable()
     await flushPromises()
     const fields = wrapper.findAllComponents(LogRetentionSelect)
-    expect(fields.map(field => field.props('modelValue'))).toEqual([30, 90])
+    expect(fields.map(field => field.props('modelValue'))).toEqual([30])
+    expect(wrapper.find('router-link').attributes('to')).toBe('/admin/settings')
     fields[0]!.vm.$emit('update:modelValue', 7)
-    fields[1]!.vm.$emit('update:modelValue', 180)
     await saveButton(wrapper).trigger('click')
     await flushPromises()
-    expect(mockUpdateRuntimeLogConfig).toHaveBeenCalledWith(expect.objectContaining({ retention_days: 7, request_retention_days: 180 }))
+    expect(mockUpdateRuntimeLogConfig).toHaveBeenCalledWith(expect.objectContaining({ retention_days: 7, request_retention_days: 90 }))
     wrapper.unmount()
   })
 
-  it('supports forever and rejects fractional or empty custom days', async () => {
+  it('rejects fractional, empty or out-of-range operations retention', async () => {
     const wrapper = mountTable()
     await flushPromises()
-    const requestField = wrapper.findAllComponents(LogRetentionSelect)[1]!
-    requestField.vm.$emit('update:modelValue', 0)
-    await saveButton(wrapper).trigger('click')
-    await flushPromises()
-    expect(mockUpdateRuntimeLogConfig).toHaveBeenCalledWith(expect.objectContaining({ request_retention_days: 0 }))
-    mockUpdateRuntimeLogConfig.mockClear()
-    for (const value of [1.5, Number.NaN, -1, 3651]) {
-      requestField.vm.$emit('update:modelValue', value)
+    const field = wrapper.findComponent(LogRetentionSelect)
+    for (const value of [0, 1.5, Number.NaN, -1, 3651]) {
+      field.vm.$emit('update:modelValue', value)
       await saveButton(wrapper).trigger('click')
     }
     expect(mockUpdateRuntimeLogConfig).not.toHaveBeenCalled()
