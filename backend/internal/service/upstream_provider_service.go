@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 	"github.com/pquerna/otp/totp"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -44,6 +45,9 @@ var (
 		"the manually supplied upstream token has expired; edit the provider and paste a fresh one",
 	)
 )
+
+// shortcut: cap at four providers, increase when upstream rate limits allow more parallel requests.
+const upstreamProviderSyncConcurrency = 4
 
 // UpstreamProviderService 管理上游 sub2api 供应商。
 //
@@ -397,7 +401,7 @@ func (s *UpstreamProviderService) Sync(ctx context.Context, id int64) (*Upstream
 	return s.repo.GetByID(ctx, id)
 }
 
-// SyncAll 供后台定时任务调用，逐个同步已启用的上游。
+// SyncAll 供后台定时任务调用，并行同步已启用的上游。
 // 单个失败不影响其余，失败原因各自落库。
 func (s *UpstreamProviderService) SyncAll(ctx context.Context) (succeeded, failed int) {
 	providers, err := s.repo.ListSyncable(ctx)
@@ -405,18 +409,33 @@ func (s *UpstreamProviderService) SyncAll(ctx context.Context) (succeeded, faile
 		slog.Error("upstream_provider_list_syncable_failed", "error", err)
 		return 0, 0
 	}
+	var group errgroup.Group
+	group.SetLimit(upstreamProviderSyncConcurrency)
+	results := make(chan bool, len(providers))
 	for i := range providers {
-		provider := &providers[i]
-		if err := s.syncProvider(ctx, provider); err != nil {
-			failed++
-			slog.Warn("upstream_provider_sync_failed",
-				"provider_id", provider.ID, "provider", provider.Name, "error", err)
-			if markErr := s.repo.MarkSyncFailed(ctx, provider.ID, err.Error(), time.Now()); markErr != nil {
-				slog.Warn("upstream_provider_mark_sync_failed", "provider_id", provider.ID, "error", markErr)
+		provider := providers[i]
+		group.Go(func() error {
+			if err := s.syncProvider(ctx, &provider); err != nil {
+				slog.Warn("upstream_provider_sync_failed",
+					"provider_id", provider.ID, "provider", provider.Name, "error", err)
+				if markErr := s.repo.MarkSyncFailed(ctx, provider.ID, err.Error(), time.Now()); markErr != nil {
+					slog.Warn("upstream_provider_mark_sync_failed", "provider_id", provider.ID, "error", markErr)
+				}
+				results <- false
+				return nil
 			}
-			continue
+			results <- true
+			return nil
+		})
+	}
+	_ = group.Wait()
+	close(results)
+	for ok := range results {
+		if ok {
+			succeeded++
+		} else {
+			failed++
 		}
-		succeeded++
 	}
 	return succeeded, failed
 }
