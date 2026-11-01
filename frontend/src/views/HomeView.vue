@@ -52,10 +52,10 @@
           <router-link
             to="/pelican-test"
             class="flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
-            title="SVG 能力测试"
+            :title="t('nav.intelligenceTest')"
           >
             <Icon name="sparkles" size="md" />
-            <span class="hidden sm:inline">SVG 能力测试</span>
+            <span class="hidden sm:inline">{{ t('nav.intelligenceTest') }}</span>
           </router-link>
           <button
             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-dark-400 dark:hover:bg-dark-800"
@@ -163,10 +163,10 @@
           <router-link
             to="/pelican-test"
             class="inline-flex items-center gap-1.5 rounded-lg p-2 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
-            title="SVG 能力测试"
+            :title="t('nav.intelligenceTest')"
           >
             <Icon name="sparkles" size="md" />
-            <span class="hidden sm:inline">SVG 能力测试</span>
+            <span class="hidden sm:inline">{{ t('nav.intelligenceTest') }}</span>
           </router-link>
 
           <!-- Theme Toggle -->

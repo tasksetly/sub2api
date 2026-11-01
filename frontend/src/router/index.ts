@@ -192,7 +192,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/IntelligenceTestView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'SVG Intelligence Test'
+      title: 'SVG Intelligence Test',
+      titleKey: 'nav.intelligenceTest'
     }
   },
 
@@ -588,7 +589,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
-      title: 'SVG Intelligence Test'
+      title: 'SVG Intelligence Test',
+      titleKey: 'nav.intelligenceTest'
     }
   },
   {
