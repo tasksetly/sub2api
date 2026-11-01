@@ -19,6 +19,7 @@ export interface IntelligenceTestItem {
   group?: string
   group_name?: string
   group_id?: string | number
+  rate_multiplier?: number
   model?: string
   model_id?: string
   model_name?: string
@@ -58,7 +59,7 @@ export interface IntelligenceTestResponse {
   updated?: string
   next?: string
   keep_count?: number
-  groups?: Array<string | { id?: string | number; name?: string }>
+  groups?: Array<string | { id?: string | number; name?: string; rate_multiplier?: number }>
   items?: IntelligenceTestItem[]
   runs?: IntelligenceTestRun[]
 }

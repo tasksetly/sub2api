@@ -52,6 +52,7 @@ type IntelligenceTestResult struct {
 	APIKeyID     int64      `json:"api_key_id"`
 	GroupID      *int64     `json:"group_id,omitempty"`
 	GroupName    string     `json:"group_name"`
+	RateMultiplier float64  `json:"rate_multiplier"`
 	ModelID      string     `json:"model_id"`
 	ModelName    string     `json:"model_name"`
 	ReasoningEffort string  `json:"effort,omitempty"`
@@ -115,7 +116,9 @@ type IntelligenceTestPublicConfig struct {
 
 type IntelligenceTestPublicResult struct {
 	ID         int64     `json:"id"`
+	GroupID    *int64    `json:"group_id,omitempty"`
 	GroupName  string    `json:"group_name"`
+	RateMultiplier float64 `json:"rate_multiplier"`
 	ModelID    string    `json:"model_id"`
 	ModelName  string    `json:"model_name"`
 	ReasoningEffort string `json:"effort,omitempty"`
@@ -128,11 +131,17 @@ type IntelligenceTestPublicResult struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
+type IntelligenceTestPublicGroup struct {
+	ID             *int64 `json:"id,omitempty"`
+	Name           string `json:"name"`
+	RateMultiplier float64 `json:"rate_multiplier"`
+}
+
 type IntelligenceTestPublicResponse struct {
 	Config    *IntelligenceTestPublicConfig `json:"config,omitempty"`
 	KeepCount int                           `json:"keep_count"`
 	Items     []*IntelligenceTestPublicResult `json:"items"`
-	Groups    []string                      `json:"groups"`
+	Groups    []IntelligenceTestPublicGroup  `json:"groups"`
 	Updated   *time.Time                    `json:"updated,omitempty"`
 }
 
@@ -475,7 +484,7 @@ func extractSVG(value string) string {
 }
 
 func (s *IntelligenceTestService) Public(ctx context.Context, configID int64) (*IntelligenceTestPublicResponse, error) {
-	response := &IntelligenceTestPublicResponse{Items: make([]*IntelligenceTestPublicResult, 0), Groups: make([]string, 0)}
+	response := &IntelligenceTestPublicResponse{Items: make([]*IntelligenceTestPublicResult, 0), Groups: make([]IntelligenceTestPublicGroup, 0)}
 	configs := make([]*IntelligenceTestConfig, 0)
 	if configID > 0 {
 		c, err := s.repo.GetConfig(ctx, configID)
@@ -501,9 +510,13 @@ func (s *IntelligenceTestService) Public(ctx context.Context, configID int64) (*
 		items, err := s.repo.ListSVGResults(ctx, c.ID, c.KeepCount)
 		if err != nil { return nil, err }
 		for _, item := range items {
+			rateMultiplier := item.RateMultiplier
+			if rateMultiplier <= 0 { rateMultiplier = 1 }
 			response.Items = append(response.Items, &IntelligenceTestPublicResult{
 				ID: item.ID,
+				GroupID: item.GroupID,
 				GroupName: item.GroupName, ModelID: item.ModelID, ModelName: item.ModelName, ReasoningEffort: item.ReasoningEffort, Status: item.Status,
+				RateMultiplier: rateMultiplier,
 				Check: item.Check, SVGContent: item.SVGContent, LatencyMs: item.LatencyMs,
 				StartedAt: item.StartedAt, FinishedAt: item.FinishedAt, CreatedAt: item.CreatedAt,
 			})
@@ -517,7 +530,9 @@ func (s *IntelligenceTestService) Public(ctx context.Context, configID int64) (*
 		if item.GroupName != "" {
 			if _, ok := seen[item.GroupName]; !ok {
 				seen[item.GroupName] = struct{}{}
-				response.Groups = append(response.Groups, item.GroupName)
+				response.Groups = append(response.Groups, IntelligenceTestPublicGroup{
+					ID: item.GroupID, Name: item.GroupName, RateMultiplier: item.RateMultiplier,
+				})
 			}
 		}
 		if response.Updated == nil || item.CreatedAt.After(*response.Updated) {

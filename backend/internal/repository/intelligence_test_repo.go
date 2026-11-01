@@ -157,10 +157,10 @@ func (r *intelligenceTestRepository) ListSVGResults(ctx context.Context, configI
 func (r *intelligenceTestRepository) listResults(ctx context.Context, configID int64, limit int, svgOnly bool) ([]*service.IntelligenceTestResult, error) {
 	if limit <= 0 { limit = 20 }
 	if limit > 100 { limit = 100 }
-	query := `SELECT id, question_id, api_key_id, group_id, group_name, model_id, model_name, reasoning_effort, status, check_ok, svg_content, error_message, latency_ms, started_at, finished_at, created_at
-FROM intelligence_test_results WHERE question_id=$1`
+	query := `SELECT r.id, r.question_id, r.api_key_id, r.group_id, r.group_name, r.model_id, r.model_name, r.reasoning_effort, r.status, r.check_ok, r.svg_content, r.error_message, r.latency_ms, r.started_at, r.finished_at, r.created_at, COALESCE(g.rate_multiplier, 1)
+FROM intelligence_test_results r LEFT JOIN groups g ON g.id = r.group_id WHERE r.question_id=$1`
 	if svgOnly { query += ` AND check_ok = TRUE AND svg_content <> ''` }
-	query += ` ORDER BY created_at DESC, id DESC LIMIT $2`
+	query += ` ORDER BY r.created_at DESC, r.id DESC LIMIT $2`
 	rows, err := r.db.QueryContext(ctx, query, configID, limit)
 	if err != nil { return nil, err }
 	defer rows.Close()
@@ -169,7 +169,7 @@ FROM intelligence_test_results WHERE question_id=$1`
 		item := &service.IntelligenceTestResult{}
 		var apiKeyID, groupID sql.NullInt64
 		if err := rows.Scan(&item.ID, &item.ConfigID, &apiKeyID, &groupID, &item.GroupName, &item.ModelID, &item.ModelName, &item.ReasoningEffort, &item.Status,
-			&item.Check, &item.SVGContent, &item.ErrorMessage, &item.LatencyMs, &item.StartedAt, &item.FinishedAt, &item.CreatedAt); err != nil { return nil, err }
+			&item.Check, &item.SVGContent, &item.ErrorMessage, &item.LatencyMs, &item.StartedAt, &item.FinishedAt, &item.CreatedAt, &item.RateMultiplier); err != nil { return nil, err }
 		if apiKeyID.Valid { item.APIKeyID = apiKeyID.Int64 }
 		if groupID.Valid { item.GroupID = &groupID.Int64 }
 		items = append(items, item)

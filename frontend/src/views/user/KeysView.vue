@@ -1215,14 +1215,16 @@
 </template>
 
 <script setup lang="ts">
-	import { ref, reactive, computed, watch, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+	import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick, type ComponentPublicInstance } from 'vue'
 	import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
 	import { useClipboard } from '@/composables/useClipboard'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
+const route = useRoute()
 import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -1564,9 +1566,9 @@ const selectCreateProvider = (provider: KeyGroupProvider) => {
 }
 
 // Also handles groups arriving after the create dialog has already opened.
-watch([showCreateModal, createProviderOptions], ([isOpen, providers], [wasOpen]) => {
+watch([showCreateModal, createProviderOptions], ([isOpen, providers]) => {
   if (!isOpen) return
-  if (!wasOpen || !providers.some((provider) => provider.value === createProvider.value && provider.count > 0)) {
+  if (!providers.some((provider) => provider.value === createProvider.value && provider.count > 0)) {
     selectCreateProvider(providers.find((provider) => provider.count > 0)?.value ?? 'anthropic')
   }
   if (!formGroupOptions.value.some((group) => group.value === formData.value.group_id)) {
@@ -1659,6 +1661,16 @@ const loadApiKeys = async () => {
 const loadGroups = async () => {
   try {
     groups.value = await userGroupsAPI.getAvailable()
+    const quickCreateGroupID = Number(route.query.group_id)
+    const quickCreateGroup = route.query.quick_create === '1'
+      ? groups.value.find((group) => group.id === quickCreateGroupID)
+      : undefined
+    if (quickCreateGroup) {
+      createProvider.value = getKeyGroupProvider(quickCreateGroup.platform)
+      showCreateModal.value = true
+      await nextTick()
+      formData.value.group_id = quickCreateGroup.id
+    }
   } catch (error) {
     console.error('Failed to load groups:', error)
   }

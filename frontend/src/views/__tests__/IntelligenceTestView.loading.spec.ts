@@ -4,9 +4,12 @@ import { getIntelligenceTest } from '@/api/intelligenceTest'
 import IntelligenceTestView from '../IntelligenceTestView.vue'
 
 vi.mock('@/api/intelligenceTest', () => ({ getIntelligenceTest: vi.fn() }))
-vi.mock('vue-router', () => ({ useRoute: () => ({ query: {} }) }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ query: {} }), useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({ siteName: 'Test', siteLogo: '', fetchPublicSettings: vi.fn() }),
+}))
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ isAuthenticated: false }),
 }))
 
 describe('SVG results loading', () => {

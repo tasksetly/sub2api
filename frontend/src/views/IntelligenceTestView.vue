@@ -65,7 +65,7 @@
             :aria-selected="selectedGroup === group.name"
             @click="selectedGroup = group.name"
           >
-            {{ group.name }} <span>{{ group.items.length }}</span>
+            {{ group.name }} <span v-if="group.rateMultiplier != null" class="group-rate">×{{ formatMultiplier(group.rateMultiplier) }}</span> <span>{{ group.items.length }}</span>
           </button>
         </div>
         <div class="toolbar-controls">
@@ -101,9 +101,19 @@
           <div class="section-heading">
             <div>
               <h2>{{ group.name }}</h2>
-              <span>{{ group.items.length }} {{ copy.works }}</span>
+              <span>{{ group.items.length }} {{ copy.works }}<template v-if="group.rateMultiplier != null"> · ×{{ formatMultiplier(group.rateMultiplier) }}</template></span>
             </div>
             <div class="section-arrows">
+              <button
+                v-if="group.id != null"
+                type="button"
+                class="quick-create-button"
+                :title="copy.quickCreateKey"
+                @click.stop="quickCreateApiKey(group)"
+              >
+                <Icon name="plus" size="xs" />
+                {{ copy.quickCreateKey }}
+              </button>
               <button type="button" :aria-label="`${copy.previous} ${group.name}`" @click="scrollGroup(group.name, -1)">
                 <Icon name="chevronLeft" size="sm" />
               </button>
@@ -176,15 +186,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { getIntelligenceTest, type IntelligenceTestItem, type IntelligenceTestResponse } from '@/api/intelligenceTest'
 
 const props = defineProps<{ inApp?: boolean }>()
 const ALL_GROUP = '__all__'
 const route = useRoute()
+const router = useRouter()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const hasLoaded = ref(false)
@@ -218,12 +231,12 @@ const config = computed(() => ({
 
 const isEnglish = computed(() => String(route.query.lang || '').toLowerCase().startsWith('en'))
 const copy = computed(() => isEnglish.value ? {
-  eyebrow: 'Capability benchmark', title: 'SVG intelligence benchmark', description: 'Compare SVG generation quality across configured API key groups.', refresh: 'Refresh', refreshing: 'Refreshing', currentPrompt: 'Current prompt', promptPlaceholder: 'The prompt configured by your administrator will appear here.', groupCount: 'Groups', workCount: 'Works', filters: 'Result filters', groups: 'Groups', allGroups: 'All groups', statusFilter: 'Status', allStatus: 'All status', validated: 'Validated', recent: 'Last hour', loading: 'Loading recent SVG works…', loadFailed: 'Unable to load results', retry: 'Try again', noResults: 'No works yet', noResultsDescription: 'Configure a prompt and API key group in the admin panel, then results will appear here.', emptyGroup: 'No works match the current filter.', works: 'works', previous: 'Previous', next: 'Next', svgWork: 'SVG work', unknownModel: 'Unknown model', preview: 'SVG preview', close: 'Close', reasoning: 'Effort', elapsed: 'Elapsed', renderedPreview: 'Preview', sourceCode: 'SVG source', staticSVG: 'Static SVG', animatedSVG: 'Animated SVG',
+  eyebrow: 'Capability benchmark', title: 'SVG intelligence benchmark', description: 'Compare SVG generation quality across configured API key groups.', refresh: 'Refresh', refreshing: 'Refreshing', currentPrompt: 'Current prompt', promptPlaceholder: 'The prompt configured by your administrator will appear here.', groupCount: 'Groups', workCount: 'Works', filters: 'Result filters', groups: 'Groups', allGroups: 'All groups', statusFilter: 'Status', allStatus: 'All status', validated: 'Validated', recent: 'Last hour', loading: 'Loading recent SVG works…', loadFailed: 'Unable to load results', retry: 'Try again', noResults: 'No works yet', noResultsDescription: 'Configure a prompt and API key group in the admin panel, then results will appear here.', emptyGroup: 'No works match the current filter.', works: 'works', previous: 'Previous', next: 'Next', svgWork: 'SVG work', unknownModel: 'Unknown model', preview: 'SVG preview', close: 'Close', reasoning: 'Effort', elapsed: 'Elapsed', renderedPreview: 'Preview', sourceCode: 'SVG source', staticSVG: 'Static SVG', animatedSVG: 'Animated SVG', quickCreateKey: 'Quick create API key',
 } : {
-  eyebrow: '能力测试', title: 'SVG 生成能力测试', description: '对比不同 API Key 分组的 SVG 生成质量，观察模型的推理与执行能力。', refresh: '刷新', refreshing: '刷新中', currentPrompt: '当前提示词', promptPlaceholder: '后台配置的提示词会显示在这里。', groupCount: '分组', workCount: '作品', filters: '结果筛选', groups: '分组', allGroups: '全部分组', statusFilter: '状态', allStatus: '全部状态', validated: '已通过校验', recent: '最近 1 小时', loading: '正在加载最近的 SVG 作品…', loadFailed: '结果加载失败', retry: '重新加载', noResults: '还没有测试作品', noResultsDescription: '请先在后台配置提示词和 API Key 分组，生成结果后会显示在这里。', emptyGroup: '当前筛选条件下暂无作品', works: '张作品', previous: '上一组', next: '下一组', svgWork: 'SVG 作品', unknownModel: '未知模型', preview: 'SVG 作品预览', close: '关闭', reasoning: '推理', elapsed: '耗时', renderedPreview: '效果预览', sourceCode: 'SVG 源码', staticSVG: '静态 SVG', animatedSVG: '含动画',
+  eyebrow: '能力测试', title: 'SVG 生成能力测试', description: '对比不同 API Key 分组的 SVG 生成质量，观察模型的推理与执行能力。', refresh: '刷新', refreshing: '刷新中', currentPrompt: '当前提示词', promptPlaceholder: '后台配置的提示词会显示在这里。', groupCount: '分组', workCount: '作品', filters: '结果筛选', groups: '分组', allGroups: '全部分组', statusFilter: '状态', allStatus: '全部状态', validated: '已通过校验', recent: '最近 1 小时', loading: '正在加载最近的 SVG 作品…', loadFailed: '结果加载失败', retry: '重新加载', noResults: '还没有测试作品', noResultsDescription: '请先在后台配置提示词和 API Key 分组，生成结果后会显示在这里。', emptyGroup: '当前筛选条件下暂无作品', works: '张作品', previous: '上一组', next: '下一组', svgWork: 'SVG 作品', unknownModel: '未知模型', preview: 'SVG 作品预览', close: '关闭', reasoning: '推理', elapsed: '耗时', renderedPreview: '效果预览', sourceCode: 'SVG 源码', staticSVG: '静态 SVG', animatedSVG: '含动画', quickCreateKey: '快速创建 API Key',
 })
 
-interface DisplayGroup { name: string; items: IntelligenceTestItem[] }
+interface DisplayGroup { id?: string | number; name: string; items: IntelligenceTestItem[]; rateMultiplier?: number }
 
 const normalizedItems = computed(() => {
   const direct = (response.value.items || []).map((item) => ({ ...item }))
@@ -252,7 +265,15 @@ const normalizedItems = computed(() => {
     }, configuredGroups)
 })
 
-const groups = computed<DisplayGroup[]>(() => Array.from(normalizedItems.value.entries()).map(([name, items]) => ({ name, items })))
+const groups = computed<DisplayGroup[]>(() => Array.from(normalizedItems.value.entries()).map(([name, items]) => {
+  const configured = (response.value.groups || []).find((group) => typeof group !== 'string' && group.name === name)
+  return {
+    id: typeof configured === 'object' ? configured.id : items[0]?.group_id,
+    name,
+    items,
+    rateMultiplier: typeof configured === 'object' ? configured.rate_multiplier : items[0]?.rate_multiplier,
+  }
+}))
 const visibleGroups = computed(() => groups.value
   .filter((group) => selectedGroup.value === ALL_GROUP || selectedGroup.value === group.name)
   .map((group) => ({ ...group, items: group.items.filter((item) => matchesFilter(item)) })))
@@ -309,6 +330,10 @@ function formatEffort(value: string | null | undefined) {
   return labels[value] || value
 }
 
+function formatMultiplier(value: number) {
+  return Number(value.toFixed(4)).toString()
+}
+
 function formatLatency(value?: number) {
   return typeof value === 'number' && value > 0 ? `${(value / 1000).toFixed(1)}s` : ''
 }
@@ -343,6 +368,16 @@ function setGroupRef(name: string, element: unknown) {
 
 function scrollGroup(name: string, direction: number) {
   groupRefs.get(name)?.scrollBy({ left: direction * 520, behavior: 'smooth' })
+}
+
+function quickCreateApiKey(group: DisplayGroup) {
+  if (group.id == null) return
+  const target = `/keys?quick_create=1&group_id=${encodeURIComponent(String(group.id))}`
+  if (authStore.isAuthenticated) {
+    void router.push(target)
+  } else {
+    void router.push({ path: '/login', query: { redirect: target } })
+  }
 }
 
 function openPreview(item: IntelligenceTestItem, group: string) {
@@ -389,8 +424,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 .icon-button { display:grid; place-items:center; width:34px; height:34px; border:1px solid #e5e7eb; border-radius:8px; color:#6b7280; background:#fff; cursor:pointer; }.icon-button:hover { color:#111827; background:#f9fafb; }
 .test-shell { padding:34px 0 70px; }.test-intro { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:24px; }.eyebrow { display:flex; align-items:center; gap:6px; margin:0 0 8px; color:#2563eb; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }.test-intro h1 { margin:0; font-size:28px; line-height:1.2; letter-spacing:0; }.intro-description { max-width:670px; margin:8px 0 0; color:#6b7280; font-size:14px; }.refresh-button, .secondary-button { display:inline-flex; align-items:center; gap:8px; border:1px solid #dbe1e8; border-radius:8px; padding:9px 13px; background:#fff; color:#374151; font:inherit; font-size:13px; cursor:pointer; white-space:nowrap; }.refresh-button:hover, .secondary-button:hover { border-color:#93c5fd; color:#1d4ed8; }.refresh-button:disabled { opacity:.6; cursor:wait; }.spin-once { animation:spin 1s linear infinite; }
 .prompt-panel { gap:14px; padding:16px 18px; margin-bottom:24px; border:1px solid #dbe5f2; border-radius:10px; background:#eef5ff; }.prompt-panel__icon { display:grid; place-items:center; flex:0 0 auto; width:38px; height:38px; border-radius:9px; color:#2563eb; background:#dbeafe; }.prompt-panel__content { min-width:0; flex:1; }.prompt-panel__heading { gap:8px; }.prompt-panel h2 { margin:0; font-size:14px; font-weight:700; }.prompt-panel__content p { margin:5px 0 0; color:#52627a; font-size:13px; line-height:1.55; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }.prompt-panel__meta { display:grid; grid-template-columns:auto auto; gap:2px 10px; flex:0 0 auto; color:#64748b; font-size:11px; text-align:right; }.prompt-panel__meta strong { color:#1e3a8a; font-size:15px; }.meta-pill, .work-tags span { border-radius:5px; background:#e7edf5; color:#64748b; padding:2px 6px; font-size:11px; }
-.toolbar { justify-content:space-between; gap:16px; margin-bottom:20px; }.filter-tabs { gap:7px; flex-wrap:wrap; }.filter-tab { border:1px solid #e1e5ea; border-radius:999px; padding:7px 13px; background:#fff; color:#4b5563; font:inherit; font-size:13px; cursor:pointer; }.filter-tab span { margin-left:4px; color:#9ca3af; }.filter-tab.active { border-color:#111827; background:#111827; color:#fff; }.filter-tab.active span { color:#d1d5db; }.select-wrap { position:relative; display:inline-flex; align-items:center; }.select-wrap select { appearance:none; min-width:112px; border:1px solid #e1e5ea; border-radius:8px; padding:8px 30px 8px 10px; background:#fff; color:#374151; font:inherit; font-size:13px; cursor:pointer; }.select-wrap svg { position:absolute; right:9px; pointer-events:none; color:#6b7280; }.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-.group-section { margin-bottom:30px; }.section-heading { justify-content:space-between; margin-bottom:10px; }.section-heading h2 { margin:0; font-size:16px; }.section-heading span { color:#9ca3af; font-size:12px; }.section-arrows { display:flex; gap:6px; }.section-arrows button { display:grid; place-items:center; width:30px; height:30px; border:1px solid #e1e5ea; border-radius:50%; background:#fff; color:#6b7280; cursor:pointer; }.section-arrows button:hover { background:#f3f4f6; color:#111827; }
+.toolbar { justify-content:space-between; gap:16px; margin-bottom:20px; }.filter-tabs { gap:7px; flex-wrap:wrap; }.filter-tab { border:1px solid #e1e5ea; border-radius:999px; padding:7px 13px; background:#fff; color:#4b5563; font:inherit; font-size:13px; cursor:pointer; }.filter-tab span { margin-left:4px; color:#9ca3af; }.filter-tab .group-rate { color:#2563eb; }.filter-tab.active { border-color:#111827; background:#111827; color:#fff; }.filter-tab.active span, .filter-tab.active .group-rate { color:#d1d5db; }.select-wrap { position:relative; display:inline-flex; align-items:center; }.select-wrap select { appearance:none; min-width:112px; border:1px solid #e1e5ea; border-radius:8px; padding:8px 30px 8px 10px; background:#fff; color:#374151; font:inherit; font-size:13px; cursor:pointer; }.select-wrap svg { position:absolute; right:9px; pointer-events:none; color:#6b7280; }.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.group-section { margin-bottom:30px; }.section-heading { justify-content:space-between; margin-bottom:10px; }.section-heading h2 { margin:0; font-size:16px; }.section-heading span { color:#9ca3af; font-size:12px; }.section-arrows { display:flex; gap:6px; }.section-arrows button { display:grid; place-items:center; width:30px; height:30px; border:1px solid #e1e5ea; border-radius:50%; background:#fff; color:#6b7280; cursor:pointer; }.section-arrows button:hover { background:#f3f4f6; color:#111827; }.section-arrows .quick-create-button { display:flex; width:auto; border-radius:8px; gap:5px; padding:0 9px; font-size:12px; }.quick-create-button svg { flex:none; }
 .works-row { display:flex; gap:14px; overflow-x:auto; padding:4px 2px 13px; scroll-snap-type:x mandatory; scrollbar-width:thin; }.empty-row { align-self:center; min-width:300px; padding:30px; color:#9ca3af; font-size:13px; text-align:center; }.work-card { flex:0 0 320px; padding:0; overflow:hidden; scroll-snap-align:start; border:1px solid #e1e5ea; border-radius:10px; background:#fff; text-align:left; cursor:pointer; transition:transform .16s, box-shadow .16s; }.work-card:hover { transform:translateY(-3px); box-shadow:0 8px 22px rgba(15,23,42,.09); }.work-preview { display:block; position:relative; height:220px; background:#fafafa; border-bottom:1px solid #e8ebef; }.work-preview img { display:block; width:100%; height:100%; object-fit:contain; background:#fff; }.validated-mark { position:absolute; top:10px; right:10px; display:grid; place-items:center; width:23px; height:23px; border-radius:50%; color:#047857; background:#d1fae5; }.work-meta { display:block; padding:10px 12px 11px; }.work-model { display:block; overflow:hidden; color:#1f2937; font-size:13px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }.work-tags { display:flex; gap:5px; margin-top:7px; }.work-tags span { max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.work-tags span:empty { display:none; }
 .state-panel { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:300px; padding:30px; border:1px dashed #d7dde5; border-radius:10px; color:#9ca3af; background:rgba(255,255,255,.6); text-align:center; }.state-panel h2 { margin:13px 0 4px; color:#374151; font-size:16px; }.state-panel p { max-width:440px; margin:0; font-size:13px; line-height:1.6; }.state-panel--error { color:#dc2626; }.state-panel--error h2 { color:#991b1b; }.state-panel--error p { color:#6b7280; }.state-panel .secondary-button { margin-top:16px; }.loader { width:28px; height:28px; border:3px solid #dbeafe; border-top-color:#2563eb; border-radius:50%; animation:spin .8s linear infinite; }
 .preview-backdrop { position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:20px; background:rgba(17,24,39,.62); }.preview-modal { width:min(1000px, 96vw); overflow:hidden; border-radius:12px; background:#fff; box-shadow:0 24px 80px rgba(0,0,0,.25); }.preview-header { justify-content:space-between; gap:12px; padding:11px 14px; border-bottom:1px solid #e5e7eb; }.preview-header > div { gap:10px; min-width:0; }.preview-header strong { font-size:14px; }.preview-header span { overflow:hidden; color:#6b7280; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }.preview-canvas { display:grid; place-items:center; min-height:360px; max-height:78vh; background:#fafafa; }.preview-canvas img { display:block; width:100%; height:min(78vh, 720px); object-fit:contain; background:#fff; }.preview-footer { gap:8px; padding:10px 14px; border-top:1px solid #e5e7eb; color:#6b7280; font-size:12px; }.validated-label { display:inline-flex; align-items:center; gap:4px; color:#047857; }
