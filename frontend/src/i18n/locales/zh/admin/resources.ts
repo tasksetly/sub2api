@@ -123,7 +123,7 @@ export default {
       tokenNoAutoRenew: '该上游没有 refresh token 和密码，过期后需要手动重新粘贴',
       formRateCorrection: '倍率修正系数',
       formRateCorrectionHelp:
-        '抹平各家充值比例的差异：填 1/充值比例（充值 10 倍填 0.1）。比价倍率 = 上游声明倍率 × 该系数；1:1 充值填 1 即不修正',
+        '抹平各家充值比例的差异：填 1/充值比例（充值 10 倍填 0.1）。比价和同步到账号的成本倍率 = 上游声明倍率 × 该系数，账单折算成本也按此系数计算；1:1 充值填 1 即不修正',
       formTotpSecret: 'TOTP 密钥',
       formTotpSecretHelp: '仅当上游开启了 2FA 时需要填写，用于自动生成验证码',
       formNotes: '备注',

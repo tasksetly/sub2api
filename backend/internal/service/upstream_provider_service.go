@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -53,10 +52,11 @@ const upstreamProviderSyncConcurrency = 4
 //
 // 职责边界：
 //   - 登录并缓存 token（优先用 refresh token 续期，失败后用存的密码重新登录）
-//   - 同步余额/并发/分组倍率，只读落库供比价，不自动改本地账号
+//   - 同步余额/并发/分组倍率；启用账号倍率同步时按充值比例修正成本倍率
 //   - 按管理员勾选的分组在上游建 API Key，并落地成本地账号
 type UpstreamProviderService struct {
 	repo               UpstreamProviderRepository
+	accountRepo        AccountRepository
 	client             *UpstreamProviderClient
 	adminService       AdminService
 	accountTestService *AccountTestService
@@ -68,9 +68,11 @@ func NewUpstreamProviderService(
 	adminService AdminService,
 	accountTestService *AccountTestService,
 	cfg *config.Config,
+	accountRepo AccountRepository,
 ) *UpstreamProviderService {
 	return &UpstreamProviderService{
 		repo:               repo,
+		accountRepo:        accountRepo,
 		client:             NewUpstreamProviderClient(),
 		adminService:       adminService,
 		accountTestService: accountTestService,
@@ -593,6 +595,7 @@ func (s *UpstreamProviderService) EnrichNewAPIUpstreamBillingSnapshots(ctx conte
 			continue
 		}
 		snapshot := newAPIUpstreamBillingSnapshot(group)
+		snapshot.RateCorrection = NormalizeRateCorrection(provider.RateCorrection)
 		if account.Extra == nil {
 			account.Extra = make(map[string]any)
 		}
@@ -607,17 +610,17 @@ func newAPIUpstreamBillingSnapshot(group *UpstreamGroup) *UpstreamBillingProbeSn
 	}
 	rate := group.ComparableRate()
 	return &UpstreamBillingProbeSnapshot{
-		Status:        UpstreamBillingProbeStatusOK,
+		Status: UpstreamBillingProbeStatusOK,
 		Data: map[string]any{
 			"object":                    "newapi.upstream_group_billing",
 			"schema_version":            1,
-			"billing_scope":              "token",
-			"group_rate_multiplier":      group.RateMultiplier,
-			"resolved_rate_multiplier":   rate,
-			"effective_rate_multiplier":  rate,
-			"peak_rate_enabled":          false,
-			"timezone":                   "UTC",
-			"observed_at":                syncedAt.Format(time.RFC3339Nano),
+			"billing_scope":             "token",
+			"group_rate_multiplier":     group.RateMultiplier,
+			"resolved_rate_multiplier":  rate,
+			"effective_rate_multiplier": rate,
+			"peak_rate_enabled":         false,
+			"timezone":                  "UTC",
+			"observed_at":               syncedAt.Format(time.RFC3339Nano),
 		},
 		ReceivedAt: &syncedAt,
 		FreshUntil: func() *time.Time {
@@ -632,6 +635,10 @@ func newAPIUpstreamBillingSnapshot(group *UpstreamGroup) *UpstreamBillingProbeSn
 func (s *UpstreamProviderService) syncNewAPIAccountRates(ctx context.Context, providerID int64, rateCorrection float64, groups []UpstreamGroup) error {
 	if s.adminService == nil || len(groups) == 0 {
 		return nil
+	}
+	writer, ok := s.accountRepo.(upstreamBillingProbeSnapshotWriter)
+	if !ok {
+		return ErrUpstreamBillingProbeUnavailable
 	}
 	groupByID := make(map[int64]UpstreamGroup, len(groups))
 	for _, group := range groups {
@@ -651,14 +658,15 @@ func (s *UpstreamProviderService) syncNewAPIAccountRates(ctx context.Context, pr
 			if !ok {
 				continue
 			}
-			rate := group.ComparableRate() * NormalizeRateCorrection(rateCorrection)
-			if math.IsNaN(rate) || math.IsInf(rate, 0) || rate <= 0 || rate > upstreamBillingRateSyncMaxMultiplier {
+			rate, valid := upstreamBillingProbeSyncRate(map[string]any{"resolved_rate_multiplier": group.ComparableRate()}, rateCorrection)
+			if !valid {
 				continue
 			}
-			if account.RateMultiplier != nil && equalBillingMultiplier(*account.RateMultiplier, rate) {
-				continue
-			}
-			if _, err := s.adminService.UpdateAccount(ctx, account.ID, &UpdateAccountInput{RateMultiplier: &rate}); err != nil {
+			snapshot := newAPIUpstreamBillingSnapshot(&group)
+			snapshot.RateCorrection = NormalizeRateCorrection(rateCorrection)
+			snapshot.SyncedRateMultiplier = &rate
+			// Use the same atomic write-back as probes; admin edits reject rates while sync is enabled.
+			if err := writer.UpdateUpstreamBillingProbeSnapshot(ctx, account, snapshot, &rate); err != nil {
 				return fmt.Errorf("update account %d rate: %w", account.ID, err)
 			}
 		}
@@ -817,8 +825,8 @@ func (s *UpstreamProviderService) createLocalAccount(
 		baseURL += "/v1"
 	}
 	credentials := map[string]any{
-		"api_key":                    created.Key,
-		"base_url":                   baseURL,
+		"api_key":  created.Key,
+		"base_url": baseURL,
 		// Accounts provisioned from an upstream provider participate in the
 		// shared key pool by default. A short 503 cooldown prevents an
 		// unavailable upstream from being retried continuously.

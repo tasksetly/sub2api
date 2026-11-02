@@ -120,6 +120,8 @@ type UpstreamBillingProbeSnapshot struct {
 	// stored snapshot always answers "did this probe move the account rate, and
 	// to what" without a separate history table.
 	SyncedRateMultiplier *float64 `json:"synced_rate_multiplier,omitempty"`
+	// RateCorrection is local provider configuration; Data retains raw upstream rates.
+	RateCorrection float64 `json:"rate_correction,omitempty"`
 }
 
 // UpstreamBillingProbeResult is returned by manual probe endpoints.
@@ -240,6 +242,7 @@ func normalizeUpstreamBillingProbeSettings(settings *UpstreamBillingProbeSetting
 // UpstreamBillingProbeService discovers a remote Sub2API billing snapshot.
 type UpstreamBillingProbeService struct {
 	accountRepo        AccountRepository
+	providerRepo       UpstreamProviderRepository
 	accountTestService *AccountTestService
 	settingService     *SettingService
 
@@ -270,10 +273,12 @@ func NewUpstreamBillingProbeService(
 	accountRepo AccountRepository,
 	accountTestService *AccountTestService,
 	settingService *SettingService,
+	providerRepo UpstreamProviderRepository,
 ) *UpstreamBillingProbeService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &UpstreamBillingProbeService{
 		accountRepo:        accountRepo,
+		providerRepo:       providerRepo,
 		accountTestService: accountTestService,
 		settingService:     settingService,
 		parentCtx:          ctx,
@@ -299,8 +304,9 @@ func ProvideUpstreamBillingProbeService(
 	settingService *SettingService,
 	lockCache LeaderLockCache,
 	db *sql.DB,
+	providerRepo UpstreamProviderRepository,
 ) *UpstreamBillingProbeService {
-	svc := NewUpstreamBillingProbeService(accountRepo, accountTestService, settingService)
+	svc := NewUpstreamBillingProbeService(accountRepo, accountTestService, settingService, providerRepo)
 	svc.SetLeaderLock(lockCache, db)
 	svc.Start()
 	return svc
@@ -702,14 +708,26 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	if err != nil {
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "invalid_response", retryAfter(resp.Header, now))
 	}
+	rateCorrection := 1.0
+	if account.UpstreamProviderID != nil {
+		if s.providerRepo == nil {
+			return nil, ErrUpstreamBillingProbeUnavailable
+		}
+		provider, err := s.providerRepo.GetByID(ctx, *account.UpstreamProviderID)
+		if err != nil {
+			return s.persistProbeFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "provider_lookup_failed", 0)
+		}
+		rateCorrection = NormalizeRateCorrection(provider.RateCorrection)
+	}
 	snapshot := &UpstreamBillingProbeSnapshot{
-		Status:        UpstreamBillingProbeStatusOK,
-		Data:          data,
-		ReceivedAt:    probeTimePtr(now),
-		FreshUntil:    probeTimePtr(now.Add(2 * time.Duration(intervalMinutes) * time.Minute)),
-		LastAttemptAt: now,
-		NextProbeAt:   now.Add(nextProbeDelay(intervalMinutes, 0)),
-		HTTPStatus:    resp.StatusCode,
+		RateCorrection: rateCorrection,
+		Status:         UpstreamBillingProbeStatusOK,
+		Data:           data,
+		ReceivedAt:     probeTimePtr(now),
+		FreshUntil:     probeTimePtr(now.Add(2 * time.Duration(intervalMinutes) * time.Minute)),
+		LastAttemptAt:  now,
+		NextProbeAt:    now.Add(nextProbeDelay(intervalMinutes, 0)),
+		HTTPStatus:     resp.StatusCode,
 	}
 	// 账号级值域与精度只在真要写回时才有影响：只观察上游声明、未开启同步的
 	// 账号不因声明值不适配 accounts.rate_multiplier 而被记成探测失败并进入
@@ -717,7 +735,7 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	var syncRate *float64
 	previousRate := account.BillingRateMultiplier()
 	if upstreamBillingRateSyncEnabled(account) {
-		if value, valid := upstreamBillingProbeSyncRate(data); valid {
+		if value, valid := upstreamBillingProbeSyncRate(data, rateCorrection); valid {
 			syncRate = &value
 			snapshot.SyncedRateMultiplier = &value
 		} else {
@@ -776,6 +794,7 @@ func (s *UpstreamBillingProbeService) persistProbeFailure(
 		LastError:     reason,
 	}
 	if previous != nil {
+		snapshot.RateCorrection = previous.RateCorrection
 		snapshot.Data = previous.Data
 		snapshot.ReceivedAt = previous.ReceivedAt
 		snapshot.FreshUntil = previous.FreshUntil
@@ -903,7 +922,7 @@ func upstreamBillingRateAt(data map[string]any, now time.Time) (float64, bool) {
 
 // upstreamBillingProbeSyncRate converts the declared multiplier into the value
 // the automatic write-back may store in accounts.rate_multiplier, at the
-// precision that column supports (DECIMAL(10,4)).
+// precision that column supports (DECIMAL(10,4)), after provider recharge correction.
 //
 // It reads resolved_rate_multiplier, not effective_rate_multiplier: the
 // effective value folds in the peak coefficient that happened to apply at the
@@ -920,9 +939,13 @@ func upstreamBillingRateAt(data map[string]any, now time.Time) (float64, bool) {
 //
 // A rejected declaration leaves the current multiplier untouched; the probe
 // still records an OK snapshot carrying the raw declaration for display.
-func upstreamBillingProbeSyncRate(data map[string]any) (float64, bool) {
+func upstreamBillingProbeSyncRate(data map[string]any, rateCorrection float64) (float64, bool) {
 	value, ok := resolveAccountExtraNumber(data, "resolved_rate_multiplier")
 	if !ok || math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, false
+	}
+	value *= NormalizeRateCorrection(rateCorrection)
+	if math.IsNaN(value) || math.IsInf(value, 0) {
 		return 0, false
 	}
 	rounded := math.Round(value*upstreamBillingProbeAccountRateScale) / upstreamBillingProbeAccountRateScale

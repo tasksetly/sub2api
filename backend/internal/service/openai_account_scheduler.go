@@ -3038,7 +3038,9 @@ func openAIFreshUpstreamBillingRate(account *Account, now time.Time) (float64, b
 	if freshUntil == nil || !freshUntil.After(receivedAt) || now.Before(receivedAt) || now.After(*freshUntil) {
 		return 0, false
 	}
-	return upstreamBillingRateAt(snapshot.Data, now)
+	rate, ok := upstreamBillingRateAt(snapshot.Data, now)
+	rate *= NormalizeRateCorrection(snapshot.RateCorrection)
+	return rate, ok && !math.IsNaN(rate) && !math.IsInf(rate, 0)
 }
 
 func openAIQuotaHeadroomFactor(account *Account, now time.Time) float64 {

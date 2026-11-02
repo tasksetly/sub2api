@@ -1117,6 +1117,8 @@ export interface UpstreamBillingProbeSnapshot {
   // Value this probe wrote into the account rate multiplier; absent when the
   // probe did not sync a rate.
   synced_rate_multiplier?: number
+  // Local recharge correction; data retains the upstream declaration.
+  rate_correction?: number
 }
 
 export interface UpstreamBillingProbeSettings {

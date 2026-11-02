@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -119,7 +120,7 @@ func (g *UpstreamGroup) ComparableRate() float64 {
 // 0 和负数都不是有意义的充值比例：0 会让所有分组的比价倍率变成 0 而排在最前，
 // 反而误导决策。缺失/非法一律按「不修正」处理。
 func NormalizeRateCorrection(value float64) float64 {
-	if value <= 0 {
+	if value <= 0 || math.IsNaN(value) || math.IsInf(value, 0) {
 		return 1.0
 	}
 	return value

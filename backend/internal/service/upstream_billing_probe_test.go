@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"reflect"
 	"strings"
@@ -223,7 +224,7 @@ func newUpstreamBillingProbeTestService(
 		AllowInsecureHTTP: true,
 	}}}
 	accountTestService := &AccountTestService{accountRepo: repo, httpUpstream: upstream, cfg: cfg}
-	return NewUpstreamBillingProbeService(repo, accountTestService, NewSettingService(settingRepo, cfg))
+	return NewUpstreamBillingProbeService(repo, accountTestService, NewSettingService(settingRepo, cfg), nil)
 }
 
 func TestUpstreamBillingProbeSettingsDefaultsAndValidation(t *testing.T) {
@@ -458,7 +459,7 @@ func TestUpstreamBillingProbeSyncRateRangeAndPrecision(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := upstreamBillingProbeSyncRate(map[string]any{"resolved_rate_multiplier": tt.value})
+			got, ok := upstreamBillingProbeSyncRate(map[string]any{"resolved_rate_multiplier": tt.value}, 1)
 			require.Equal(t, tt.ok, ok)
 			if tt.ok {
 				require.Equal(t, tt.want, got)
@@ -473,11 +474,11 @@ func TestUpstreamBillingProbeSyncRateIgnoresEffectiveRate(t *testing.T) {
 	got, ok := upstreamBillingProbeSyncRate(map[string]any{
 		"resolved_rate_multiplier":  0.6,
 		"effective_rate_multiplier": 0.9,
-	})
+	}, 1)
 	require.True(t, ok)
 	require.Equal(t, 0.6, got)
 
-	_, ok = upstreamBillingProbeSyncRate(map[string]any{"effective_rate_multiplier": 0.9})
+	_, ok = upstreamBillingProbeSyncRate(map[string]any{"effective_rate_multiplier": 0.9}, 1)
 	require.False(t, ok)
 }
 
@@ -1301,4 +1302,139 @@ func TestUpstreamBillingProbeLeaderLockCoversStaggeredInstancesInCadenceWindow(t
 	staggered.SetLeaderLock(cache, nil)
 	require.NoError(t, staggered.RunDue(context.Background()))
 	require.Equal(t, int64(1), upstream.calls.Load(), "a staggered instance must not start a second batch inside the cadence window")
+}
+
+// The provider is read on every probe so changing correction cannot freeze an old conversion.
+type probeRateCorrectionProviderRepo struct {
+	UpstreamProviderRepository
+	correction float64
+	err        error
+}
+
+func (r *probeRateCorrectionProviderRepo) GetByID(context.Context, int64) (*UpstreamProvider, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return &UpstreamProvider{RateCorrection: r.correction}, nil
+}
+
+func TestUpstreamBillingProbeAppliesProviderCorrectionToCostAndScheduling(t *testing.T) {
+	providerID := int64(3)
+	initialRate := 1.0
+	account := &Account{
+		ID: 19, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		Status: StatusActive, Concurrency: 1, RateMultiplier: &initialRate,
+		UpstreamProviderID: &providerID,
+		Credentials:        map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
+		Extra: map[string]any{
+			UpstreamBillingProbeEnabledExtraKey:    true,
+			UpstreamBillingRateSyncEnabledExtraKey: true,
+		},
+	}
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
+	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, &upstreamBillingProbeSettingRepo{})
+	providerRepo := &probeRateCorrectionProviderRepo{correction: 0.1}
+	svc.providerRepo = providerRepo
+	defer svc.Stop()
+
+	for _, correction := range []float64{1, 0.5, 0.1} {
+		providerRepo.correction = correction
+		snapshot, err := svc.ProbeAccount(context.Background(), account.ID)
+		require.NoError(t, err)
+		require.Equal(t, correction, snapshot.RateCorrection)
+		require.Equal(t, 0.8, snapshot.Data["resolved_rate_multiplier"])
+		require.NotNil(t, snapshot.SyncedRateMultiplier)
+		require.InDelta(t, 0.8*correction, *snapshot.SyncedRateMultiplier, 1e-12)
+		require.InDelta(t, 10*0.8*correction, 10*account.BillingRateMultiplier(), 1e-12)
+		rate, ok := openAIFreshUpstreamBillingRate(account, svc.currentTime())
+		require.True(t, ok)
+		require.InDelta(t, 0.8*correction, rate, 1e-12)
+	}
+
+	// Recharge correction and the current peak multiplier each apply once.
+	peakSnapshot := decodeUpstreamBillingProbeSnapshot(account.Extra)
+	peakSnapshot.Data["peak_rate_enabled"] = true
+	peakSnapshot.Data["peak_start"] = "00:00"
+	peakSnapshot.Data["peak_end"] = "23:59"
+	peakSnapshot.Data["peak_rate_multiplier"] = 1.5
+	peakSnapshot.Data["timezone"] = "UTC"
+	account.Extra[UpstreamBillingProbeExtraKey] = peakSnapshot
+	peakTime := peakSnapshot.ReceivedAt.Truncate(24 * time.Hour).Add(12 * time.Hour)
+	peakSnapshot.ReceivedAt = probeTimePtr(peakTime)
+	peakSnapshot.FreshUntil = probeTimePtr(peakTime.Add(time.Hour))
+	rate, ok := openAIFreshUpstreamBillingRate(account, peakTime)
+	require.True(t, ok)
+	require.InDelta(t, 0.12, rate, 1e-12)
+
+	providerRepo.err = errors.New("provider unavailable")
+	snapshot, err := svc.ProbeAccount(context.Background(), account.ID)
+	require.NoError(t, err)
+	require.Equal(t, UpstreamBillingProbeStatusFailed, snapshot.Status)
+	require.Equal(t, 0.08, account.BillingRateMultiplier())
+	require.Equal(t, 0.1, snapshot.RateCorrection)
+}
+
+func TestUpstreamBillingProbeSyncRateCorrectsBeforeRoundingAndValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name                       string
+		declared, correction, want float64
+		ok                         bool
+	}{
+		{"tenfold top-up", 0.8, 0.1, 0.08, true},
+		{"round corrected value", 0.12345, 0.1, 0.0123, true},
+		{"corrected within limit", 200, 0.1, 20, true},
+		{"corrected exceeds limit", 60, 2, 0, false},
+		{"corrected rounds to zero", 0.0001, 0.1, 0, false},
+		{"overflow", math.MaxFloat64, 2, 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rate, ok := upstreamBillingProbeSyncRate(map[string]any{"resolved_rate_multiplier": tc.declared}, tc.correction)
+			require.Equal(t, tc.ok, ok)
+			require.Equal(t, tc.want, rate)
+		})
+	}
+}
+
+// UpdateAccount intentionally remains unimplemented: automatic sync must not use the manual edit path.
+type correctedNewAPIRateAdmin struct {
+	AdminService
+	accounts []Account
+}
+
+func (a *correctedNewAPIRateAdmin) ListAccounts(context.Context, int, int, string, string, string, string, int64, string, string, string, int64) ([]Account, int64, error) {
+	return a.accounts, int64(len(a.accounts)), nil
+}
+
+func TestNewAPIAccountRateSyncWritesCorrectedCost(t *testing.T) {
+	providerID, groupID := int64(3), int64(4)
+	manualRate := 0.25
+	account := &Account{
+		ID: 20, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		RateMultiplier: &manualRate, UpstreamProviderID: &providerID, UpstreamRemoteGroupID: &groupID,
+		Extra: map[string]any{
+			UpstreamBillingProbeEnabledExtraKey:    true,
+			UpstreamBillingRateSyncEnabledExtraKey: true,
+		},
+	}
+	manual := *account
+	manual.ID = 21
+	manual.Extra = map[string]any{UpstreamBillingProbeEnabledExtraKey: true}
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account, manual.ID: &manual}}
+	admin := &correctedNewAPIRateAdmin{}
+	svc := &UpstreamProviderService{accountRepo: repo, adminService: admin}
+	groups := []UpstreamGroup{{RemoteGroupID: groupID, RateMultiplier: 0.8, SyncedAt: time.Now().UTC()}}
+
+	for _, correction := range []float64{0.1, 0.5} {
+		admin.accounts = []Account{*account, manual}
+		require.NoError(t, svc.syncNewAPIAccountRates(context.Background(), providerID, correction, groups))
+		require.InDelta(t, 0.8*correction, account.BillingRateMultiplier(), 1e-12)
+		require.Equal(t, manualRate, manual.BillingRateMultiplier())
+		snapshot := decodeUpstreamBillingProbeSnapshot(account.Extra)
+		require.Equal(t, correction, snapshot.RateCorrection)
+		require.InDelta(t, 0.8*correction, *snapshot.SyncedRateMultiplier, 1e-12)
+		require.Equal(t, 0.8, snapshot.Data["resolved_rate_multiplier"])
+		rate, ok := openAIFreshUpstreamBillingRate(account, time.Now())
+		require.True(t, ok)
+		require.InDelta(t, 0.8*correction, rate, 1e-12)
+	}
 }

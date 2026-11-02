@@ -126,7 +126,7 @@ export default {
         'This provider has no refresh token or password; paste a fresh token after it expires',
       formRateCorrection: 'Rate correction',
       formRateCorrectionHelp:
-        'Levels out differing top-up ratios: enter 1/ratio (10× top-up → 0.1). Comparison rate = declared rate × this factor; use 1 for 1:1 top-up (no correction)',
+        'Levels out differing top-up ratios: enter 1/ratio (10× top-up → 0.1). Comparison and synced account cost rate = declared rate × this factor; billed consumption uses the same conversion. Use 1 for 1:1 top-up',
       formTotpSecret: 'TOTP secret',
       formTotpSecretHelp: 'Only needed when the upstream enforces 2FA; used to generate codes',
       formNotes: 'Notes',

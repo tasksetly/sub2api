@@ -1,6 +1,9 @@
 package service
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 // 修正系数是比价排序的乘数，非法值必须收敛成「不修正」而不是 0：
 // 0 会让所有分组的比价倍率变成 0 并排到最前，结论正好反了。
@@ -11,6 +14,9 @@ func TestNormalizeRateCorrection(t *testing.T) {
 		want  float64
 	}{
 		{"零值按不修正", 0, 1.0},
+		{"NaN", math.NaN(), 1},
+		{"positive infinity", math.Inf(1), 1},
+		{"negative infinity", math.Inf(-1), 1},
 		{"负数按不修正", -2.5, 1.0},
 		{"充值十倍", 0.1, 0.1},
 		{"一比一充值", 1.0, 1.0},
@@ -86,5 +92,19 @@ func TestCorrectedRateReordersAgainstDeclaredRate(t *testing.T) {
 			"修正后应该反转顺序：%v 应小于 %v",
 			cheapAfterCorrection.CorrectedRate(), expensiveAfterCorrection.CorrectedRate(),
 		)
+	}
+}
+
+func TestProviderFinanceUsesCorrectedCostOnce(t *testing.T) {
+	used := 10.0
+	provider := &UpstreamProviderWithStats{
+		UpstreamProvider: UpstreamProvider{RateCorrection: 0.1, Finance: &UpstreamFinance{UsedUSD: &used}},
+		LocalCostUSD:     1, LocalUserBilledUSD: 3,
+	}
+	summary := provider.FinanceSummary()
+	if summary == nil || summary.ConsumedCostUSD == nil || *summary.ConsumedCostUSD != 1 ||
+		summary.GrossProfitUSD == nil || *summary.GrossProfitUSD != 2 ||
+		summary.CostDifferenceUSD == nil || *summary.CostDifferenceUSD != 0 {
+		t.Fatalf("finance must compare converted upstream cost with already corrected local cost: %+v", summary)
 	}
 }

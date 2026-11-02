@@ -112,7 +112,7 @@ func newManualTokenService(repo *fakeUpstreamProviderRepo) *UpstreamProviderServ
 	// 关掉白名单校验，测试只关心 token 落库，不测 SSRF 那套
 	cfg := &config.Config{}
 	cfg.Security.URLAllowlist.Enabled = false
-	return NewUpstreamProviderService(repo, nil, cfg)
+	return NewUpstreamProviderService(repo, nil, nil, cfg, nil)
 }
 
 func signedToken(t *testing.T, claims jwt.MapClaims) string {
