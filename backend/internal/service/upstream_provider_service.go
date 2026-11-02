@@ -561,7 +561,20 @@ func (s *UpstreamProviderService) EnrichNewAPIUpstreamBillingSnapshots(ctx conte
 	groupsByProvider := make(map[int64]map[int64]*UpstreamGroup)
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Type != AccountTypeAPIKey || account.UpstreamProviderID == nil || account.UpstreamRemoteGroupID == nil {
+		if account.Type != AccountTypeAPIKey {
+			continue
+		}
+		setCorrection := func(correction float64) {
+			if account.Extra == nil {
+				return
+			}
+			if snapshot := decodeUpstreamBillingProbeSnapshot(account.Extra); snapshot != nil {
+				snapshot.RateCorrection = NormalizeRateCorrection(correction)
+				account.Extra[UpstreamBillingProbeExtraKey] = snapshot
+			}
+		}
+		if account.UpstreamProviderID == nil {
+			setCorrection(1)
 			continue
 		}
 		providerID := *account.UpstreamProviderID
@@ -569,12 +582,18 @@ func (s *UpstreamProviderService) EnrichNewAPIUpstreamBillingSnapshots(ctx conte
 		if !ok {
 			loaded, err := s.repo.GetByID(ctx, providerID)
 			if err != nil {
+				setCorrection(1)
 				continue
 			}
 			providers[providerID] = loaded
 			provider = loaded
 		}
-		if provider == nil || provider.ProviderType != UpstreamProviderTypeNewAPI {
+		if provider == nil {
+			setCorrection(1)
+			continue
+		}
+		setCorrection(provider.RateCorrection)
+		if provider.ProviderType != UpstreamProviderTypeNewAPI || account.UpstreamRemoteGroupID == nil {
 			continue
 		}
 		groups, ok := groupsByProvider[providerID]

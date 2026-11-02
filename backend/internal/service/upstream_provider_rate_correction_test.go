@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"math"
 	"testing"
 )
@@ -106,5 +108,49 @@ func TestProviderFinanceUsesCorrectedCostOnce(t *testing.T) {
 		summary.GrossProfitUSD == nil || *summary.GrossProfitUSD != 2 ||
 		summary.CostDifferenceUSD == nil || *summary.CostDifferenceUSD != 0 {
 		t.Fatalf("finance must compare converted upstream cost with already corrected local cost: %+v", summary)
+	}
+}
+
+type correctionEnrichmentRepo struct {
+	UpstreamProviderRepository
+	provider *UpstreamProvider
+	err      error
+}
+
+func (r *correctionEnrichmentRepo) GetByID(context.Context, int64) (*UpstreamProvider, error) {
+	return r.provider, r.err
+}
+
+func TestAccountRateCorrectionFallsBackToOneWhenProviderIsMissing(t *testing.T) {
+	providerID := int64(1)
+	newAccount := func(providerID *int64) Account {
+		return Account{
+			Type: AccountTypeAPIKey, UpstreamProviderID: providerID,
+			Extra: map[string]any{UpstreamBillingProbeExtraKey: &UpstreamBillingProbeSnapshot{
+				Status: UpstreamBillingProbeStatusOK, RateCorrection: 0.2,
+			}},
+		}
+	}
+
+	for _, tc := range []struct {
+		name       string
+		providerID *int64
+		provider   *UpstreamProvider
+		err        error
+		want       float64
+	}{
+		{name: "no linked provider", want: 1},
+		{name: "provider lookup failed", providerID: &providerID, err: errors.New("not found"), want: 1},
+		{name: "provider correction", providerID: &providerID, provider: &UpstreamProvider{RateCorrection: 0.1}, want: 0.1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			accounts := []Account{newAccount(tc.providerID)}
+			svc := &UpstreamProviderService{repo: &correctionEnrichmentRepo{provider: tc.provider, err: tc.err}}
+			svc.EnrichNewAPIUpstreamBillingSnapshots(context.Background(), accounts)
+			snapshot := decodeUpstreamBillingProbeSnapshot(accounts[0].Extra)
+			if snapshot == nil || snapshot.RateCorrection != tc.want {
+				t.Fatalf("rate correction = %v, want %v", snapshot, tc.want)
+			}
+		})
 	}
 }

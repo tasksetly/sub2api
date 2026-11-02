@@ -100,6 +100,57 @@ describe('UpstreamBillingRateCell', () => {
     )
   })
 
+  it('applies the upstream rate correction to declared, current, and retained rates', async () => {
+    const wrapper = mount(UpstreamBillingRateCell, {
+      props: {
+        account: makeAccount({
+          upstream_provider_id: 7,
+          extra: {
+            upstream_billing_probe: {
+              status: 'ok',
+              data: billingData,
+              rate_correction: 0.5,
+              received_at: '2026-07-13T00:00:00Z',
+              fresh_until: '2026-07-14T00:00:00Z',
+              last_attempt_at: '2026-07-13T00:00:00Z',
+              next_probe_at: '2026-07-13T00:30:00Z'
+            }
+          }
+        }),
+        now: Date.parse('2026-07-13T00:30:00Z')
+      }
+    })
+
+    expect(wrapper.text()).toContain('0.30x')
+    expect(wrapper.text()).toContain('0.45x')
+    expect(wrapper.text()).toContain('admin.accounts.upstreamBilling.groupRate:0.4')
+    expect(wrapper.text()).toContain('admin.accounts.upstreamBilling.userRate:0.3')
+  })
+
+  it('defaults the correction to one without a provider or a readable factor', () => {
+    const snapshot = {
+      status: 'ok' as const,
+      data: billingData,
+      rate_correction: 0.25,
+      received_at: '2026-07-13T00:00:00Z',
+      fresh_until: '2026-07-14T00:00:00Z',
+      last_attempt_at: '2026-07-13T00:00:00Z',
+      next_probe_at: '2026-07-13T00:30:00Z'
+    }
+    const withoutProvider = mount(UpstreamBillingRateCell, {
+      props: { account: makeAccount({ extra: { upstream_billing_probe: snapshot } }), now: Date.now() }
+    })
+    expect(withoutProvider.text()).toContain('0.60x')
+
+    const withoutFactor = mount(UpstreamBillingRateCell, {
+      props: {
+        account: makeAccount({ upstream_provider_id: 7, extra: { upstream_billing_probe: { ...snapshot, rate_correction: undefined } } }),
+        now: Date.now()
+      }
+    })
+    expect(withoutFactor.text()).toContain('0.60x')
+  })
+
   it('uses retained failed data only while it is still fresh', async () => {
     const account = makeAccount({
       extra: {

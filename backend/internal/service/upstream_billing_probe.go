@@ -709,15 +709,10 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "invalid_response", retryAfter(resp.Header, now))
 	}
 	rateCorrection := 1.0
-	if account.UpstreamProviderID != nil {
-		if s.providerRepo == nil {
-			return nil, ErrUpstreamBillingProbeUnavailable
+	if account.UpstreamProviderID != nil && s.providerRepo != nil {
+		if provider, err := s.providerRepo.GetByID(ctx, *account.UpstreamProviderID); err == nil && provider != nil {
+			rateCorrection = NormalizeRateCorrection(provider.RateCorrection)
 		}
-		provider, err := s.providerRepo.GetByID(ctx, *account.UpstreamProviderID)
-		if err != nil {
-			return s.persistProbeFailure(ctx, account, intervalMinutes, now, resp.StatusCode, "provider_lookup_failed", 0)
-		}
-		rateCorrection = NormalizeRateCorrection(provider.RateCorrection)
 	}
 	snapshot := &UpstreamBillingProbeSnapshot{
 		RateCorrection: rateCorrection,

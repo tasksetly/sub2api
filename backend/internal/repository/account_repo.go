@@ -69,9 +69,9 @@ var schedulerNeutralExtraKeys = map[string]struct{}{
 	"codex_referral_snapshot":              {},
 	"grok_billing_snapshot":                {},
 	"session_window_utilization":           {},
-	service.AccountTestLatencyExtraKey:      {},
-	service.AccountTestModelExtraKey:        {},
-	service.AccountTestCompletedAtExtraKey:  {},
+	service.AccountTestLatencyExtraKey:     {},
+	service.AccountTestModelExtraKey:       {},
+	service.AccountTestCompletedAtExtraKey: {},
 }
 
 const postgresParameterBatchSize = 50000
@@ -1243,8 +1243,8 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 			extra := s.C(dbaccount.FieldExtra)
 			providerID := s.C(dbaccount.FieldUpstreamProviderID)
 			remoteGroupID := s.C(dbaccount.FieldUpstreamRemoteGroupID)
-			upstreamGroupRate := "(SELECT COALESCE(g.effective_rate_multiplier, g.rate_multiplier)::numeric FROM upstream_groups g WHERE g.upstream_provider_id = " + providerID + " AND g.remote_group_id = " + remoteGroupID + " LIMIT 1)"
-			expression := "COALESCE(" + upstreamBillingRateSortExpression(extra) + ", " + upstreamGroupRate + ")"
+			upstreamGroupRate := "(SELECT COALESCE(g.effective_rate_multiplier, g.rate_multiplier)::numeric * CASE WHEN p.rate_correction > 0 THEN p.rate_correction ELSE 1 END FROM upstream_groups g JOIN upstream_providers p ON p.id = g.upstream_provider_id WHERE g.upstream_provider_id = " + providerID + " AND g.remote_group_id = " + remoteGroupID + " LIMIT 1)"
+			expression := "COALESCE(" + upstreamBillingRateSortExpression(extra, providerID) + ", " + upstreamGroupRate + ")"
 			s.OrderExpr(entsql.Expr(expression + " " + direction + " NULLS LAST"))
 			s.OrderBy(tieOrder(s.C(dbaccount.FieldID)))
 		}}
@@ -1293,7 +1293,7 @@ func accountListOrder(params pagination.PaginationParams) []func(*entsql.Selecto
 	return []func(*entsql.Selector){dbent.Asc(field), dbent.Asc(dbaccount.FieldID)}
 }
 
-func upstreamBillingRateSortExpression(extra string) string {
+func upstreamBillingRateSortExpression(extra, providerID string) string {
 	status := extra + " #>> '{upstream_billing_probe,status}'"
 	effectiveJSON := extra + " #> '{upstream_billing_probe,data,effective_rate_multiplier}'"
 	effective := extra + " #>> '{upstream_billing_probe,data,effective_rate_multiplier}'"
@@ -1321,10 +1321,11 @@ func upstreamBillingRateSortExpression(extra string) string {
 		" THEN (" + resolved + ")::numeric * CASE WHEN " + localMinute + " >= " + startMinute + " AND " + localMinute + " < " + endMinute +
 		" THEN " + peakMultiplierValue + " ELSE 1 END ELSE NULL END"
 	legacySnapshot := "jsonb_typeof(" + resolvedJSON + ") IS NULL AND jsonb_typeof(" + peakEnabledJSON + ") IS NULL"
+	providerCorrection := "COALESCE((SELECT CASE WHEN p.rate_correction > 0 THEN p.rate_correction ELSE 1 END FROM upstream_providers p WHERE p.id = " + providerID + "), 1)"
 
-	return "CASE WHEN " + status + " IN ('ok', 'failed') AND (jsonb_typeof(" + resolvedJSON + ") = 'number' OR jsonb_typeof(" + effectiveJSON + ") = 'number') THEN CASE WHEN jsonb_typeof(" +
+	return "(CASE WHEN " + status + " IN ('ok', 'failed') AND (jsonb_typeof(" + resolvedJSON + ") = 'number' OR jsonb_typeof(" + effectiveJSON + ") = 'number') THEN CASE WHEN jsonb_typeof(" +
 		resolvedJSON + ") = 'number' AND jsonb_typeof(" + peakEnabledJSON + ") = 'boolean' THEN CASE WHEN " + billingScope + " = 'token' THEN " + dynamicRate + " ELSE NULL END WHEN " + legacySnapshot +
-		" AND jsonb_typeof(" + effectiveJSON + ") = 'number' THEN (" + effective + ")::numeric END END"
+		" AND jsonb_typeof(" + effectiveJSON + ") = 'number' THEN (" + effective + ")::numeric END END) * (" + providerCorrection + ")"
 }
 
 func (r *accountRepository) ListByGroup(ctx context.Context, groupID int64) ([]service.Account, error) {

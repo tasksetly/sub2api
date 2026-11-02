@@ -12,9 +12,9 @@
       </template>
       <div class="space-y-1">
         <template v-if="hasEffectiveRate && data">
-          <p>{{ t('admin.accounts.upstreamBilling.groupRate', { value: data.group_rate_multiplier }) }}</p>
+          <p>{{ t('admin.accounts.upstreamBilling.groupRate', { value: correctedRate(data.group_rate_multiplier) }) }}</p>
           <p v-if="data.user_rate_multiplier != null">
-            {{ t('admin.accounts.upstreamBilling.userRate', { value: data.user_rate_multiplier }) }}
+            {{ t('admin.accounts.upstreamBilling.userRate', { value: correctedRate(data.user_rate_multiplier) }) }}
           </p>
           <p>
             {{
@@ -110,6 +110,15 @@ const CLOCK_SKEW_TOLERANCE_MS = 5 * 60 * 1000
 const eligible = computed(() => props.account.type === 'apikey')
 const snapshot = computed<UpstreamBillingProbeSnapshot | undefined>(() => props.account.extra?.upstream_billing_probe)
 const data = computed(() => snapshot.value?.data)
+const rateCorrection = computed(() => {
+  if (props.account.upstream_provider_id == null) return 1
+  const value = snapshot.value?.rate_correction
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 1
+})
+const correctedRate = (value?: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '-'
+  return formatMultiplier(value * rateCorrection.value)
+}
 const probeEnabled = computed(() => props.account.extra?.upstream_billing_probe_enabled === true)
 const nextProbeAt = computed(() => {
   const value = snapshot.value?.next_probe_at
@@ -164,20 +173,21 @@ const currentEffectiveRate = computed(() => {
   if (billing.billing_scope !== 'token') return null
   const base = billing.resolved_rate_multiplier
   if (typeof base !== 'number' || !Number.isFinite(base) || base < 0) return null
+  const correctedBase = base * rateCorrection.value
   if (typeof billing.peak_rate_enabled !== 'boolean') return null
-  if (!billing.peak_rate_enabled) return base
+  if (!billing.peak_rate_enabled) return correctedBase
   const start = parseMinute(billing.peak_start)
   const end = parseMinute(billing.peak_end)
   const minute = minuteInTimeZone(props.now, billing.timezone)
   const peak = billing.peak_rate_multiplier
   if (start == null || end == null || minute == null || start >= end || typeof peak !== 'number' || !Number.isFinite(peak) || peak < 0) return null
-  const value = minute >= start && minute < end ? base * peak : base
+  const value = minute >= start && minute < end ? correctedBase * peak : correctedBase
   return Number.isFinite(value) ? value : null
 })
 const lastDetectedRate = computed(() => {
   const value = data.value?.effective_rate_multiplier
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
-    ? Number(value.toPrecision(12))
+    ? Number((value * rateCorrection.value).toPrecision(12))
     : null
 })
 const elapsedSinceLastSuccess = computed(() => {
