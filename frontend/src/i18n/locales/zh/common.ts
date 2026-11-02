@@ -227,7 +227,7 @@ export default {
     channelPricing: '渠道定价',
     channelMonitor: '渠道监控',
     channelStatus: '渠道状态',
-    intelligenceTest: 'SVG 能力测试',
+    intelligenceTest: '模型智商测试',
     riskControl: '风控中心',
     securityAudit: '安全审计',
     contentModeration: '内容审计',
