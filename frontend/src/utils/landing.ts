@@ -17,11 +17,11 @@ const GENERIC_ENGLISH_SUBTITLES = new Set([
 
 export function resolveHomeSubtitle(
   configuredSubtitle: string,
-  locale: string,
+  _locale: string,
   localizedDefault: string,
 ): string {
   const subtitle = configuredSubtitle.trim()
-  if (locale.toLowerCase().startsWith('zh') && GENERIC_ENGLISH_SUBTITLES.has(subtitle)) {
+  if (GENERIC_ENGLISH_SUBTITLES.has(subtitle)) {
     return localizedDefault
   }
   return subtitle || localizedDefault

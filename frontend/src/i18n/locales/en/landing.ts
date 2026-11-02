@@ -7,6 +7,8 @@ export default {
   home: {
     viewDocs: 'View Documentation',
     docs: 'Docs',
+    quickstart: 'Quickstart',
+    browseModels: 'Browse models',
     switchToLight: 'Switch to Light Mode',
     switchToDark: 'Switch to Dark Mode',
     dashboard: 'Dashboard',
@@ -14,8 +16,8 @@ export default {
     getStarted: 'Sign Up and Get Started',
     goToDashboard: 'Go to Dashboard',
     // User-focused value proposition
-    heroSubtitle: 'API access for AI coding tools with usage-based billing. Create an API key, follow the quickstart, and make a first request.',
-    heroDescription: 'Use one API key and dashboard to view the models and channels currently available to you.',
+    heroSubtitle: 'API access for AI coding tools and compatible clients.',
+    heroDescription: 'Create an API key, copy a current model ID, and send a request using the quickstart. After a successful response, check calls, cost and quota in the console.',
     tags: {
       subscriptionToApi: 'Codex CLI API Access',
       stickySession: 'View available model catalog',
@@ -49,12 +51,12 @@ export default {
       subtitle: 'Three simple steps to stress-free AI access'
     },
     features: {
-      unifiedGateway: 'Fast Codex CLI Setup',
-      unifiedGatewayDesc: 'Create an API key and copy the dashboard configuration to start calling the API.',
-      multiAccount: 'Unified Access and Management',
-      multiAccountDesc: 'Create an API key after signup, manage usage in one place, and use the models you need.',
-      balanceQuota: 'Usage-Based Balance Billing',
-      balanceQuotaDesc: 'Each CNY 1 recharge becomes USD 1 of balance; platform balance units are not foreign-exchange rates. Actual charges follow model and channel pricing conditions.'
+      unifiedGateway: 'Connect your client',
+      unifiedGatewayDesc: 'Create an API key in the console and configure your AI coding tool or compatible client.',
+      multiAccount: 'Try a documented request',
+      multiAccountDesc: 'The quickstart includes Anthropic Messages and OpenAI Chat Completions examples. Choose a model and group that support the interface.',
+      balanceQuota: 'Check calls, cost and quota',
+      balanceQuotaDesc: 'After a successful request, return to the console to review usage records, cost and quota.'
     },
     // Comparison section
     comparison: {

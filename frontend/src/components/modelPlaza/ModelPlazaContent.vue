@@ -6,6 +6,10 @@
       <p class="mt-1.5 text-sm text-gray-500 dark:text-dark-400">{{ t('modelPlaza.description') }}</p>
     </div>
 
+    <p class="text-sm text-gray-600 dark:text-dark-300">
+      {{ t('modelPlaza.groupClassificationHint') }}
+    </p>
+
     <!-- 全局价格说明(管理员配置,Markdown) -->
     <div
       v-if="descriptionHtml"

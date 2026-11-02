@@ -7,6 +7,8 @@ export default {
   home: {
     viewDocs: '查看文档',
     docs: '文档',
+    quickstart: '快速开始',
+    browseModels: '浏览模型',
     switchToLight: '切换到浅色模式',
     switchToDark: '切换到深色模式',
     dashboard: '控制台',
@@ -14,8 +16,8 @@ export default {
     getStarted: '注册并开始使用',
     goToDashboard: '进入控制台',
     // 新增：面向用户的价值主张
-    heroSubtitle: '面向 AI 编程工具的 API 接入服务，按用量计费。注册、创建 API Key、阅读快速开始文档，然后发起第一次调用。',
-    heroDescription: '使用一个 API Key 和控制台，按需查看当前可用模型与通道。',
+    heroSubtitle: '面向 AI 编程工具与兼容客户端的 API 接入服务。',
+    heroDescription: '创建 API Key，复制当前模型 ID，按快速开始文档发送请求。收到成功响应后，在控制台查看调用、费用和配额。',
     tags: {
       subscriptionToApi: 'Codex CLI API 接入',
       stickySession: '查看可用模型目录',
@@ -49,12 +51,12 @@ export default {
       subtitle: '简单三步，开始省心使用 AI'
     },
     features: {
-      unifiedGateway: 'Codex CLI 快速接入',
-      unifiedGatewayDesc: '创建 API Key 并复制控制台配置，即可开始调用。',
-      multiAccount: '统一管理与调用',
-      multiAccountDesc: '注册后创建 API Key，集中管理用量并按需调用多种 AI 模型。',
-      balanceQuota: '余额按量计费',
-      balanceQuotaDesc: '充值 1 CNY 计入 1 USD 计价余额；平台余额单位不代表外汇汇率。实际费用按模型与通道的价格条件计算。'
+      unifiedGateway: '接入你的客户端',
+      unifiedGatewayDesc: '在控制台创建 API Key，配置 AI 编程工具或兼容客户端。',
+      multiAccount: '尝试文档中的请求',
+      multiAccountDesc: '快速开始提供 Anthropic Messages 与 OpenAI Chat Completions 示例。请选择支持对应接口的模型与分组。',
+      balanceQuota: '查看调用、费用和配额',
+      balanceQuotaDesc: '成功调用后，返回控制台查看用量记录、费用和配额。'
     },
     // 优势对比
     comparison: {

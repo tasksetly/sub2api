@@ -85,16 +85,35 @@
         />
         <h1 class="[overflow-wrap:anywhere] text-3xl font-bold md:text-4xl">{{ siteName }}</h1>
         <p class="mt-4 whitespace-pre-wrap [overflow-wrap:anywhere] text-base text-gray-600 dark:text-dark-300">{{ siteSubtitle }}</p>
+        <p class="mt-4 text-sm leading-relaxed text-gray-600 dark:text-dark-300">{{ t('home.heroDescription') }}</p>
         <router-link
           :to="isAuthenticated ? dashboardPath : '/login'"
           class="mt-8 inline-flex min-h-10 items-center justify-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
         >
           {{ isAuthenticated ? t('home.goToDashboard') : t('home.login') }}
         </router-link>
+        <div class="mt-5 flex flex-wrap justify-center gap-4 text-sm">
+          <router-link v-if="showModelPlazaEntry" to="/model-plaza" class="font-medium text-primary-600 underline underline-offset-4 dark:text-primary-400">
+            {{ t('home.browseModels') }}
+          </router-link>
+          <a v-if="docUrl" :href="docUrl" class="font-medium text-primary-600 underline underline-offset-4 dark:text-primary-400">
+            {{ t('home.quickstart') }}
+          </a>
+        </div>
       </div>
     </main>
 
     <footer class="min-w-0 border-t border-gray-200 px-4 py-5 text-center text-sm text-gray-500 [overflow-wrap:anywhere] sm:px-6 dark:border-dark-800 dark:text-dark-400">
+      <div v-if="legalDocuments.length" class="mb-3 flex flex-wrap justify-center gap-4">
+        <router-link
+          v-for="doc in legalDocuments"
+          :key="doc.id"
+          :to="{ name: 'LegalDocument', params: { documentId: doc.id } }"
+          class="text-sm text-gray-500 underline underline-offset-4 hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
+        >
+          {{ doc.title }}
+        </router-link>
+      </div>
       &copy; {{ currentYear }} {{ siteName }}
     </footer>
   </div>
@@ -232,6 +251,8 @@
               {{ siteSubtitle }}
             </p>
 
+            <p class="mb-6 text-base leading-relaxed text-gray-600 dark:text-dark-300">{{ t('home.heroDescription') }}</p>
+
             <!-- CTA Button -->
             <div>
               <router-link
@@ -241,6 +262,14 @@
                 {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
                 <Icon name="arrowRight" size="md" class="ml-2" :stroke-width="2" />
               </router-link>
+            </div>
+            <div class="mt-5 flex flex-wrap justify-center gap-4 text-sm lg:justify-start">
+              <router-link v-if="showModelPlazaEntry" to="/model-plaza" class="font-medium text-primary-600 underline underline-offset-4 dark:text-primary-400">
+                {{ t('home.browseModels') }}
+              </router-link>
+              <a v-if="docUrl" :href="docUrl" class="font-medium text-primary-600 underline underline-offset-4 dark:text-primary-400">
+                {{ t('home.quickstart') }}
+              </a>
             </div>
           </div>
 
@@ -255,7 +284,7 @@
                     <span class="btn-minimize"></span>
                     <span class="btn-maximize"></span>
                   </div>
-                  <span class="terminal-title">terminal</span>
+                  <span class="terminal-title">{{ t('home.quickstart') }}</span>
                 </div>
                 <!-- Terminal content -->
                 <div class="terminal-body">
@@ -399,7 +428,15 @@
         <p class="text-sm text-gray-500 dark:text-dark-400">
           &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
         </p>
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center justify-center gap-4">
+          <router-link
+            v-for="doc in legalDocuments"
+            :key="doc.id"
+            :to="{ name: 'LegalDocument', params: { documentId: doc.id } }"
+            class="text-sm text-gray-500 underline underline-offset-4 hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
+          >
+            {{ doc.title }}
+          </router-link>
           <a
             v-if="docUrl"
             :href="docUrl"
@@ -456,6 +493,11 @@ const docUrl = computed(() =>
   sanitizeUrl(
     getHomeDocsUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''),
     { allowRelative: true },
+  ),
+)
+const legalDocuments = computed(() =>
+  (appStore.cachedPublicSettings?.login_agreement_documents ?? []).filter(
+    (doc) => doc.id.trim() && doc.title.trim() && doc.content_md.trim() && doc.id !== 'admin-compliance',
   ),
 )
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')

@@ -54,10 +54,12 @@
 
       <section>
         <h2>第三步：发送最小测试请求</h2>
+        <p>以下命令适用于 Bash / zsh。先在本地终端设置环境变量 <code>TASKSETLY_API_KEY</code> 为你在控制台创建的 Key；不要将真实 Key 写入文档或提交到仓库。</p>
+        <p>将每个示例中的 <code>MODEL_ID_FROM_CONSOLE</code> 替换为从控制台或<a href="/model-plaza">模型广场</a>复制的实时模型 ID，并确认所选模型与 Key 分组支持对应接口。</p>
         <p>Anthropic Messages 兼容接口：</p>
         <pre><code>curl https://ai.tasksetly.com/v1/messages \
   -H "content-type: application/json" \
-  -H "x-api-key: YOUR_API_KEY" \
+  -H "x-api-key: ${TASKSETLY_API_KEY:?Set TASKSETLY_API_KEY in your local shell}" \
   -H "anthropic-version: 2023-06-01" \
   -d '{
     "model": "MODEL_ID_FROM_CONSOLE",
@@ -67,7 +69,7 @@
         <p>OpenAI Chat Completions 兼容接口：</p>
         <pre><code>curl https://ai.tasksetly.com/v1/chat/completions \
   -H "content-type: application/json" \
-  -H "authorization: Bearer YOUR_API_KEY" \
+  -H "authorization: Bearer ${TASKSETLY_API_KEY:?Set TASKSETLY_API_KEY in your local shell}" \
   -d '{
     "model": "MODEL_ID_FROM_CONSOLE",
     "messages": [{"role": "user", "content": "Reply with OK"}]

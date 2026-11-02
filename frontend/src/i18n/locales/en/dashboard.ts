@@ -743,6 +743,7 @@ export default {
     empty: 'No groups to display',
     loadFailed: 'Failed to load model plaza',
     noSearchResult: 'No matching models',
+    groupClassificationHint: 'Group names are internal channel classifications. They do not by themselves guarantee upstream identity, output quality or continuous availability.',
     anonymousHint: 'Sign in to see your exclusive groups and personal rates',
     filters: {
       platformLabel: 'Platform',

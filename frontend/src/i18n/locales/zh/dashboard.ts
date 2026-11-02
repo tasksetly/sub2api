@@ -748,6 +748,7 @@ export default {
     empty: '暂无可展示的分组',
     loadFailed: '加载模型广场失败',
     noSearchResult: '没有匹配的模型',
+    groupClassificationHint: '分组名称为内部通道分类，本身不保证上游身份、输出质量或持续可用性。',
     anonymousHint: '登录后可查看你的专属分组与专属倍率',
     filters: {
       platformLabel: '平台',
