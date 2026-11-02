@@ -104,6 +104,10 @@
     </main>
 
     <footer class="min-w-0 border-t border-gray-200 px-4 py-5 text-center text-sm text-gray-500 [overflow-wrap:anywhere] sm:px-6 dark:border-dark-800 dark:text-dark-400">
+      <div class="mb-3 space-y-1">
+        <p><span class="font-medium">{{ t('home.footer.refundPolicyTitle') }}:</span> {{ t('home.footer.refundPolicy') }}</p>
+        <p><span class="font-medium">{{ t('home.footer.privacyStatementTitle') }}:</span> {{ t('home.footer.privacyStatement') }}</p>
+      </div>
       <div v-if="legalDocuments.length" class="mb-3 flex flex-wrap justify-center gap-4">
         <router-link
           v-for="doc in legalDocuments"
@@ -425,6 +429,10 @@
       <div
         class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 text-center sm:flex-row sm:text-left"
       >
+        <div class="text-sm text-gray-500 dark:text-dark-400">
+          <p><span class="font-medium">{{ t('home.footer.refundPolicyTitle') }}:</span> {{ t('home.footer.refundPolicy') }}</p>
+          <p><span class="font-medium">{{ t('home.footer.privacyStatementTitle') }}:</span> {{ t('home.footer.privacyStatement') }}</p>
+        </div>
         <p class="text-sm text-gray-500 dark:text-dark-400">
           &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
         </p>

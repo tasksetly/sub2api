@@ -111,7 +111,11 @@ export default {
       button: 'Sign Up Now'
     },
     footer: {
-      allRightsReserved: 'All rights reserved.'
+      allRightsReserved: 'All rights reserved.',
+      refundPolicyTitle: 'Refund policy',
+      refundPolicy: 'Unused balance may be refunded. The used portion is not refundable.',
+      privacyStatementTitle: 'Privacy',
+      privacyStatement: 'Tasksetly does not retain user data.'
     }
   },
 

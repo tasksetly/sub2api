@@ -111,7 +111,11 @@ export default {
       button: '立即注册'
     },
     footer: {
-      allRightsReserved: '保留所有权利。'
+      allRightsReserved: '保留所有权利。',
+      refundPolicyTitle: '退款政策',
+      refundPolicy: '未使用的余额可以退款；已使用的部分不予退款。',
+      privacyStatementTitle: '隐私声明',
+      privacyStatement: 'Tasksetly 不保留用户数据。'
     }
   },
 
