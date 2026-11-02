@@ -11,8 +11,8 @@ import (
 //
 // 优先级（先命中为准）：
 //  1. 自定义规则（始终尝试，不依赖 ApplyPricingToAccountStats 开关）
-//  2. ApplyPricingToAccountStats 启用时，直接使用本次请求的客户计费（倍率前的 totalCost）
-//  3. 模型定价文件（LiteLLM）中上游模型的默认价格
+//  2. 开启旧开关或请求/上游模型相同时，使用本次客户计费（倍率前的 totalCost）
+//  3. 模型定价文件（LiteLLM）中上游模型的默认价格（仅映射模型）
 //  4. nil → 走默认公式（total_cost × account_rate_multiplier）
 //
 // upstreamModel 是最终发往上游的模型 ID。
@@ -56,8 +56,10 @@ func resolveAccountStatsCost(
 		return cost
 	}
 
-	// 优先级 2：渠道开启"应用模型定价到账号统计"时，直接使用客户计费（倍率前）
-	if channel.ApplyPricingToAccountStats {
+	// 同模型时，totalCost 已反映实际使用的渠道/分组定价；映射到其他上游模型时，
+	// 保留模型文件成本，避免把客户侧模型价格误当作不同上游模型的实际成本。
+	sameBilledModel := len(reasoningEfforts) > 1 && reasoningEfforts[1] == upstreamModel
+	if channel.ApplyPricingToAccountStats || sameBilledModel {
 		cost := totalCost
 		if cost <= 0 {
 			return nil
@@ -291,7 +293,7 @@ func applyAccountStatsCost(
 		reasoningEffort = *usageLog.ReasoningEffort
 	}
 	usageLog.AccountStatsCost = resolveAccountStatsCost(
-		ctx, cs, bs, accountID, groupID, model, tokens, requestCount, totalCost, serviceTier, pricingAt, longContextPricingEnabled, reasoningEffort,
+		ctx, cs, bs, accountID, groupID, model, tokens, requestCount, totalCost, serviceTier, pricingAt, longContextPricingEnabled, reasoningEffort, requestedModel,
 	)
 }
 

@@ -851,6 +851,41 @@ func TestResolveAccountStatsCost_ApplyPricingToAccountStats_UsesTotalCost(t *tes
 	require.InDelta(t, 0.75, *result, 1e-12)
 }
 
+func TestApplyAccountStatsCost_SameModelUsesBilledBaseWhenLegacyToggleDisabled(t *testing.T) {
+	channel := &Channel{ID: 1, Status: StatusActive, ApplyPricingToAccountStats: false}
+	cs := newTestChannelServiceForStats(t, channel, 10, "deepseek")
+	tokens := UsageTokens{InputTokens: 32, OutputTokens: 14}
+	usageLog := &UsageLog{}
+
+	applyAccountStatsCost(
+		context.Background(), usageLog, cs, newTestBillingServiceWithPrices(map[string]*ModelPricing{
+			"deepseek-v4.1-flash": {InputPricePerToken: 0.15e-6, OutputPricePerToken: 0.6e-6},
+		}),
+		1, 10, "deepseek-v4.1-flash", "deepseek-v4.1-flash", tokens,
+		32*2e-6+14*8e-6, time.Time{}, true,
+	)
+
+	require.NotNil(t, usageLog.AccountStatsCost)
+	require.InDelta(t, 32*2e-6+14*8e-6, *usageLog.AccountStatsCost, 1e-12)
+}
+
+func TestApplyAccountStatsCost_DistinctMappedModelKeepsModelFilePricing(t *testing.T) {
+	channel := &Channel{ID: 1, Status: StatusActive, ApplyPricingToAccountStats: false}
+	cs := newTestChannelServiceForStats(t, channel, 10, "deepseek")
+	usageLog := &UsageLog{}
+
+	applyAccountStatsCost(
+		context.Background(), usageLog, cs, newTestBillingServiceWithPrices(map[string]*ModelPricing{
+			"deepseek-upstream": {InputPricePerToken: 0.15e-6},
+		}),
+		1, 10, "deepseek-upstream", "deepseek-requested", UsageTokens{InputTokens: 32},
+		0.000064, time.Time{}, true,
+	)
+
+	require.NotNil(t, usageLog.AccountStatsCost)
+	require.InDelta(t, 32*0.15e-6, *usageLog.AccountStatsCost, 1e-12)
+}
+
 func TestResolveAccountStatsCost_ApplyPricingToAccountStats_ZeroTotalCost_ReturnsNil(t *testing.T) {
 	channel := &Channel{
 		ID:                         1,
