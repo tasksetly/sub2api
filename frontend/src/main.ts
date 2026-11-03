@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { createHead } from '@vueuse/head'
 import App from './App.vue'
 import router from './router'
 import i18n, { initI18n } from './i18n'
@@ -37,7 +38,10 @@ async function bootstrap() {
 
   const app = createApp(App)
   const pinia = createPinia()
+  const head = createHead()
+
   app.use(pinia)
+  app.use(head)
 
   // Initialize settings from injected config BEFORE mounting (prevents flash)
   // This must happen after pinia is installed but before router and i18n
@@ -45,7 +49,7 @@ async function bootstrap() {
   appStore.initFromInjectedConfig()
 
   // Set document title immediately after config is loaded
-  if (appStore.siteName && appStore.siteName !== 'Sub2API') {
+  if (appStore.siteName && appStore.siteName !== 'Tasksetly') {
     document.title = `${appStore.siteName} - AI API Gateway`
   }
   updateFavicon(appStore.siteLogo)

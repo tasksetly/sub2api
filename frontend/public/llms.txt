@@ -1,0 +1,32 @@
+# Tasksetly
+
+> AI API Gateway Platform for Subscription Quota Distribution
+
+## Overview
+
+Tasksetly is an AI API gateway that enables subscription-based quota distribution across multiple AI providers including Claude, OpenAI, Gemini, and others.
+
+## Core Features
+
+- Unified API access to multiple AI providers
+- Subscription and recharge-based quota management
+- Multi-tenant support with role-based access control
+- Real-time usage tracking and analytics
+- OAuth integration (GitHub, Google, WeChat, DingTalk, OIDC)
+- Multi-language support (English, Chinese)
+
+## Technology Stack
+
+- Backend: Go 1.27+, PostgreSQL 15+, Redis 7+
+- Frontend: Vue 3.4+, TypeScript, TailwindCSS
+- Deployment: Docker, Kubernetes-ready
+
+## Documentation
+
+- GitHub: https://github.com/Wei-Shaw/sub2api
+- Setup Guide: /docs/quickstart.html
+- API Documentation: Available after deployment
+
+## License
+
+MIT License - See repository for details
