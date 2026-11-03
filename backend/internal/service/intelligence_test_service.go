@@ -459,6 +459,20 @@ func extractSVG(value string) string {
 	start := regexp.MustCompile(`(?is)<svg\b`).FindStringIndex(value)
 	if start == nil { return "" }
 	fragment := value[start[0]:]
+	// Try strict XML parse first; it handles depth correctly for well-formed SVG.
+	if svg := extractSVGStrict(fragment); svg != "" {
+		return svg
+	}
+	// shortcut: string-search fallback for non-strict XML (unescaped & or HTML entities
+	// that models commonly produce); doesn't handle nested <svg>, upgrade if needed.
+	end := strings.LastIndex(strings.ToLower(fragment), "</svg>")
+	if end < 0 { return "" }
+	return strings.TrimSpace(fragment[:end+len("</svg>")])
+}
+
+// extractSVGStrict uses a streaming XML decoder to find the closing </svg> tag at
+// the correct nesting depth. Returns "" on any parse error.
+func extractSVGStrict(fragment string) string {
 	decoder := xml.NewDecoder(strings.NewReader(fragment))
 	rootSeen, depth := false, 0
 	for {
