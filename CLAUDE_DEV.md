@@ -238,6 +238,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
 | 2026-11-03 | SEO + 国际化优化 | 加 meta description、Open Graph、JSON-LD、sitemap 多语言、llms.txt、@vueuse/head | `frontend/index.html`<br>`frontend/public/sitemap.xml`<br>`frontend/public/llms.txt`<br>`frontend/src/composables/useSeoMeta.ts`<br>`frontend/src/main.ts`<br>`frontend/src/router/title.ts` | 085b9aad7 |
+| 2026-11-03 | 智能测试 SVG 提取修复 | `extractSVG` 增加字符串 fallback，解决模型返回非严格 XML（未转义 `&`、HTML 实体）时任务误判为 `svg_missing_or_invalid` 的问题，确保每次定时任务都能正确生成 SVG | `backend/internal/service/intelligence_test_service.go` | 6525e50b7 |
 
 ---
 
