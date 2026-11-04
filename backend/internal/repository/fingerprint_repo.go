@@ -203,6 +203,14 @@ func (r *fingerprintResultRepository) CountSince(ctx context.Context, accountID 
 	return count, err
 }
 
+func (r *fingerprintResultRepository) CountAllSince(ctx context.Context, since time.Time) (int64, error) {
+	var count int64
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM fingerprint_results WHERE created_at >= $1 AND skip_reason = ''
+	`, since).Scan(&count)
+	return count, err
+}
+
 // --- scan helpers ---
 
 func scanFingerprintPlan(row scannable) (*service.FingerprintPlan, error) {

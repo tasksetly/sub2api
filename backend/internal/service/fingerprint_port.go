@@ -176,4 +176,6 @@ type FingerprintResultRepository interface {
 	SumEstimatedTokensSince(ctx context.Context, accountID int64, since time.Time) (int64, error)
 	// CountSince 统计某账号自 since 起实际发生的检测次数（不含被配额跳过的）。
 	CountSince(ctx context.Context, accountID int64, since time.Time) (int64, error)
+	// CountAllSince 统计全局自 since 起实际发生的检测次数，用于每日全局配额。
+	CountAllSince(ctx context.Context, since time.Time) (int64, error)
 }
