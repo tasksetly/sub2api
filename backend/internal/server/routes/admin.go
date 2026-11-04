@@ -117,6 +117,7 @@ func RegisterAdminRoutes(
 
 		// 定时测试计划
 		registerScheduledTestRoutes(admin, h)
+		registerFingerprintRoutes(admin, h)
 
 		// SVG 能力测试
 		registerIntelligenceTestRoutes(admin, h)
@@ -797,6 +798,21 @@ func registerScheduledTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 	// Nested under accounts
 	admin.GET("/accounts/:id/scheduled-test-plans", h.Admin.ScheduledTest.ListByAccount)
+}
+
+func registerFingerprintRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	admin.GET("/fingerprint/reference-models", h.Admin.Fingerprint.ListReferenceModels)
+	plans := admin.Group("/fingerprint-plans")
+	{
+		plans.POST("", h.Admin.Fingerprint.Create)
+		plans.PUT("/:id", h.Admin.Fingerprint.Update)
+		plans.DELETE("/:id", h.Admin.Fingerprint.Delete)
+		plans.GET("/:id/results", h.Admin.Fingerprint.ListResults)
+		plans.POST("/:id/run", h.Admin.Fingerprint.RunNow)
+	}
+	// Nested under accounts
+	admin.GET("/accounts/:id/fingerprint-plans", h.Admin.Fingerprint.ListByAccount)
+	admin.GET("/accounts/:id/fingerprint-overview", h.Admin.Fingerprint.Overview)
 }
 
 func registerIntelligenceTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

@@ -671,6 +671,51 @@ func ProvideScheduledTestRunnerService(
 	return svc
 }
 
+// ProvideFingerprintDetectorProvider 创建 detector 懒加载提供者（常驻复用）。
+func ProvideFingerprintDetectorProvider(settingSvc *SettingService) *FingerprintDetectorProvider {
+	return NewFingerprintDetectorProvider(settingSvc)
+}
+
+// ProvideFingerprintService 创建指纹校对的 CRUD 服务。
+func ProvideFingerprintService(
+	planRepo FingerprintPlanRepository,
+	resultRepo FingerprintResultRepository,
+	detector *FingerprintDetectorProvider,
+) *FingerprintService {
+	return NewFingerprintService(planRepo, resultRepo, detector)
+}
+
+// ProvideFingerprintQuota 创建集群级并发闸与每日配额。
+func ProvideFingerprintQuota(
+	lockCache LeaderLockCache,
+	db *sql.DB,
+	resultRepo FingerprintResultRepository,
+	settingSvc *SettingService,
+) *FingerprintQuota {
+	return NewFingerprintQuota(lockCache, db, resultRepo, func(ctx context.Context) FingerprintSettings {
+		return settingSvc.GetFingerprintSettings(ctx)
+	})
+}
+
+// ProvideFingerprintRunnerService 创建并启动指纹校对执行器，同时挂上 ops 告警。
+func ProvideFingerprintRunnerService(
+	planRepo FingerprintPlanRepository,
+	fpSvc *FingerprintService,
+	accountRepo AccountRepository,
+	detector *FingerprintDetectorProvider,
+	quota *FingerprintQuota,
+	cfg *config.Config,
+	lockCache LeaderLockCache,
+	db *sql.DB,
+	opsSvc *OpsService,
+	settingSvc *SettingService,
+) *FingerprintRunnerService {
+	svc := NewFingerprintRunnerService(planRepo, fpSvc, accountRepo, detector, quota, cfg, lockCache, db)
+	svc.SetAlerter(NewFingerprintAlerter(opsSvc, settingSvc))
+	svc.Start()
+	return svc
+}
+
 // ProvideIntelligenceTestService creates and starts the configurable SVG benchmark runner.
 func ProvideIntelligenceTestService(
 	repo IntelligenceTestRepository,
@@ -989,6 +1034,10 @@ var ProviderSet = wire.NewSet(
 	ProvideIdempotencyCleanupService,
 	ProvideScheduledTestService,
 	ProvideScheduledTestRunnerService,
+	ProvideFingerprintDetectorProvider,
+	ProvideFingerprintService,
+	ProvideFingerprintQuota,
+	ProvideFingerprintRunnerService,
 	ProvideIntelligenceTestService,
 	NewGroupCapacityService,
 	NewChannelService,
