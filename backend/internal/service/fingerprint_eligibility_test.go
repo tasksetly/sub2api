@@ -52,16 +52,42 @@ func TestFingerprintEligibilityByAccountType(t *testing.T) {
 }
 
 func TestFingerprintEligibilityRejectsHeaderOverrides(t *testing.T) {
-	acc := fingerprintTestAccount(AccountTypeUpstream, map[string]any{
+	// apikey 类账号的 header override 在网关侧真实生效，SDK 自建请求不会带上它们，
+	// 检测与业务走的请求不同，应判为不支持。
+	acc := fingerprintTestAccount(AccountTypeAPIKey, map[string]any{
 		"header_override_enabled": true,
 		"header_overrides":        map[string]any{"X-Tenant": "t-1"},
 	})
 	got := CheckFingerprintEligibility(acc)
 	if got.Supported {
-		t.Fatal("配了自定义请求头的账号，SDK 自建请求大概率失败，应判为不支持")
+		t.Fatal("配了会生效的自定义请求头的账号，应判为不支持")
 	}
 	if got.Reason != FingerprintReasonHeaderOverrides {
 		t.Fatalf("Reason = %q, want %q", got.Reason, FingerprintReasonHeaderOverrides)
+	}
+}
+
+// upstream 类账号的 header override 在网关侧本就是空转（IsHeaderOverrideEligible 为 false），
+// 检测不带这些头反而与业务一致，因此不该被判为不支持。
+func TestFingerprintEligibilityIgnoresInertHeaderOverridesOnUpstream(t *testing.T) {
+	acc := fingerprintTestAccount(AccountTypeUpstream, map[string]any{
+		"header_override_enabled": true,
+		"header_overrides":        map[string]any{"X-Tenant": "t-1"},
+	})
+	got := CheckFingerprintEligibility(acc)
+	if !got.Supported {
+		t.Fatalf("upstream 账号的 header override 不生效，不应因此判为不支持；reason=%q", got.Reason)
+	}
+}
+
+// 只配了黑名单头（网关会过滤掉）时，不应误伤置灰。
+func TestFingerprintEligibilityIgnoresBlockedHeaderOverrides(t *testing.T) {
+	acc := fingerprintTestAccount(AccountTypeAPIKey, map[string]any{
+		"header_override_enabled": true,
+		"header_overrides":        map[string]any{"content-type": "application/json"},
+	})
+	if got := CheckFingerprintEligibility(acc); !got.Supported {
+		t.Fatalf("被网关过滤的头不构成实际覆盖，不应判为不支持；reason=%q", got.Reason)
 	}
 }
 
