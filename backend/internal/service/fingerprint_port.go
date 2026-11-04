@@ -47,6 +47,9 @@ const (
 	FingerprintSkipConcurrency  = "concurrency_gate"
 	FingerprintSkipDailyGlobal  = "daily_limit_global"
 	FingerprintSkipDailyAccount = "daily_limit_account"
+	// FingerprintSkipAccountInactive 定期抽查跳过了不可调度的账号（停用/过期/限流/临时不可调度）。
+	// 手动触发不受此限。
+	FingerprintSkipAccountInactive = "account_inactive"
 )
 
 // 规格 6.4 的默认值。
