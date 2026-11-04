@@ -7,6 +7,7 @@ export default {
         menuEntry: 'Fingerprint Check',
         checkOnCreate: 'Run a fingerprint check right after creating',
         pickExpectedModel: 'Account created. Pick the expected model to start checking.',
+        openFromMenu: 'Account created. Open Fingerprint Check from its action menu.',
         referenceBuiltAt: 'Reference bank',
         referenceUnavailable: 'Reference data unavailable',
         monthlyTokens: 'This month (estimated output tokens)',
@@ -62,7 +63,8 @@ export default {
           concurrency_gate: 'Concurrency limit reached, skipped',
           daily_limit_global: 'Global daily check limit reached, skipped',
           daily_limit_account: 'Daily check limit for this account reached, skipped',
-          account_inactive: 'Account is not schedulable right now, scheduled check skipped'
+          account_inactive: 'Account is not schedulable right now, scheduled check skipped',
+          not_attempted: 'No request was sent (account or settings are invalid); this does not count against the quota'
         }
       },
       createAccount: 'Create Account',

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -375,5 +376,61 @@ func TestRunnerDoesNotOverwriteStatusOnQuotaSkip(t *testing.T) {
 	}
 	if len(h.accountRepo.extraUpdates) != 0 {
 		t.Fatalf("被配额跳过时不该覆盖标记，got %v", h.accountRepo.extraUpdates)
+	}
+}
+
+// 回归：被并发闸拦下时不能按 cron 推进到下一个周期。
+// 默认 cron "0 */6 * * *" 让所有计划挤在同一分钟到期，若照常推进，
+// 每轮只有抢到槽位的前几个会跑，其余账号一次都测不到。
+func TestRunnerRetriesSoonWhenConcurrencyGateBlocks(t *testing.T) {
+	h := newFingerprintRunnerHarness(t, fingerprintDetectStub("scored", "claude-opus-5"))
+	// 把全部槽位占满来制造并发闸拦截
+	cache := newFingerprintLockCacheStub()
+	for i := 0; i < FingerprintDefaultMaxConcurrency; i++ {
+		_, _ = cache.TryAcquireLeaderLock(context.Background(), fmt.Sprintf("fingerprint:slot:%d", i), "someone-else", time.Minute)
+	}
+	h.runner.quota = newFingerprintQuotaForTest(cache, &fingerprintCounterStub{},
+		FingerprintSettings{MaxConcurrency: FingerprintDefaultMaxConcurrency, DailyLimitGlobal: 100, DailyLimitAccount: 100})
+
+	h.runner.runOnePlan(context.Background(), h.plan)
+
+	if len(h.planRepo.nextRuns) != 1 {
+		t.Fatalf("nextRuns = %v, want 一次", h.planRepo.nextRuns)
+	}
+	delay := time.Until(h.planRepo.nextRuns[0])
+	if delay > time.Hour {
+		t.Fatalf("被并发闸拦下后退避 %v，不应按 6 小时 cron 推进", delay)
+	}
+	if h.lastResult(t).SkipReason != FingerprintSkipConcurrency {
+		t.Fatalf("SkipReason = %q", h.lastResult(t).SkipReason)
+	}
+}
+
+// 回归：压根没发请求就失败的结果不该吃每日配额，否则几条坏计划能饿死全站抽查。
+func TestRunnerMarksUnattemptedFailuresSoTheyDoNotEatQuota(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		setup func(h *fingerprintRunnerHarness)
+	}{
+		{"账号类型不支持", func(h *fingerprintRunnerHarness) { h.accountRepo.account.Type = AccountTypeOAuth }},
+		{"base_url 非法", func(h *fingerprintRunnerHarness) {
+			h.accountRepo.account.Credentials["base_url"] = "https://api.example.com/v1?key=abc"
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newFingerprintRunnerHarness(t, fingerprintDetectStub("scored", "claude-opus-5"))
+			tt.setup(h)
+
+			if _, err := h.runner.executePlan(context.Background(), h.plan, true); err != nil {
+				t.Fatalf("执行出错: %v", err)
+			}
+			res := h.lastResult(t)
+			if res.SkipReason != FingerprintSkipNotAttempted {
+				t.Fatalf("SkipReason = %q, want %q", res.SkipReason, FingerprintSkipNotAttempted)
+			}
+			if res.ErrorMessage == "" {
+				t.Fatal("标成未尝试不能把失败原因也抹掉")
+			}
+		})
 	}
 }

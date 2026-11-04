@@ -31,19 +31,19 @@ func NewFingerprintHandler(
 func (h *FingerprintHandler) SetRunner(runner *service.FingerprintRunnerService) { h.runner = runner }
 
 type fingerprintPlanRequest struct {
-	AccountID                       int64   `json:"account_id"`
-	TestModel                       string  `json:"test_model"`
-	ExpectedModel                   string  `json:"expected_model"`
-	API                             string  `json:"api"`
-	ChallengeCount                  int     `json:"challenge_count"`
-	CronExpression                  string  `json:"cron_expression"`
-	Enabled                         *bool   `json:"enabled"`
-	MaxResults                      int     `json:"max_results"`
-	MismatchActionThreshold         int     `json:"mismatch_action_threshold"`
-	FailureDisable                  *bool   `json:"failure_disable"`
-	FailureTempUnschedulableMinutes int     `json:"failure_temp_unschedulable_minutes"`
-	FailureRemoveGroupIDs           []int64 `json:"failure_remove_group_ids"`
-	SuccessAddGroupIDs              []int64 `json:"success_add_group_ids"`
+	AccountID                       int64    `json:"account_id"`
+	TestModel                       string   `json:"test_model"`
+	ExpectedModel                   string   `json:"expected_model"`
+	API                             string   `json:"api"`
+	ChallengeCount                  int      `json:"challenge_count"`
+	CronExpression                  string   `json:"cron_expression"`
+	Enabled                         *bool    `json:"enabled"`
+	MaxResults                      int      `json:"max_results"`
+	MismatchActionThreshold         int      `json:"mismatch_action_threshold"`
+	FailureDisable                  *bool    `json:"failure_disable"`
+	FailureTempUnschedulableMinutes *int     `json:"failure_temp_unschedulable_minutes"`
+	FailureRemoveGroupIDs           *[]int64 `json:"failure_remove_group_ids"`
+	SuccessAddGroupIDs              *[]int64 `json:"success_add_group_ids"`
 }
 
 // applyTo 把请求填进计划，未提供的字段用规格默认值。
@@ -75,9 +75,17 @@ func (r *fingerprintPlanRequest) applyTo(plan *service.FingerprintPlan) {
 	if r.FailureDisable != nil {
 		plan.FailureDisable = *r.FailureDisable
 	}
-	plan.FailureTempUnschedulableMinutes = r.FailureTempUnschedulableMinutes
-	plan.FailureRemoveGroupIDs = r.FailureRemoveGroupIDs
-	plan.SuccessAddGroupIDs = r.SuccessAddGroupIDs
+	// 以下三项用指针区分"没传"与"传了空"：局部更新（例如只切换启用开关）
+	// 不能把管理员配好的失败动作静默清零。
+	if r.FailureTempUnschedulableMinutes != nil {
+		plan.FailureTempUnschedulableMinutes = *r.FailureTempUnschedulableMinutes
+	}
+	if r.FailureRemoveGroupIDs != nil {
+		plan.FailureRemoveGroupIDs = *r.FailureRemoveGroupIDs
+	}
+	if r.SuccessAddGroupIDs != nil {
+		plan.SuccessAddGroupIDs = *r.SuccessAddGroupIDs
+	}
 }
 
 // fingerprintOverviewResponse 是面板头部要的一次性上下文。
@@ -206,6 +214,22 @@ func (h *FingerprintHandler) Update(c *gin.Context) {
 	}
 	req.applyTo(existing)
 
+	// 改计划同样要过资格与 base_url 校验：否则把账号改成 OAuth 或把 base_url 填坏后
+	// PUT 仍返回 200，错误要等到 6 小时后的抽查才以 error 结果冒出来。
+	account, err := h.accountRepo.GetByID(c.Request.Context(), existing.AccountID)
+	if err != nil || account == nil {
+		response.NotFound(c, "account not found")
+		return
+	}
+	if eligibility := service.CheckFingerprintEligibility(account); !eligibility.Supported {
+		response.BadRequest(c, "账号不支持指纹校对: "+eligibility.Reason)
+		return
+	}
+	if _, err := service.BuildDetectConfig(account, *existing); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
 	updated, err := h.fpSvc.UpdatePlan(c.Request.Context(), existing)
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -236,6 +260,10 @@ func (h *FingerprintHandler) ListResults(c *gin.Context) {
 		return
 	}
 	limit, _ := strconv.Atoi(c.Query("limit"))
+	// 封顶，避免 ?limit=10000000 直接打到 SQL。
+	if limit > service.FingerprintDefaultMaxResults {
+		limit = service.FingerprintDefaultMaxResults
+	}
 
 	results, err := h.fpSvc.ListResults(c.Request.Context(), planID, limit)
 	if err != nil {

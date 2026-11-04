@@ -50,6 +50,9 @@ const (
 	// FingerprintSkipAccountInactive 定期抽查跳过了不可调度的账号（停用/过期/限流/临时不可调度）。
 	// 手动触发不受此限。
 	FingerprintSkipAccountInactive = "account_inactive"
+	// FingerprintSkipNotAttempted 压根没发出上游请求就失败了（账号读不到、类型不支持、参数非法）。
+	// 这类结果不计入每日配额——没发生的检测不该吃额度，否则几条坏计划就能饿死全站抽查。
+	FingerprintSkipNotAttempted = "not_attempted"
 )
 
 // 规格 6.4 的默认值。

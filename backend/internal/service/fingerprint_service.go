@@ -180,7 +180,38 @@ func (s *FingerprintService) validatePlan(ctx context.Context, plan *Fingerprint
 	if plan.MismatchActionThreshold <= 0 {
 		plan.MismatchActionThreshold = FingerprintDefaultMismatchThreshold
 	}
+
+	// 两个数组列是 NOT NULL；nil 切片经 pq.Array 会写成 SQL NULL，DEFAULT '{}' 不生效，
+	// 直接违反约束。统一归一成空切片并去重。
+	normalized, err := normalizeFingerprintGroupIDs(plan.FailureRemoveGroupIDs)
+	if err != nil {
+		return err
+	}
+	plan.FailureRemoveGroupIDs = normalized
+	normalized, err = normalizeFingerprintGroupIDs(plan.SuccessAddGroupIDs)
+	if err != nil {
+		return err
+	}
+	plan.SuccessAddGroupIDs = normalized
+
 	return s.validateExpectedModel(ctx, plan.ExpectedModel)
+}
+
+// normalizeFingerprintGroupIDs 把分组 id 列表归一成非 nil、去重、全为正数的切片。
+func normalizeFingerprintGroupIDs(ids []int64) ([]int64, error) {
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, fmt.Errorf("分组 id 必须为正数")
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out, nil
 }
 
 // validateExpectedModel 要求预期模型必须在参考库里。

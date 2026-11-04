@@ -140,6 +140,9 @@
                       ({{ (result.probability * 100).toFixed(0) }}%)
                     </template>
                   </span>
+                  <span v-if="result.decision" class="text-gray-400">
+                    {{ result.decision }}
+                  </span>
                   <span class="text-gray-400">
                     {{ t('admin.accounts.fingerprint.cost', { n: result.estimated_output_tokens }) }}
                   </span>
@@ -147,18 +150,18 @@
 
                 <!-- 无法判定 / 检测失败：必须显示具体原因，不能沉默 -->
                 <p
-                  v-if="result.skip_reason"
-                  class="mt-1 text-amber-600 dark:text-amber-400"
-                  data-testid="fingerprint-skip-reason"
-                >
-                  {{ t(`admin.accounts.fingerprint.skip.${result.skip_reason}`) }}
-                </p>
-                <p
-                  v-else-if="result.error_message"
+                  v-if="result.error_message"
                   class="mt-1 break-all text-amber-600 dark:text-amber-400"
                   data-testid="fingerprint-error-message"
                 >
                   {{ result.error_message }}
+                </p>
+                <p
+                  v-else-if="result.skip_reason"
+                  class="mt-1 text-amber-600 dark:text-amber-400"
+                  data-testid="fingerprint-skip-reason"
+                >
+                  {{ t(`admin.accounts.fingerprint.skip.${result.skip_reason}`) }}
                 </p>
 
                 <!-- 完整候选排名 -->
@@ -321,7 +324,12 @@ const challengeOptions = [
 ]
 
 const canSubmit = computed(
-  () => form.test_model.trim() !== '' && form.expected_model !== '' && modelOptions.value.length > 0
+  () =>
+    // 概览拉不到时资格未知，不能放行提交——后端会拒，但管理员看到的会是一句看不懂的报错。
+    overview.value?.eligibility.supported === true &&
+    form.test_model.trim() !== '' &&
+    form.expected_model !== '' &&
+    modelOptions.value.length > 0
 )
 
 function formatTime(value: string): string {
@@ -354,7 +362,8 @@ function candidatesOf(result: FingerprintResult): FingerprintCandidate[] {
   if (!result.analysis_json) return []
   try {
     const parsed = JSON.parse(result.analysis_json)
-    return Array.isArray(parsed?.results) ? (parsed.results as FingerprintCandidate[]).slice(0, 3) : []
+    // 不截断：规格要求管理员能复核完整候选排名，截断就等于拿不出完整证据。
+    return Array.isArray(parsed?.results) ? (parsed.results as FingerprintCandidate[]) : []
   } catch {
     return []
   }
@@ -405,12 +414,20 @@ async function toggleExpand(planId: number) {
 
 async function toggleEnabled(plan: FingerprintPlan, enabled: boolean) {
   try {
+    // 必须回传完整计划：后端对失败动作字段是按「传了才覆盖」处理的，
+    // 但分组与分钟数若此处漏掉，仍会让界面与后端对这些值的认知分叉。
     await adminAPI.fingerprint.update(plan.id, {
       test_model: plan.test_model,
       expected_model: plan.expected_model,
       api: plan.api,
       challenge_count: plan.challenge_count,
       cron_expression: plan.cron_expression,
+      max_results: plan.max_results,
+      mismatch_action_threshold: plan.mismatch_action_threshold,
+      failure_disable: plan.failure_disable,
+      failure_temp_unschedulable_minutes: plan.failure_temp_unschedulable_minutes,
+      failure_remove_group_ids: plan.failure_remove_group_ids ?? [],
+      success_add_group_ids: plan.success_add_group_ids ?? [],
       enabled
     })
     plan.enabled = enabled

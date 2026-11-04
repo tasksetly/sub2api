@@ -164,6 +164,8 @@ func (r *fingerprintResultRepository) ListByPlanID(ctx context.Context, planID i
 }
 
 func (r *fingerprintResultRepository) PruneOldResults(ctx context.Context, planID int64, keepCount int) error {
+	// 每日配额靠数这张表里还活着的行来算，所以裁剪绝不能动最近 24 小时的记录：
+	// 否则跳过行会把真检测挤掉，计数归零，配额形同虚设（实测可超额约 25 倍）。
 	_, err := r.db.ExecContext(ctx, `
 		DELETE FROM fingerprint_results
 		WHERE id IN (
@@ -174,6 +176,7 @@ func (r *fingerprintResultRepository) PruneOldResults(ctx context.Context, planI
 			) ranked
 			WHERE rn > $2
 		)
+		AND created_at < NOW() - INTERVAL '24 hours'
 	`, planID, keepCount)
 	return err
 }

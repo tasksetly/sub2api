@@ -7,6 +7,7 @@ export default {
         menuEntry: '指纹校对',
         checkOnCreate: '创建后立即做指纹校对',
         pickExpectedModel: '账号已创建，请选择预期模型后开始校对',
+        openFromMenu: '账号已创建。请从账号的操作菜单打开「指纹校对」',
         referenceBuiltAt: '参考库版本',
         referenceUnavailable: '参考数据不可用',
         monthlyTokens: '本月检测消耗（估算 token）',
@@ -62,7 +63,8 @@ export default {
           concurrency_gate: '已达并发上限，本次跳过',
           daily_limit_global: '已达全局每日检测上限，本次跳过',
           daily_limit_account: '已达该账号每日检测上限，本次跳过',
-          account_inactive: '账号当前不可调度，定期抽查已跳过'
+          account_inactive: '账号当前不可调度，定期抽查已跳过',
+          not_attempted: '未发出检测请求（账号或参数有问题），本次不计入配额'
         }
       },
       createAccount: '添加账号',

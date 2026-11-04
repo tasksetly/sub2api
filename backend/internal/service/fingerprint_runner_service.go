@@ -21,6 +21,8 @@ const (
 	fingerprintPlanLockTTL    = 6 * time.Minute
 	fingerprintMaxWorkers     = 4
 	fingerprintRunTimeout     = 5 * time.Minute
+	// fingerprintConcurrencyRetryDelay 是被并发闸拦下后的退避时长。
+	fingerprintConcurrencyRetryDelay = 2 * time.Minute
 )
 
 // fingerprintDetectFunc 是一次在线检测，抽成函数以便测试注入。
@@ -177,8 +179,20 @@ func (s *FingerprintRunnerService) runOnePlan(ctx context.Context, plan *Fingerp
 	}
 	defer release()
 
-	if _, err := s.executePlan(ctx, plan, false); err != nil {
+	result, err := s.executePlan(ctx, plan, false)
+	if err != nil {
 		logger.LegacyPrintf(fingerprintRunnerLogScope, "[FingerprintRunner] plan=%d execute error: %v", plan.ID, err)
+	}
+
+	// 被并发闸拦下的计划不能按 cron 推进到下一个周期，否则在默认的
+	// "0 */6 * * *" 下所有计划挤在同一分钟到期、每轮只有前 N 个抢到槽位，
+	// 其余账号会一次都测不到。改成短暂退避，下一次 tick 再争。
+	if result != nil && result.SkipReason == FingerprintSkipConcurrency {
+		retryAt := time.Now().Add(fingerprintConcurrencyRetryDelay)
+		if err := s.planRepo.UpdateAfterRun(ctx, plan.ID, time.Now(), retryAt); err != nil {
+			logger.LegacyPrintf(fingerprintRunnerLogScope, "[FingerprintRunner] plan=%d retry schedule failed: %v", plan.ID, err)
+		}
+		return
 	}
 
 	nextRun, err := computeNextRun(plan.CronExpression, time.Now())
@@ -244,6 +258,7 @@ func (s *FingerprintRunnerService) executePlan(ctx context.Context, plan *Finger
 	if err != nil || account == nil {
 		return s.persist(ctx, plan, nil, &FingerprintResult{
 			Verdict:      FingerprintVerdictError,
+			SkipReason:   FingerprintSkipNotAttempted,
 			ErrorMessage: "账号不存在或读取失败",
 			StartedAt:    startedAt,
 		})
@@ -252,6 +267,7 @@ func (s *FingerprintRunnerService) executePlan(ctx context.Context, plan *Finger
 	if eligibility := CheckFingerprintEligibility(account); !eligibility.Supported {
 		return s.persist(ctx, plan, account, &FingerprintResult{
 			Verdict:      FingerprintVerdictError,
+			SkipReason:   FingerprintSkipNotAttempted,
 			ErrorMessage: fmt.Sprintf("账号不支持指纹校对: %s", eligibility.Reason),
 			StartedAt:    startedAt,
 		})
@@ -280,6 +296,7 @@ func (s *FingerprintRunnerService) executePlan(ctx context.Context, plan *Finger
 	if err != nil {
 		return s.persist(ctx, plan, account, &FingerprintResult{
 			Verdict:      FingerprintVerdictError,
+			SkipReason:   FingerprintSkipNotAttempted,
 			ErrorMessage: err.Error(),
 			StartedAt:    startedAt,
 		})

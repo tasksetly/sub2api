@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 
 import FingerprintPanel from '../FingerprintPanel.vue'
@@ -33,7 +33,12 @@ vi.mock('@/api/admin', () => ({
 vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showError, showSuccess }) }))
 vi.mock('vue-i18n', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-i18n')>()),
-  useI18n: () => ({ t: (key: string) => key })
+  useI18n: () => ({
+    // 保留插值参数，否则 cost / consecutiveMismatches 里的数字不会出现在渲染结果里，
+    // 断言就会变成"看起来过了其实什么都没测"。
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key} ${Object.values(params).join(' ')}` : key
+  })
 }))
 
 enableAutoUnmount(afterEach)
@@ -90,15 +95,25 @@ function result(partial: Partial<FingerprintResult>): FingerprintResult {
   }
 }
 
-function setup(over: Partial<FingerprintOverview> = {}, plans: FingerprintPlan[] = [plan]) {
-  overview.mockResolvedValue({ ...supportedOverview, ...over })
+// 默认 mock 放在 beforeEach：用例在自己的函数体里改 mock 时才能真正生效。
+// 之前默认值写在 setup() 里，而用例是先改 mock 再调 setup()，被无条件覆盖回空数组，
+// 四态区分 / 失败原因 / 候选排名 / 单次消耗这四条断言实际上什么都没验证。
+beforeEach(() => {
+  overview.mockResolvedValue(supportedOverview)
   referenceModels.mockResolvedValue(models)
-  listByAccount.mockResolvedValue(plans)
+  listByAccount.mockResolvedValue([plan])
   listResults.mockResolvedValue([])
+})
+
+afterEach(() => vi.resetAllMocks())
+
+function setup(over: Partial<FingerprintOverview> = {}, plans: FingerprintPlan[] = [plan]) {
+  if (Object.keys(over).length > 0) {
+    overview.mockResolvedValue({ ...supportedOverview, ...over })
+  }
+  listByAccount.mockResolvedValue(plans)
   return mount(FingerprintPanel, { props: { accountId: 42 } })
 }
-
-afterEach(() => vi.clearAllMocks())
 
 describe('FingerprintPanel', () => {
   it('账号不支持时禁用新建并显示原因', async () => {
@@ -123,11 +138,8 @@ describe('FingerprintPanel', () => {
   })
 
   it('参考库拉不到时不允许建计划', async () => {
-    overview.mockResolvedValue(supportedOverview)
     referenceModels.mockResolvedValue([])
-    listByAccount.mockResolvedValue([])
-    listResults.mockResolvedValue([])
-    const wrapper = mount(FingerprintPanel, { props: { accountId: 42 } })
+    const wrapper = setup({}, [])
     await flushPromises()
 
     const button = wrapper.find('[data-testid="fingerprint-create"]')
@@ -226,5 +238,15 @@ describe('FingerprintPanel', () => {
     const wrapper = setup()
     await flushPromises()
     expect(wrapper.text()).toContain('admin.accounts.fingerprint.consecutiveMismatches')
+  })
+
+  it('概览拉不到时不允许建计划（资格未知不放行）', async () => {
+    overview.mockRejectedValue(new Error('offline'))
+    const wrapper = mount(FingerprintPanel, { props: { accountId: 42 } })
+    await flushPromises()
+
+    const button = wrapper.find('[data-testid="fingerprint-create"]')
+    expect(button.exists()).toBe(true)
+    expect(button.attributes('disabled')).toBeDefined()
   })
 })

@@ -4342,9 +4342,11 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+/** 最近一次成功创建的账号 id，随 created 事件带出，供调用方精确定位新账号。 */
+const lastCreatedAccountId = ref<number | null>(null)
 const emit = defineEmits<{
   close: []
-  created: []
+  created: [accountId?: number]
   'update:fingerprintOnCreate': [value: boolean]
 }>()
 
@@ -5582,6 +5584,7 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
   submitting.value = true
   try {
     const account = await adminAPI.accounts.create(withAntigravityConfirmFlag(payload))
+    lastCreatedAccountId.value = account?.id ?? null
     const modelMapping = payload.credentials.model_mapping
     const hasConcreteMappedTarget = payload.type === 'apikey' &&
       typeof modelMapping === 'object' &&
@@ -5613,7 +5616,7 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
       }
     }
     appStore.showSuccess(t('admin.accounts.accountCreated'))
-    emit('created')
+    emit('created', lastCreatedAccountId.value ?? undefined)
     handleClose()
   } catch (error: any) {
     if (error.response?.status === 409 && error.response?.data?.error === 'mixed_channel_warning' && needsMixedChannelCheck(form.platform)) {
@@ -6462,12 +6465,12 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
           : t('admin.accounts.accountCreated')
       )
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
       handleClose()
     } else if (successCount > 0) {
       appStore.showWarning(t('admin.accounts.oauth.batchPartialSuccess', { success: successCount, failed: failedCount }))
       grokOAuth.error.value = errors.join('\n')
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
     } else {
       grokOAuth.error.value = errors.join('\n')
       appStore.showError(t('admin.accounts.oauth.batchFailed'))
@@ -6525,7 +6528,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
           ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
           : t('admin.accounts.accountCreated')
       )
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
       handleClose()
     } else if (successCount > 0 && failedCount > 0) {
       // Same as OpenAI/Grok RT: keep input, show failures, refresh list.
@@ -6535,7 +6538,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       grokOAuth.error.value = (result.failed || [])
         .map((item) => `#${item.index}: ${item.error || 'Unknown error'}`)
         .join('\n')
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
     } else {
       grokOAuth.error.value = (result.failed || [])
         .map((item) => `#${item.index}: ${item.error || 'Unknown error'}`)
@@ -6640,7 +6643,7 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
           ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
           : t('admin.accounts.accountCreated')
       )
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
       handleClose()
     } else if (successCount > 0) {
       appStore.showWarning(
@@ -6650,7 +6653,7 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
         })
       )
       grokOAuth.error.value = errors.join('\n')
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
     } else {
       grokOAuth.error.value = errors.join('\n')
       appStore.showError(t('admin.accounts.oauth.batchFailed'))
@@ -6729,7 +6732,7 @@ const handleOpenAIExchange = async (authCode: string) => {
       appStore.showSuccess(t('admin.accounts.accountCreated'))
     }
 
-    emit('created')
+    emit('created', lastCreatedAccountId.value ?? undefined)
     handleClose()
   } catch (error: any) {
     oauthClient.error.value = error.response?.data?.detail || t('admin.accounts.oauth.authFailed')
@@ -6846,7 +6849,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
 
     if (successCount > 0 && result.failed === 0) {
       appStore.showSuccess(t('admin.accounts.oauth.openai.codexSessionImportSuccess', params))
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
       handleClose()
       return
     }
@@ -6862,7 +6865,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
 
     if (successCount > 0) {
       appStore.showWarning(t('admin.accounts.oauth.openai.codexSessionImportPartial', params))
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
       return
     }
 
@@ -6915,7 +6918,7 @@ const handleOpenAIImportCodexPAT = async (accessToken: string) => {
     })
 
     appStore.showSuccess(t('admin.accounts.accountCreated'))
-    emit('created')
+    emit('created', lastCreatedAccountId.value ?? undefined)
     handleClose()
   } catch (error: any) {
     oauthClient.error.value =
@@ -7027,14 +7030,14 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
           ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
           : t('admin.accounts.accountCreated')
       )
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
       handleClose()
     } else if (successCount > 0 && failedCount > 0) {
       appStore.showWarning(
         t('admin.accounts.oauth.batchPartialSuccess', { success: successCount, failed: failedCount })
       )
       oauthClient.error.value = errors.join('\n')
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
     } else {
       oauthClient.error.value = errors.join('\n')
       appStore.showError(t('admin.accounts.oauth.batchFailed'))
@@ -7126,14 +7129,14 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           ? t('admin.accounts.oauth.batchSuccess', { count: successCount })
           : t('admin.accounts.accountCreated')
       )
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
       handleClose()
     } else if (successCount > 0 && failedCount > 0) {
       appStore.showWarning(
         t('admin.accounts.oauth.batchPartialSuccess', { success: successCount, failed: failedCount })
       )
       antigravityOAuth.error.value = errors.join('\n')
-      emit('created')
+      emit('created', lastCreatedAccountId.value ?? undefined)
     } else {
       antigravityOAuth.error.value = errors.join('\n')
       appStore.showError(t('admin.accounts.oauth.batchFailed'))
@@ -7508,10 +7511,10 @@ const handleCookieAuth = async (sessionKey: string) => {
     if (successCount > 0) {
       appStore.showSuccess(t('admin.accounts.oauth.successCreated', { count: successCount }))
       if (failedCount === 0) {
-        emit('created')
+        emit('created', lastCreatedAccountId.value ?? undefined)
         handleClose()
       } else {
-        emit('created')
+        emit('created', lastCreatedAccountId.value ?? undefined)
       }
     }
 

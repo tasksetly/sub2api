@@ -2593,18 +2593,30 @@ const closeFingerprintPanel = () => { showFingerprintPanel.value = false; finger
 
 
 /**
- * 创建账号后的处理。勾了「创建后立即做指纹校对」时，用创建前后的 id 集合求差
- * 找出新账号并直接打开它的指纹面板——预期模型必须由管理员从参考库里选，
- * 无法在创建时替他猜，所以这里把他送到选择的地方而不是凭空建一条计划。
+ * 创建账号后的处理。勾了「创建后立即做指纹校对」时，直接用模态带回的账号 id
+ * 打开它的指纹面板——预期模型必须由管理员从参考库里选，无法在创建时替他猜。
+ *
+ * 绝不靠「创建前后当前页 id 求差」来猜：列表只有当前页，reload 还会把页码复位到 1，
+ * 在第 2 页建号会命中一个无关账号，管理员就会给错的账号建计划。
  */
-const handleAccountCreated = async () => {
-  const before = new Set(accounts.value.map((item) => item.id))
-  await reload()
-  if (!fingerprintOnCreate.value) return
-
-  const created = accounts.value.find((item) => !before.has(item.id))
-  if (!created) return
+const handleAccountCreated = async (accountId?: number) => {
+  const wanted = fingerprintOnCreate.value
   fingerprintOnCreate.value = false
+  await reload()
+  if (!wanted) return
+
+  if (typeof accountId !== 'number') {
+    // 该创建路径没带回账号 id：宁可让管理员自己从操作菜单进，也不猜。
+    appStore.showInfo(t('admin.accounts.fingerprint.openFromMenu'))
+    return
+  }
+  // 新账号可能不在当前这一页（reload 会把页码复位到 1，排序也未必把它排进来）。
+  // 找不到就引导管理员从操作菜单进，不伪造一个只有 id 的 Account 塞进详情加载。
+  const created = accounts.value.find((item) => item.id === accountId)
+  if (!created) {
+    appStore.showInfo(t('admin.accounts.fingerprint.openFromMenu'))
+    return
+  }
   await handleFingerprint(created)
   appStore.showInfo(t('admin.accounts.fingerprint.pickExpectedModel'))
 }

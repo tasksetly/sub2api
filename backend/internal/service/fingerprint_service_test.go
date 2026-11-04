@@ -13,6 +13,7 @@ type fingerprintPlanRepoStub struct {
 	plans            map[int64]*FingerprintPlan
 	created          *FingerprintPlan
 	consecutiveCalls []int
+	nextRuns         []time.Time
 	nextID           int64
 }
 
@@ -62,6 +63,7 @@ func (r *fingerprintPlanRepoStub) Delete(ctx context.Context, id int64) error {
 }
 
 func (r *fingerprintPlanRepoStub) UpdateAfterRun(ctx context.Context, id int64, lastRunAt, nextRunAt time.Time) error {
+	r.nextRuns = append(r.nextRuns, nextRunAt)
 	return nil
 }
 
@@ -276,5 +278,41 @@ func TestKnownModelSetBuildsLookup(t *testing.T) {
 	}
 	if got["nope"] {
 		t.Fatal("不应包含库外模型")
+	}
+}
+
+// 回归：两个数组列是 NOT NULL，nil 切片经 pq.Array 写成 SQL NULL 会直接违反约束，
+// 让建计划 100% 失败。校验必须把它们归一成空切片。
+func TestValidatePlanNeverLeavesNilGroupSlices(t *testing.T) {
+	svc, _, _ := newFingerprintServiceForTest()
+	p := validFingerprintPlan()
+	p.FailureRemoveGroupIDs = nil
+	p.SuccessAddGroupIDs = nil
+
+	created, err := svc.CreatePlan(context.Background(), p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if created.FailureRemoveGroupIDs == nil {
+		t.Fatal("FailureRemoveGroupIDs 仍为 nil，写库会触发 NOT NULL 约束失败")
+	}
+	if created.SuccessAddGroupIDs == nil {
+		t.Fatal("SuccessAddGroupIDs 仍为 nil，写库会触发 NOT NULL 约束失败")
+	}
+}
+
+func TestNormalizeFingerprintGroupIDs(t *testing.T) {
+	got, err := normalizeFingerprintGroupIDs([]int64{11, 12, 11})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 || got[0] != 11 || got[1] != 12 {
+		t.Fatalf("got %v, want 去重后的 [11 12]", got)
+	}
+	if out, err := normalizeFingerprintGroupIDs(nil); err != nil || out == nil || len(out) != 0 {
+		t.Fatalf("nil 应归一成空切片，got %v err %v", out, err)
+	}
+	if _, err := normalizeFingerprintGroupIDs([]int64{0}); err == nil {
+		t.Fatal("非正数 id 应报错")
 	}
 }

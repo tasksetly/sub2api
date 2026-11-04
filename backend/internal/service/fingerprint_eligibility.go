@@ -56,17 +56,13 @@ func CheckFingerprintEligibility(a *Account) FingerprintEligibility {
 	}
 }
 
-// hasActiveHeaderOverrides 报告账号是否启用了非空的自定义请求头覆盖。
+// hasActiveHeaderOverrides 报告账号是否启用了会实际生效的自定义请求头覆盖。
+//
+// 直接复用 GetHeaderOverrides：它处理了非 JSON 反序列化形态（直接注入的 map[string]string），
+// 并过滤掉空值与黑名单头。自己重写一遍会在两个方向上都判错——
+// map[string]string 形态漏网，只配了被禁头的账号被误伤置灰。
 func hasActiveHeaderOverrides(a *Account) bool {
-	if a == nil || a.Credentials == nil {
-		return false
-	}
-	enabled, _ := a.Credentials[credKeyHeaderOverrideEnabled].(bool)
-	if !enabled {
-		return false
-	}
-	overrides, ok := a.Credentials[credKeyHeaderOverrides].(map[string]any)
-	return ok && len(overrides) > 0
+	return len(a.GetHeaderOverrides()) > 0
 }
 
 // BuildDetectConfig 把账号和计划翻译成 SDK 的检测参数。

@@ -23,7 +23,12 @@
               <Icon name="clock" size="sm" class="text-orange-500" />
               {{ t('admin.scheduledTests.schedule') }}
             </button>
-            <button @click="$emit('fingerprint', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-700">
+            <button
+              @click="$emit('fingerprint', account); $emit('close')"
+              :disabled="!fingerprintSupported"
+              :title="fingerprintSupported ? '' : t('admin.accounts.fingerprint.reasons.unsupported_account_type')"
+              class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-dark-700"
+            >
               <Icon name="shield" size="sm" class="text-purple-500" />
               {{ t('admin.accounts.fingerprint.menuEntry') }}
             </button>
@@ -77,6 +82,12 @@ import { supportsAccountQuota } from '@/utils/accountQuota'
 const props = defineProps<{ show: boolean; account: Account | null; anchorRect: DOMRect | null }>()
 const emit = defineEmits(['close', 'test', 'stats', 'schedule', 'fingerprint', 'duplicate', 'reauth', 'refresh-token', 'recover-state', 'reset-quota', 'set-privacy', 'create-spark-shadow'])
 const { t } = useI18n()
+
+// 指纹校对只覆盖 Base URL + API Key 形态的账号；其余类型置灰并说明原因，
+// 不能让管理员以为是功能坏了。
+const fingerprintSupported = computed(
+  () => props.account?.type === 'upstream' || props.account?.type === 'apikey'
+)
 const menuRef = ref<HTMLElement | null>(null)
 const { width: viewportWidth, height: viewportHeight } = useWindowSize()
 const viewportPadding = 8
