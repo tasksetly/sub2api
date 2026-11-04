@@ -765,3 +765,15 @@ const AdminAPIKeyPrefix = "admin-"
 // SettingKeyAllowUserViewErrorRequests controls whether end users can view
 // their own failed requests on the usage page. Default false (opt-in).
 const SettingKeyAllowUserViewErrorRequests = "allow_user_view_error_requests"
+
+// —— 账号指纹校对（设计文档 6.7）——
+// 参考数据在运行时下载，默认源 + 国内镜像兜底；内网部署可改为本地目录（单个非 http(s) 路径即离线）。
+const (
+	SettingKeyFingerprintDataSources       = "fingerprint_data_sources"        // 参考数据源 URL 列表（JSON 数组），单个非 http(s) 项视为本地目录
+	SettingKeyFingerprintCachePath         = "fingerprint_cache_path"          // 参考数据缓存文件路径，空则用 SDK 默认
+	SettingKeyFingerprintCacheTTLHours     = "fingerprint_cache_ttl_hours"     // 缓存多久检查一次更新（小时），默认 24
+	SettingKeyFingerprintMaxConcurrency    = "fingerprint_max_concurrency"     // 集群级并发闸上限，默认 3
+	SettingKeyFingerprintDailyLimitGlobal  = "fingerprint_daily_limit_global"  // 全局每日检测次数上限，默认 200
+	SettingKeyFingerprintDailyLimitAccount = "fingerprint_daily_limit_account" // 单账号每日检测次数上限，默认 8
+	SettingKeyFingerprintNotifyEmail       = "fingerprint_notify_email"        // 指纹不符是否发邮件，默认关闭
+)
