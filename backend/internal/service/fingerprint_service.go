@@ -140,9 +140,9 @@ func (s *FingerprintService) SaveResult(ctx context.Context, plan *FingerprintPl
 	return nil
 }
 
-// KnownModelSet 返回参考库模型 ID 的集合，供判定时校验预期模型。
-// 清单拉取失败时返回 nil —— 调用方据此跳过参考库校验，而不是把所有账号判成无法判定。
-func (s *FingerprintService) KnownModelSet(ctx context.Context) map[string]bool {
+// KnownModels 返回参考库清单，供判定时校验与模糊匹配预期模型。
+// 拉取失败时返回 nil —— 调用方据此跳过参考库校验，而不是把所有账号判成无法判定。
+func (s *FingerprintService) KnownModels(ctx context.Context) []FingerprintRefModel {
 	if s == nil || s.catalog == nil {
 		return nil
 	}
@@ -150,11 +150,7 @@ func (s *FingerprintService) KnownModelSet(ctx context.Context) map[string]bool 
 	if err != nil || len(models) == 0 {
 		return nil
 	}
-	out := make(map[string]bool, len(models))
-	for _, m := range models {
-		out[m.ID] = true
-	}
-	return out
+	return models
 }
 
 // validatePlan 做建/改计划时的全部校验。
@@ -194,7 +190,7 @@ func (s *FingerprintService) validatePlan(ctx context.Context, plan *Fingerprint
 	}
 	plan.SuccessAddGroupIDs = normalized
 
-	return s.validateExpectedModel(ctx, plan.ExpectedModel)
+	return s.resolveExpectedModel(ctx, plan)
 }
 
 // normalizeFingerprintGroupIDs 把分组 id 列表归一成非 nil、去重、全为正数的切片。
@@ -214,22 +210,35 @@ func normalizeFingerprintGroupIDs(ids []int64) ([]int64, error) {
 	return out, nil
 }
 
-// validateExpectedModel 要求预期模型必须在参考库里。
+// resolveExpectedModel 把预期模型落实到参考库里的规范 ID。
 //
-// 参考库是封闭集合，库外的模型也会被硬配一个"最像"的候选，于是每一轮都判不符
+// 管理员只选一个模型：发给上游的名字就是要比对的那个模型，只是命名空间不同
+// （中转商可能叫 claude-opus-5-latest，参考库里是 claude-opus-5）。
+// 没显式指定预期模型时，从测试模型自动推导。
+//
+// 参考库是封闭集合，库外的模型会被硬配一个"最像"的候选，于是每一轮都判不符
 // ——永久误报。从建计划就拦住，比事后向管理员解释误报便宜得多。
 // 清单暂时拉不到时放行，避免数据源抖动把建计划整个堵死。
-func (s *FingerprintService) validateExpectedModel(ctx context.Context, expected string) error {
-	expected = strings.TrimSpace(expected)
+func (s *FingerprintService) resolveExpectedModel(ctx context.Context, plan *FingerprintPlan) error {
+	known := s.KnownModels(ctx)
+
+	expected := strings.TrimSpace(plan.ExpectedModel)
 	if expected == "" {
-		return fmt.Errorf("必须选择预期模型")
+		expected = strings.TrimSpace(plan.TestModel)
 	}
-	known := s.KnownModelSet(ctx)
-	if known == nil {
+	if expected == "" {
+		return fmt.Errorf("必须选择模型")
+	}
+
+	if len(known) == 0 {
+		plan.ExpectedModel = expected
 		return nil
 	}
-	if !known[expected] {
-		return fmt.Errorf("参考库暂不支持模型 %s，请从清单中选择", expected)
+
+	resolved, ok := ResolveFingerprintExpectedModel(expected, known)
+	if !ok {
+		return fmt.Errorf("参考库暂不支持模型 %s，无法对它做指纹校对", expected)
 	}
+	plan.ExpectedModel = resolved
 	return nil
 }

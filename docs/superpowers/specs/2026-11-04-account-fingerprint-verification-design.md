@@ -164,18 +164,28 @@ SDK 文档明确说明：排名是**参考库内的封闭集合排序**。库里
 
 **一个计划只测一个模型**（需求方明确）：账号下即使挂了多个模型，指纹计划也只针对管理员指定的那一个跑，**不遍历账号的全部模型**。这既是成本控制，也让判定口径单一清晰。要测多个模型就建多个计划。
 
-计划里有两个模型相关字段，不要混淆：
+**管理员只选一个模型**（2026-11-04 需求方修订）：界面上就一个下拉，选项来自该账号自己的可用模型列表（账号取不到时退回参考库清单）。发给上游的名字和用来比对的参考库 ID 本就是同一个东西，只是命名空间不同（上游可能叫 `claude-opus-5-latest`，参考库里是 `claude-opus-5`），这层翻译由后端完成：
 
-| 字段 | 含义 |
+| 字段 | 来源 |
 |---|---|
-| **测试模型**（沿用既有 `model_id`） | 发给账号的请求里用的模型名，即上游声称提供的那个 |
-| **预期模型**（新增） | 参考库里的模型 ID，用于和 `analysis.prediction` 比对 |
+| **测试模型**（`test_model`） | 管理员在下拉里选的那个，原样发给上游 |
+| **预期模型**（`expected_model`） | 由后端从 `test_model` 自动推导到参考库规范 ID，管理员不感知 |
 
-两者通常指同一个模型，但命名空间不同——上游可能用自编名字（`claude-opus-5-latest`、`opus-max`），参考库用规范化 ID（`claude-opus-5`）。
+推导规则（`ResolveFingerprintExpectedModel`）：完全相等 → 剥掉日期/`-latest` 等别名后缀后相等 → 参考库 ID 是其最长前缀（在分隔符处截断）。推导不出来就拒绝建计划，而不是硬配一个最像的候选。
 
-**判定：`analysis.prediction` ≠ 预期模型 → 判为不符，触发告警。**
+**判定：`analysis.prediction` 与预期模型「对不上」→ 判为不符，触发告警。**
 
-需求方明确表示不分跨家族/同家族两档严厉程度——只要不是指定的那个型号，就按不符处理。
+「对得上」不要求逐字相同（2026-11-04 需求方修订：「结果和模型不一定完全一致，能够模糊匹配上都算通过」）。规则见 `FingerprintModelsEquivalent`：**去掉模型 ID 里的数字与小数点后比较，并要求家族相同**。
+
+| 预期 | 实判 | 判定 | 理由 |
+|---|---|---|---|
+| `claude-opus-5` | `claude-opus-5.5` | 相符 | 仅版本差异 |
+| `deepseek-v4-flash` | `deepseek-v4.1-flash` | 相符 | 仅版本差异 |
+| `claude-opus-5` | `claude-haiku-5.5` | **不符** | 档位降级，正是要抓的 |
+| `gpt-6-astra` | `gpt-6-luna` | **不符** | 同家族不同产品线 |
+| `claude-opus-5` | `deepseek-v4-flash` | **不符** | 跨家族冒充 |
+
+即：放宽命名与版本差异，不放过降级冒充。
 
 同时必须保留完整检验结果供人工复核：`decision`、`prediction` / `prediction_name`、`family_prediction` / `family_prediction_name`、`results[]` 全候选排名（含 `score`、`probability`）、`ranking_score`、`probability`、`probability_status`、`probability_scope`。
 

@@ -9,10 +9,11 @@ import (
 	lmfpd "github.com/Ikaleio/lm-detector/sdk/go"
 )
 
-func fingerprintKnownModels(ids ...string) map[string]bool {
-	out := map[string]bool{}
+func fingerprintKnownModels(ids ...string) []FingerprintRefModel {
+	out := make([]FingerprintRefModel, 0, len(ids))
 	for _, id := range ids {
-		out[id] = true
+		family := strings.Split(id, "-")[0]
+		out = append(out, FingerprintRefModel{ID: id, DisplayName: id, Family: family, FamilyName: family})
 	}
 	return out
 }

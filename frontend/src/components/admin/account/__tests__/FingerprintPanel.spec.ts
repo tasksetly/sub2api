@@ -4,10 +4,21 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import FingerprintPanel from '../FingerprintPanel.vue'
 import type { FingerprintOverview, FingerprintPlan, FingerprintResult } from '@/types'
 
-const { overview, referenceModels, listByAccount, listResults, create, runNow, showError, showSuccess } =
+const {
+  overview,
+  referenceModels,
+  getAvailableModels,
+  listByAccount,
+  listResults,
+  create,
+  runNow,
+  showError,
+  showSuccess
+} =
   vi.hoisted(() => ({
     overview: vi.fn(),
     referenceModels: vi.fn(),
+    getAvailableModels: vi.fn(),
     listByAccount: vi.fn(),
     listResults: vi.fn(),
     create: vi.fn(),
@@ -18,6 +29,7 @@ const { overview, referenceModels, listByAccount, listResults, create, runNow, s
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
+    accounts: { getAvailableModels },
     fingerprint: {
       overview,
       referenceModels,
@@ -101,6 +113,10 @@ function result(partial: Partial<FingerprintResult>): FingerprintResult {
 beforeEach(() => {
   overview.mockResolvedValue(supportedOverview)
   referenceModels.mockResolvedValue(models)
+  getAvailableModels.mockResolvedValue([
+    { id: 'claude-opus-5-latest', display_name: 'Claude Opus 5 (latest)' },
+    { id: 'claude-haiku-5.5', display_name: 'Claude Haiku 5.5' }
+  ])
   listByAccount.mockResolvedValue([plan])
   listResults.mockResolvedValue([])
 })
@@ -127,17 +143,47 @@ describe('FingerprintPanel', () => {
     expect(wrapper.find('[data-testid="fingerprint-create"]').exists()).toBe(false)
   })
 
-  it('预期模型下拉只来自参考库', async () => {
+  it('模型下拉来自当前账号的可用模型', async () => {
     const wrapper = setup()
     await flushPromises()
 
     const select = wrapper.findComponent({ name: 'Select' })
     expect(select.exists()).toBe(true)
     const options = select.props('options') as Array<{ value: string }>
+    expect(options.map((option) => option.value)).toEqual([
+      'claude-opus-5-latest',
+      'claude-haiku-5.5'
+    ])
+  })
+
+  it('账号取不到模型时退回参考库清单', async () => {
+    getAvailableModels.mockRejectedValue(new Error('no models'))
+    const wrapper = setup()
+    await flushPromises()
+
+    const options = wrapper.findComponent({ name: 'Select' }).props('options') as Array<{
+      value: string
+    }>
     expect(options.map((option) => option.value)).toEqual(['claude-opus-5', 'deepseek-v4-flash'])
   })
 
-  it('参考库拉不到时不允许建计划', async () => {
+  it('只提交一个模型，预期模型由后端推导', async () => {
+    const wrapper = setup()
+    await flushPromises()
+
+    wrapper.findComponent({ name: 'Select' }).vm.$emit('update:modelValue', 'claude-opus-5-latest')
+    await flushPromises()
+    await wrapper.find('[data-testid="fingerprint-create"]').trigger('click')
+    await flushPromises()
+
+    expect(create).toHaveBeenCalledTimes(1)
+    const payload = create.mock.calls[0][0] as Record<string, unknown>
+    expect(payload.test_model).toBe('claude-opus-5-latest')
+    expect(payload.expected_model).toBeUndefined()
+  })
+
+  it('账号与参考库都没有模型时不允许建计划', async () => {
+    getAvailableModels.mockResolvedValue([])
     referenceModels.mockResolvedValue([])
     const wrapper = setup({}, [])
     await flushPromises()

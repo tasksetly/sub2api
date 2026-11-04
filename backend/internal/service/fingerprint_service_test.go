@@ -260,24 +260,47 @@ func TestCreatePlanComputesNextRun(t *testing.T) {
 	}
 }
 
-func TestKnownModelSetFallsBackToNilWhenCatalogFails(t *testing.T) {
+func TestKnownModelsFallsBackToNilWhenCatalogFails(t *testing.T) {
 	planRepo := newFingerprintPlanRepoStub()
 	svc := NewFingerprintService(planRepo, &fingerprintResultRepoStub{}, &fingerprintCatalogStub{err: errors.New("offline")})
 
-	got := svc.KnownModelSet(context.Background())
-	if got != nil {
+	if got := svc.KnownModels(context.Background()); got != nil {
 		t.Fatalf("清单不可用时应返回 nil（跳过参考库校验），got %v", got)
 	}
 }
 
-func TestKnownModelSetBuildsLookup(t *testing.T) {
+func TestKnownModelsReturnsBank(t *testing.T) {
 	svc, _, _ := newFingerprintServiceForTest()
-	got := svc.KnownModelSet(context.Background())
-	if !got["claude-opus-5"] || !got["deepseek-v4-flash"] {
-		t.Fatalf("set = %v", got)
+	got := svc.KnownModels(context.Background())
+	if len(got) != 2 {
+		t.Fatalf("models = %v", got)
 	}
-	if got["nope"] {
-		t.Fatal("不应包含库外模型")
+}
+
+// 管理员只选一个模型：没显式给预期模型时，从测试模型自动推导到参考库规范 ID。
+func TestCreatePlanDerivesExpectedModelFromTestModel(t *testing.T) {
+	svc, _, _ := newFingerprintServiceForTest()
+	p := validFingerprintPlan()
+	p.TestModel = "claude-opus-5-latest"
+	p.ExpectedModel = ""
+
+	created, err := svc.CreatePlan(context.Background(), p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if created.ExpectedModel != "claude-opus-5" {
+		t.Fatalf("ExpectedModel = %q, want 自动推导出的 claude-opus-5", created.ExpectedModel)
+	}
+}
+
+func TestCreatePlanRejectsModelOutsideBankWhenDerived(t *testing.T) {
+	svc, _, _ := newFingerprintServiceForTest()
+	p := validFingerprintPlan()
+	p.TestModel = "some-finetuned-model"
+	p.ExpectedModel = ""
+
+	if _, err := svc.CreatePlan(context.Background(), p); err == nil {
+		t.Fatal("推导不出参考库模型时应拒绝建计划")
 	}
 }
 

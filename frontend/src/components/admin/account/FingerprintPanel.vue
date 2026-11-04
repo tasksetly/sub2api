@@ -55,7 +55,7 @@
           <div class="flex flex-wrap items-center gap-3 p-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                <span class="truncate">{{ plan.expected_model }}</span>
+                <span class="truncate">{{ plan.test_model }}</span>
                 <span
                   v-if="plan.consecutive_mismatches > 0"
                   class="rounded px-1.5 py-0.5 text-xs"
@@ -70,8 +70,11 @@
                 </span>
               </div>
               <div class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.accounts.fingerprint.testModel') }}: {{ plan.test_model }} ·
-                {{ plan.cron_expression }} ·
+                {{ plan.test_model }}
+                <template v-if="plan.expected_model && plan.expected_model !== plan.test_model">
+                  → {{ plan.expected_model }}
+                </template>
+                · {{ plan.cron_expression }} ·
                 {{ t('admin.accounts.fingerprint.challenges', { n: plan.challenge_count }) }}
               </div>
             </div>
@@ -186,29 +189,23 @@
       <!-- 新建计划 -->
       <div class="rounded-lg border border-dashed border-gray-300 p-3 dark:border-gray-600">
         <div class="grid gap-3 sm:grid-cols-2">
-          <Input
-            v-model="form.test_model"
-            :label="t('admin.accounts.fingerprint.testModel')"
-            :hint="t('admin.accounts.fingerprint.testModelHint')"
-            :placeholder="t('admin.accounts.fingerprint.testModelPlaceholder')"
-          />
           <div>
             <label class="mb-1 block text-sm text-gray-700 dark:text-gray-300">
-              {{ t('admin.accounts.fingerprint.expectedModel') }}
+              {{ t('admin.accounts.fingerprint.model') }}
             </label>
             <Select
-              v-model="form.expected_model"
+              v-model="form.test_model"
               :options="modelOptions"
               :disabled="modelOptions.length === 0"
               :placeholder="
                 modelOptions.length === 0
-                  ? t('admin.accounts.fingerprint.referenceUnavailable')
-                  : t('admin.accounts.fingerprint.expectedModelPlaceholder')
+                  ? t('admin.accounts.fingerprint.noModels')
+                  : t('admin.accounts.fingerprint.modelPlaceholder')
               "
-              data-testid="fingerprint-expected-model"
+              data-testid="fingerprint-model"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.fingerprint.expectedModelHint') }}
+              {{ t('admin.accounts.fingerprint.modelHint') }}
             </p>
           </div>
           <Input
@@ -297,11 +294,11 @@ const expandedPlanId = ref<number | null>(null)
 const plans = ref<FingerprintPlan[]>([])
 const results = ref<FingerprintResult[]>([])
 const refModels = ref<FingerprintRefModel[]>([])
+const accountModels = ref<{ id: string; display_name?: string }[]>([])
 const overview = ref<FingerprintOverview | null>(null)
 
 const form = reactive({
   test_model: '',
-  expected_model: '',
   cron_expression: '0 */6 * * *',
   challenge_count: 3,
   mismatch_action_threshold: 2,
@@ -309,13 +306,23 @@ const form = reactive({
   failure_temp_unschedulable_minutes: 0
 })
 
-/** 预期模型只能从参考库里选，所以下拉为空时不允许建计划。 */
-const modelOptions = computed(() =>
-  refModels.value.map((model) => ({
+/**
+ * 模型下拉优先用账号自己的可用模型——管理员只需要选一个模型，
+ * 发给上游的名字和用来比对的参考库 ID 本就是同一个东西，后端负责把前者对应到后者。
+ * 账号取不到模型列表时退回参考库清单，至少还能建计划。
+ */
+const modelOptions = computed(() => {
+  if (accountModels.value.length > 0) {
+    return accountModels.value.map((model) => ({
+      value: model.id,
+      label: model.display_name || model.id
+    }))
+  }
+  return refModels.value.map((model) => ({
     value: model.id,
     label: `${model.family_name} / ${model.display_name || model.id}`
   }))
-)
+})
 
 const challengeOptions = [
   { value: 3, label: '3' },
@@ -328,7 +335,6 @@ const canSubmit = computed(
     // 概览拉不到时资格未知，不能放行提交——后端会拒，但管理员看到的会是一句看不懂的报错。
     overview.value?.eligibility.supported === true &&
     form.test_model.trim() !== '' &&
-    form.expected_model !== '' &&
     modelOptions.value.length > 0
 )
 
@@ -378,11 +384,12 @@ async function loadOverview() {
 }
 
 async function loadModels() {
-  try {
-    refModels.value = await adminAPI.fingerprint.referenceModels()
-  } catch {
-    refModels.value = []
-  }
+  const [account, reference] = await Promise.allSettled([
+    adminAPI.accounts.getAvailableModels(props.accountId),
+    adminAPI.fingerprint.referenceModels()
+  ])
+  accountModels.value = account.status === 'fulfilled' ? (account.value ?? []) : []
+  refModels.value = reference.status === 'fulfilled' ? reference.value : []
 }
 
 async function loadPlans() {
@@ -441,8 +448,8 @@ async function create() {
   try {
     await adminAPI.fingerprint.create({
       account_id: props.accountId,
+      // 只提交一个模型：后端把它对应到参考库的规范 ID 作为预期模型。
       test_model: form.test_model.trim(),
-      expected_model: form.expected_model,
       cron_expression: form.cron_expression,
       challenge_count: form.challenge_count,
       mismatch_action_threshold: form.mismatch_action_threshold,
@@ -451,7 +458,6 @@ async function create() {
     })
     appStore.showSuccess(t('admin.accounts.fingerprint.created'))
     form.test_model = ''
-    form.expected_model = ''
     await loadPlans()
   } catch (error) {
     appStore.showError(String(error))

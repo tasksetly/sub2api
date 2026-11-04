@@ -306,7 +306,7 @@ func (s *FingerprintRunnerService) executePlan(ctx context.Context, plan *Finger
 	detectRes, detectErr := s.detectFn(ctx, cfg)
 	latency := time.Since(detectStart)
 
-	result := EvaluateFingerprint(detectRes, detectErr, plan.ExpectedModel, s.fpSvc.KnownModelSet(ctx))
+	result := EvaluateFingerprint(detectRes, detectErr, plan.ExpectedModel, s.fpSvc.KnownModels(ctx))
 	result.StartedAt = startedAt
 	result.LatencyMs = latency.Milliseconds()
 	if result.LatencyMs <= 0 {

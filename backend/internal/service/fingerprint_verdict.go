@@ -15,11 +15,13 @@ import (
 //  2. 预期模型已不在参考库 → inconclusive。参考库是封闭集合，库里没有的模型
 //     也会被硬配一个"最像"的候选，不拦住就是每轮都判不符的永久误报。
 //  3. 拿不到排名（unscorable / not_model）→ inconclusive。不等于造假。
-//  4. 排名第一 == 预期模型 → match，否则 mismatch。同家族降级一样算不符。
+//  4. 排名第一与预期模型"对得上" → match，否则 mismatch。
+//     对得上不要求逐字相同：去掉版本号后同一条产品线即可（见 FingerprintModelsEquivalent），
+//     但 opus 换 haiku、claude 换 deepseek 这类降级冒充仍判不符。
 //
-// knownModels 为 nil 表示参考库清单暂不可用，此时跳过第 2 步——不能因为拉不到
+// known 为空表示参考库清单暂不可用，此时跳过第 2 步——不能因为拉不到
 // 清单就把所有账号判成无法判定。
-func EvaluateFingerprint(res *lmfpd.DetectResult, err error, expectedModel string, knownModels map[string]bool) FingerprintResult {
+func EvaluateFingerprint(res *lmfpd.DetectResult, err error, expectedModel string, known []FingerprintRefModel) FingerprintResult {
 	out := FingerprintResult{Verdict: FingerprintVerdictError}
 
 	if err != nil {
@@ -58,7 +60,7 @@ func EvaluateFingerprint(res *lmfpd.DetectResult, err error, expectedModel strin
 		out.ErrorMessage = "计划未设置预期模型"
 		return out
 	}
-	if knownModels != nil && !knownModels[expected] {
+	if len(known) > 0 && !fingerprintBankContains(expected, known) {
 		out.Verdict = FingerprintVerdictInconclusive
 		out.ErrorMessage = "预期模型 " + expected + " 已不在参考库中，请重新选择后再判定"
 		return out
@@ -70,12 +72,22 @@ func EvaluateFingerprint(res *lmfpd.DetectResult, err error, expectedModel strin
 		return out
 	}
 
-	if analysis.Prediction == expected {
+	if FingerprintModelsEquivalent(expected, analysis.Prediction, known) {
 		out.Verdict = FingerprintVerdictMatch
 		return out
 	}
 	out.Verdict = FingerprintVerdictMismatch
 	return out
+}
+
+// fingerprintBankContains 报告参考库里是否有该模型 ID。
+func fingerprintBankContains(id string, known []FingerprintRefModel) bool {
+	for _, m := range known {
+		if m.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // fingerprintInconclusiveReason 把 SDK 的 decision 翻成可展示的原因。

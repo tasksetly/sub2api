@@ -2706,8 +2706,10 @@ export interface FingerprintOverview {
 
 export interface FingerprintPlanRequest {
   account_id?: number
+  /** 管理员选的模型名。后端据此对应到参考库的规范 ID 作为预期模型。 */
   test_model: string
-  expected_model: string
+  /** 可选：显式指定参考库 ID。不传则从 test_model 自动推导。 */
+  expected_model?: string
   api?: FingerprintAPI
   challenge_count?: number
   cron_expression?: string
