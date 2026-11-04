@@ -124,7 +124,7 @@ func RegisterUserRoutes(
 		tickets := authenticated.Group("/tickets")
 		{
 			tickets.GET("", h.Ticket.List)
-			tickets.POST("", h.Ticket.Create)
+			tickets.POST("", panelRateLimiter.TicketCreate(), h.Ticket.Create)
 			tickets.GET("/:id", h.Ticket.Get)
 			tickets.POST("/:id/messages", h.Ticket.Reply)
 			tickets.POST("/:id/close", h.Ticket.Close)
