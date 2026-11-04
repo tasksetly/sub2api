@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TicketCreate 独立于面板限流设置，账号或 IP 任一维度每分钟最多提交一次。
-func (p *PanelRateLimiter) TicketCreate() gin.HandlerFunc {
+// TicketSend 独立于面板限流设置，新建和回复共享账号及 IP 每分钟一次的额度。
+func (p *PanelRateLimiter) TicketSend() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		subject, ok := GetAuthSubjectFromContext(c)
 		if !ok || subject.UserID <= 0 {
@@ -21,6 +21,7 @@ func (p *PanelRateLimiter) TicketCreate() gin.HandlerFunc {
 			AbortWithError(c, http.StatusServiceUnavailable, "TICKET_RATE_LIMIT_UNAVAILABLE", "Ticket submission is temporarily unavailable")
 			return
 		}
+		// 沿用原有 Redis key，避免升级时重置尚未到期的新建工单额度。
 		for _, key := range []string{
 			"ticket:create:user:" + strconv.FormatInt(subject.UserID, 10),
 			"ticket:create:ip:" + SecurityClientIP(c),
