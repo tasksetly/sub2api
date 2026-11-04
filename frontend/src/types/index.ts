@@ -2628,3 +2628,104 @@ export type {
   PlatformQuotaWindow,
   PlatformQuotasResponse,
 } from '@/api/admin/users'
+
+// ============ 账号指纹校对 ============
+// 设计文档：docs/superpowers/specs/2026-11-04-account-fingerprint-verification-design.md
+
+/** 判定四态。只有 mismatch 计入连续计数并能触发动账号的动作。 */
+export type FingerprintVerdict = 'match' | 'mismatch' | 'inconclusive' | 'error'
+
+/** SDK 支持的上游协议。 */
+export type FingerprintAPI = 'responses' | 'chat_completions' | 'messages'
+
+export interface FingerprintPlan {
+  id: number
+  account_id: number
+  /** 发给上游的最终模型名（经本地 model_mapping 映射之后的值）。 */
+  test_model: string
+  /** 参考库里的规范化模型 ID，用于和实判结果比对。 */
+  expected_model: string
+  api: FingerprintAPI
+  challenge_count: number
+  cron_expression: string
+  enabled: boolean
+  max_results: number
+  consecutive_mismatches: number
+  mismatch_action_threshold: number
+  failure_disable: boolean
+  failure_temp_unschedulable_minutes: number
+  failure_remove_group_ids?: number[]
+  success_add_group_ids?: number[]
+  last_run_at: string | null
+  next_run_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface FingerprintResult {
+  id: number
+  plan_id: number
+  verdict: FingerprintVerdict
+  decision: string
+  predicted_model: string
+  predicted_model_name: string
+  predicted_family: string
+  probability: number | null
+  /** 完整的 analysis 序列化结果，含全部候选排名。 */
+  analysis_json?: string
+  error_message: string
+  /** 被并发闸或每日配额拦下时的原因。 */
+  skip_reason: string
+  estimated_output_tokens: number
+  latency_ms: number
+  started_at: string
+  finished_at: string
+  created_at: string
+}
+
+export interface FingerprintRefModel {
+  id: string
+  display_name: string
+  family: string
+  family_name: string
+}
+
+export interface FingerprintEligibility {
+  supported: boolean
+  reason?: string
+  /** 账号配了代理但检测不经过它，结论要带提示。 */
+  proxy_bypassed: boolean
+}
+
+export interface FingerprintOverview {
+  eligibility: FingerprintEligibility
+  monthly_estimated_tokens: number
+  reference_built_at: string
+  reference_error?: string
+}
+
+export interface FingerprintPlanRequest {
+  account_id?: number
+  test_model: string
+  expected_model: string
+  api?: FingerprintAPI
+  challenge_count?: number
+  cron_expression?: string
+  enabled?: boolean
+  max_results?: number
+  mismatch_action_threshold?: number
+  failure_disable?: boolean
+  failure_temp_unschedulable_minutes?: number
+  failure_remove_group_ids?: number[]
+  success_add_group_ids?: number[]
+}
+
+/** analysis_json 解析后的一个候选模型。 */
+export interface FingerprintCandidate {
+  model: string
+  display_name: string
+  family: string
+  family_name: string
+  score: number
+  probability: number | null
+}
