@@ -22,6 +22,7 @@ type fingerprintAccountRepoStub struct {
 	addedGroups    []int64
 	clearedError   bool
 	setSchedulable []bool
+	extraUpdates   []map[string]any
 }
 
 func (r *fingerprintAccountRepoStub) GetByID(ctx context.Context, id int64) (*Account, error) {
@@ -48,6 +49,11 @@ func (r *fingerprintAccountRepoStub) ClearError(ctx context.Context, id int64) e
 
 func (r *fingerprintAccountRepoStub) SetSchedulable(ctx context.Context, id int64, schedulable bool) error {
 	r.setSchedulable = append(r.setSchedulable, schedulable)
+	return nil
+}
+
+func (r *fingerprintAccountRepoStub) UpdateExtra(ctx context.Context, id int64, updates map[string]any) error {
+	r.extraUpdates = append(r.extraUpdates, updates)
 	return nil
 }
 
@@ -334,5 +340,40 @@ func TestRunnerRecordsLatency(t *testing.T) {
 	}
 	if h.lastResult(t).LatencyMs <= 0 {
 		t.Fatal("应记录检测耗时")
+	}
+}
+
+func TestRunnerWritesFingerprintStatusToAccountExtra(t *testing.T) {
+	h := newFingerprintRunnerHarness(t, fingerprintDetectStub("scored", "deepseek-v4-flash"))
+
+	if _, err := h.runner.executePlan(context.Background(), h.plan, true); err != nil {
+		t.Fatalf("执行出错: %v", err)
+	}
+	if len(h.accountRepo.extraUpdates) != 1 {
+		t.Fatalf("extraUpdates = %v, want 一次写入", h.accountRepo.extraUpdates)
+	}
+	got := h.accountRepo.extraUpdates[0]
+	if got[FingerprintStatusExtraKey] != FingerprintVerdictMismatch {
+		t.Fatalf("status = %v, want %q", got[FingerprintStatusExtraKey], FingerprintVerdictMismatch)
+	}
+	if got[FingerprintPredictedExtraKey] != "deepseek-v4-flash" {
+		t.Fatalf("predicted = %v", got[FingerprintPredictedExtraKey])
+	}
+	if got[FingerprintCheckedAtExtraKey] == "" {
+		t.Fatal("应记录检测时间")
+	}
+}
+
+func TestRunnerDoesNotOverwriteStatusOnQuotaSkip(t *testing.T) {
+	h := newFingerprintRunnerHarness(t, fingerprintDetectStub("scored", "claude-opus-5"))
+	h.runner.quota = newFingerprintQuotaForTest(newFingerprintLockCacheStub(),
+		&fingerprintCounterStub{global: 10},
+		FingerprintSettings{MaxConcurrency: 3, DailyLimitGlobal: 10, DailyLimitAccount: 100})
+
+	if _, err := h.runner.executePlan(context.Background(), h.plan, true); err != nil {
+		t.Fatalf("执行出错: %v", err)
+	}
+	if len(h.accountRepo.extraUpdates) != 0 {
+		t.Fatalf("被配额跳过时不该覆盖标记，got %v", h.accountRepo.extraUpdates)
 	}
 }

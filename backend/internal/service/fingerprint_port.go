@@ -64,6 +64,14 @@ const (
 	FingerprintDefaultDailyLimitAccount = 8
 )
 
+// 账号 extra 里的指纹状态字段。账号列表据此打标记——这一层不依赖运维监控总开关，
+// 即便 ops 告警整个关掉，管理员打开列表仍看得见。
+const (
+	FingerprintStatusExtraKey    = "fingerprint_status"
+	FingerprintCheckedAtExtraKey = "fingerprint_checked_at"
+	FingerprintPredictedExtraKey = "fingerprint_predicted_model"
+)
+
 // FingerprintPlan 是一个账号上的一条指纹校对计划。
 //
 // 一条计划只测一个模型：账号下即使挂了多个模型，也只针对 TestModel 跑，不遍历。

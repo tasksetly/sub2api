@@ -312,6 +312,16 @@
               <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
             </div>
           </template>
+          <template #cell-fingerprint_status="{ row }">
+            <span
+              v-if="fingerprintBadgeStatus(row.extra) !== 'unknown'"
+              :title="fingerprintBadgeHint(row.extra, t('admin.accounts.fingerprint.predicted'))"
+              :data-fingerprint-status="fingerprintBadgeStatus(row.extra)"
+              class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium"
+              :class="fingerprintBadgeClass(fingerprintBadgeStatus(row.extra))"
+            >{{ t(`admin.accounts.fingerprint.badge.${fingerprintBadgeStatus(row.extra)}`) }}</span>
+            <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{ t('admin.accounts.fingerprint.badge.unknown') }}</span>
+          </template>
           <template #cell-intelligence_status="{ row }">
             <span
               v-if="row.extra?.scheduled_test_intelligence_status === 'offline'"
@@ -498,7 +508,7 @@
       </template>
       <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
     </TablePageLayout>
-    <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
+    <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" v-model:fingerprint-on-create="fingerprintOnCreate" @close="showCreate = false" @created="handleAccountCreated" />
     <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
@@ -511,7 +521,24 @@
     />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
     <ScheduledTestsPanel :show="showSchedulePanel" :account-id="scheduleAcc?.id ?? null" :account-platform="scheduleAcc?.platform" :account-group-ids="scheduleAcc?.group_ids || []" :model-options="scheduleModelOptions" :groups="groups" @close="closeSchedulePanel" />
-    <AccountActionMenu :show="menu.show" :account="menu.acc" :anchor-rect="menu.anchorRect" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @schedule="handleSchedule" @duplicate="handleDuplicateAccount" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" @create-spark-shadow="handleCreateSparkShadow" />
+    <div
+      v-if="showFingerprintPanel"
+      class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8"
+      @click.self="closeFingerprintPanel"
+    >
+      <div class="w-full max-w-3xl rounded-lg bg-white p-5 shadow-xl dark:bg-dark-800">
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+            {{ t('admin.accounts.fingerprint.title') }} — {{ fingerprintAcc?.name }}
+          </h3>
+          <button type="button" class="text-gray-400 hover:text-gray-600" @click="closeFingerprintPanel">
+            <Icon name="x" size="sm" />
+          </button>
+        </div>
+        <FingerprintPanel v-if="fingerprintAcc" :key="fingerprintAcc.id" :account-id="fingerprintAcc.id" />
+      </div>
+    </div>
+    <AccountActionMenu :show="menu.show" :account="menu.acc" :anchor-rect="menu.anchorRect" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @schedule="handleSchedule" @fingerprint="handleFingerprint" @duplicate="handleDuplicateAccount" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" @create-spark-shadow="handleCreateSparkShadow" />
     <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="reload" />
     <ImportDataModal :show="showImportData" @close="showImportData = false" @imported="handleDataImported" />
     <BulkEditAccountModal
@@ -570,6 +597,8 @@ import AccountTestModal from '@/components/admin/account/AccountTestModal.vue'
 import BulkTestAccountModal from '@/components/admin/account/BulkTestAccountModal.vue'
 import AccountStatsModal from '@/components/admin/account/AccountStatsModal.vue'
 import ScheduledTestsPanel from '@/components/admin/account/ScheduledTestsPanel.vue'
+import FingerprintPanel from '@/components/admin/account/FingerprintPanel.vue'
+import { fingerprintBadgeClass, fingerprintBadgeHint, fingerprintBadgeStatus } from './fingerprintBadge'
 import type { SelectOption } from '@/components/common/Select.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
@@ -1903,6 +1932,7 @@ const allColumns = computed(() => {
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
     { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
     { key: 'intelligence_status', label: t('admin.accounts.columns.intelligenceStatus'), sortable: false },
+    { key: 'fingerprint_status', label: t('admin.accounts.columns.fingerprintStatus'), sortable: false },
     { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
     { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false }
   ]
@@ -2549,6 +2579,35 @@ const handleSchedule = async (a: Account) => {
   }
 }
 const closeSchedulePanel = () => { showSchedulePanel.value = false; scheduleAcc.value = null; scheduleModelOptions.value = [] }
+
+// —— 账号指纹校对 ——
+const showFingerprintPanel = ref(false)
+const fingerprintAcc = ref<Account | null>(null)
+const fingerprintOnCreate = ref(false)
+
+const handleFingerprint = async (a: Account) => {
+  fingerprintAcc.value = (await loadAccountDetails(a)) || a
+  showFingerprintPanel.value = true
+}
+const closeFingerprintPanel = () => { showFingerprintPanel.value = false; fingerprintAcc.value = null }
+
+
+/**
+ * 创建账号后的处理。勾了「创建后立即做指纹校对」时，用创建前后的 id 集合求差
+ * 找出新账号并直接打开它的指纹面板——预期模型必须由管理员从参考库里选，
+ * 无法在创建时替他猜，所以这里把他送到选择的地方而不是凭空建一条计划。
+ */
+const handleAccountCreated = async () => {
+  const before = new Set(accounts.value.map((item) => item.id))
+  await reload()
+  if (!fingerprintOnCreate.value) return
+
+  const created = accounts.value.find((item) => !before.has(item.id))
+  if (!created) return
+  fingerprintOnCreate.value = false
+  await handleFingerprint(created)
+  appStore.showInfo(t('admin.accounts.fingerprint.pickExpectedModel'))
+}
 const handleReAuth = (a: Account) => { reAuthAcc.value = a; showReAuth.value = true }
 const duplicatingAccountIDs = new Set<number>()
 const handleDuplicateAccount = async (a: Account) => {

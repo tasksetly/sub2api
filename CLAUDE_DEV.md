@@ -241,6 +241,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 | 2026-11-04 | 工单提交限流 | 新建工单按账号和安全客户端 IP 分别限制每分钟一次，任一超限返回 429 和 Retry-After；失败请求计数，Redis 故障时拒绝提交 | `backend/internal/server/middleware/ticket_rate_limit.go`<br>`backend/internal/server/middleware/ticket_rate_limit_test.go`<br>`backend/internal/server/routes/user.go` | 7ec03572f |
 | 2026-11-03 | SEO + 国际化优化 | 加 meta description、Open Graph、JSON-LD、sitemap 多语言、llms.txt、@vueuse/head | `frontend/index.html`<br>`frontend/public/sitemap.xml`<br>`frontend/public/llms.txt`<br>`frontend/src/composables/useSeoMeta.ts`<br>`frontend/src/main.ts`<br>`frontend/src/router/title.ts` | 085b9aad7 |
 | 2026-11-03 | 智能测试 SVG 提取修复 | `extractSVG` 增加字符串 fallback，解决模型返回非严格 XML（未转义 `&`、HTML 实体）时任务误判为 `svg_missing_or_invalid` 的问题，确保每次定时任务都能正确生成 SVG | `backend/internal/service/intelligence_test_service.go` | 6525e50b7 |
+| 2026-11-04 | 账号指纹校对 | 用 LM Fingerpoint Detector 核对上游账号实际回的是不是声称的模型，识别中转商拿便宜模型冒充。按账号 opt-in，三个入口（接入时、每 6 小时抽查、手动触发）；判定四态，只有 mismatch 计入连续计数，连续 2 次才执行动账号的动作；集群级并发闸 + 每日配额 + 消耗记账 | `backend/migrations/260_fingerprint_plans.sql`<br>`backend/internal/service/fingerprint_*.go`<br>`backend/internal/repository/fingerprint_repo.go`<br>`backend/internal/handler/admin/fingerprint_handler.go`<br>`frontend/src/components/admin/account/FingerprintPanel.vue`<br>`frontend/src/api/admin/fingerprint.ts`<br>`frontend/src/views/admin/fingerprintBadge.ts` | (本次提交) |
 
 ---
 
@@ -552,5 +553,5 @@ sub2api/
 
 ---
 
-**最后更新**：2026-11-03  
+**最后更新**：2026-11-04
 **维护者**：Claude Opus 5.5

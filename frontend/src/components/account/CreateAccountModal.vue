@@ -3811,7 +3811,17 @@
     </div>
 
     <template #footer>
-      <div v-if="step === 1" class="flex justify-end gap-3">
+      <div v-if="step === 1" class="flex flex-wrap items-center justify-end gap-3">
+        <label class="mr-auto flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <input
+            type="checkbox"
+            class="rounded"
+            data-testid="fingerprint-on-create"
+            :checked="fingerprintOnCreate === true"
+            @change="emit('update:fingerprintOnCreate', ($event.target as HTMLInputElement).checked)"
+          />
+          <span>{{ t('admin.accounts.fingerprint.checkOnCreate') }}</span>
+        </label>
         <button @click="handleClose" type="button" class="btn btn-secondary">
           {{ t('common.cancel') }}
         </button>
@@ -4327,12 +4337,15 @@ interface Props {
   show: boolean
   proxies: Proxy[]
   groups: AdminGroup[]
+  /** 创建后立即做一次指纹校对。默认不勾；批量创建/导入流程不提供此选项。 */
+  fingerprintOnCreate?: boolean
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
   close: []
   created: []
+  'update:fingerprintOnCreate': [value: boolean]
 }>()
 
 const appStore = useAppStore()

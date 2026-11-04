@@ -311,6 +311,7 @@ func (s *FingerprintRunnerService) persist(ctx context.Context, plan *Fingerprin
 	if err := s.fpSvc.SaveResult(ctx, plan, result); err != nil {
 		return result, err
 	}
+	s.updateAccountFingerprintStatus(ctx, plan.AccountID, result)
 
 	if result.Verdict != FingerprintVerdictMismatch {
 		// 相符时执行成功动作；无法判定与检测失败什么都不做。
@@ -336,6 +337,25 @@ func (s *FingerprintRunnerService) persist(ctx context.Context, plan *Fingerprin
 		s.applyFailureActions(ctx, plan)
 	}
 	return result, nil
+}
+
+// updateAccountFingerprintStatus 把最近一次判定写进账号 extra，账号列表据此打标记。
+//
+// 标记按最近一次结果自动更新，不需要管理员手动确认——证据不会丢，
+// 历史结果表里永久留存，手动确认只会多一套接口和交互。
+// 被配额跳过的结果不覆盖标记：那次检测根本没发生。
+func (s *FingerprintRunnerService) updateAccountFingerprintStatus(ctx context.Context, accountID int64, result *FingerprintResult) {
+	if s.accountRepo == nil || result == nil || result.SkipReason != "" {
+		return
+	}
+	extra := map[string]any{
+		FingerprintStatusExtraKey:    result.Verdict,
+		FingerprintCheckedAtExtraKey: time.Now().UTC().Format(time.RFC3339),
+		FingerprintPredictedExtraKey: result.PredictedModel,
+	}
+	if err := s.accountRepo.UpdateExtra(ctx, accountID, extra); err != nil {
+		logger.LegacyPrintf(fingerprintRunnerLogScope, "[FingerprintRunner] account=%d fingerprint status update failed: %v", accountID, err)
+	}
 }
 
 // applyFailureActions 执行管理员在计划里开启的动账号动作。默认全关。
