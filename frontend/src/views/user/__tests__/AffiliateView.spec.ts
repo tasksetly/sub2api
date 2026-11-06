@@ -17,6 +17,7 @@ vi.mock('@/api/user', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
+    siteName: 'Sub2API',
     showError: vi.fn(),
     showSuccess: vi.fn(),
   }),
@@ -37,7 +38,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key,
+      t: (key: string, params?: Record<string, unknown>) =>
+        params ? `${key} ${Object.values(params).join(' ')}` : key,
     }),
   }
 })
@@ -112,5 +114,39 @@ describe('AffiliateView', () => {
       `${window.location.origin}/register?aff=${encodeURIComponent(affiliateCode)}`,
       'affiliate.linkCopied',
     )
+  })
+
+  it('renders the promo share text and copies it with the invite link', async () => {
+    const wrapper = mount(AffiliateView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<main><slot /></main>' },
+          Icon: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const expectedLink = `${window.location.origin}/register?aff=${encodeURIComponent(affiliateCode)}`
+
+    const shareBox = wrapper.find('p.whitespace-pre-line')
+    expect(shareBox.exists()).toBe(true)
+    expect(shareBox.text()).toContain(expectedLink)
+
+    const shareButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('affiliate.shareText.copy'))
+    expect(shareButton).toBeTruthy()
+
+    await shareButton!.trigger('click')
+    await flushPromises()
+
+    expect(copyToClipboard).toHaveBeenCalledTimes(1)
+    const [copiedText, successMessage] = copyToClipboard.mock.calls[0]
+    expect(copiedText).toContain('affiliate.shareText.template')
+    expect(copiedText).toContain('Sub2API')
+    expect(copiedText).toContain(expectedLink)
+    expect(successMessage).toBe('affiliate.shareText.copied')
   })
 })

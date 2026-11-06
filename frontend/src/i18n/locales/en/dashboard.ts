@@ -812,6 +812,14 @@ export default {
     copyLink: 'Copy Link',
     codeCopied: 'Affiliate code copied',
     linkCopied: 'Invite link copied',
+    shareText: {
+      title: 'Promo Text',
+      hint: 'Copy the ready-made text below and share it with friends or your community',
+      copy: 'Copy Text',
+      copied: 'Promo text copied',
+      template:
+        "I'm using {site} to access Claude, GPT, Gemini and other leading AI model APIs in one place - stable, fast and pay-as-you-go. Sign up and get started in minutes.\n\nRegister with my invite link:\n{link}\n\nOr enter my invite code when signing up: {code}"
+    },
     loadFailed: 'Failed to load affiliate data',
     transferFailed: 'Failed to transfer affiliate quota',
     stats: {

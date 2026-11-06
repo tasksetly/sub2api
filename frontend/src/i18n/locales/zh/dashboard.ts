@@ -816,6 +816,14 @@ export default {
     copyLink: '复制链接',
     codeCopied: '邀请码已复制',
     linkCopied: '邀请链接已复制',
+    shareText: {
+      title: '推广文案',
+      hint: '一键复制下方文案，直接分享给朋友或社群',
+      copy: '复制文案',
+      copied: '推广文案已复制',
+      template:
+        '我在用 {site} 一站式调用 Claude、GPT、Gemini 等主流大模型 API，稳定快速、按量计费，注册即可上手。\n\n点我的专属邀请链接注册：\n{link}\n\n也可以在注册时填写我的邀请码：{code}'
+    },
     loadFailed: '加载邀请返利数据失败',
     transferFailed: '转入余额失败',
     stats: {

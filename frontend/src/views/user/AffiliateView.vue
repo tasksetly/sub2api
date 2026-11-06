@@ -72,6 +72,20 @@
             </div>
           </div>
 
+          <div class="mt-5 space-y-2">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('affiliate.shareText.title') }}</p>
+                <p class="mt-0.5 text-xs text-gray-400 dark:text-dark-500">{{ t('affiliate.shareText.hint') }}</p>
+              </div>
+              <button class="btn btn-secondary btn-sm w-full sm:w-auto sm:shrink-0" @click="copyShareText">
+                <Icon name="copy" size="sm" />
+                <span>{{ t('affiliate.shareText.copy') }}</span>
+              </button>
+            </div>
+            <p class="whitespace-pre-line break-words rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-700 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300">{{ shareText }}</p>
+          </div>
+
           <div class="mt-5 rounded-xl border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/40 dark:bg-primary-900/20">
             <p class="text-sm font-medium text-primary-800 dark:text-primary-200">{{ t('affiliate.tips.title') }}</p>
             <ul class="mt-2 space-y-1 text-sm text-primary-700 dark:text-primary-300">
@@ -167,6 +181,15 @@ const inviteLink = computed(() => {
   return `${window.location.origin}/register?aff=${encodeURIComponent(detail.value.aff_code)}`
 })
 
+const shareText = computed(() => {
+  if (!detail.value || !inviteLink.value) return ''
+  return t('affiliate.shareText.template', {
+    site: appStore.siteName || 'Sub2API',
+    link: inviteLink.value,
+    code: detail.value.aff_code,
+  })
+})
+
 // Rebate rate is a percentage in the range [0, 100]; backend already clamps it.
 // We trim trailing zeros (e.g. 20.00 → "20", 12.50 → "12.5") for a cleaner UI.
 const formattedRebateRate = computed(() => {
@@ -202,6 +225,11 @@ async function copyCode(): Promise<void> {
 async function copyInviteLink(): Promise<void> {
   if (!inviteLink.value) return
   await copyToClipboard(inviteLink.value, t('affiliate.linkCopied'))
+}
+
+async function copyShareText(): Promise<void> {
+  if (!shareText.value) return
+  await copyToClipboard(shareText.value, t('affiliate.shareText.copied'))
 }
 
 async function transferQuota(): Promise<void> {
