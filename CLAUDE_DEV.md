@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-06 | 邀请返利推广文案一键复制 | 邀请页新增"推广文案"区块，i18n 模板自动拼站点名、邀请链接和邀请码，一键整段复制分享 | `frontend/src/views/user/AffiliateView.vue`<br>`frontend/src/i18n/locales/zh/dashboard.ts`<br>`frontend/src/i18n/locales/en/dashboard.ts` | 174f3fa64 |
 | 2026-11-04 | 工单回复共享限流 | 用户新建工单和回复任意工单共享账号及 IP 每分钟一次的额度，补充新建与回复交叉限流场景测试 | `backend/internal/server/middleware/ticket_rate_limit.go`<br>`backend/internal/server/middleware/ticket_rate_limit_test.go`<br>`backend/internal/server/routes/user.go` | 74eac0bf8 |
 | 2026-11-04 | 工单提交限流 | 新建工单按账号和安全客户端 IP 分别限制每分钟一次，任一超限返回 429 和 Retry-After；失败请求计数，Redis 故障时拒绝提交 | `backend/internal/server/middleware/ticket_rate_limit.go`<br>`backend/internal/server/middleware/ticket_rate_limit_test.go`<br>`backend/internal/server/routes/user.go` | 7ec03572f |
 | 2026-11-03 | SEO + 国际化优化 | 加 meta description、Open Graph、JSON-LD、sitemap 多语言、llms.txt、@vueuse/head | `frontend/index.html`<br>`frontend/public/sitemap.xml`<br>`frontend/public/llms.txt`<br>`frontend/src/composables/useSeoMeta.ts`<br>`frontend/src/main.ts`<br>`frontend/src/router/title.ts` | 085b9aad7 |
