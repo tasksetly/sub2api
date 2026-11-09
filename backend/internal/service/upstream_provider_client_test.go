@@ -252,6 +252,7 @@ func TestUpstreamClientCreateAPIKey(t *testing.T) {
 			"key":      "sk-upstream-xxx",
 			"name":     "prov-claude",
 			"group_id": 7,
+			"group":    map[string]any{"id": 7, "name": "claude", "platform": "anthropic"},
 		})))
 	}))
 	defer server.Close()
@@ -259,7 +260,11 @@ func TestUpstreamClientCreateAPIKey(t *testing.T) {
 	client := NewUpstreamProviderClient()
 	created, err := client.CreateAPIKey(context.Background(), server.URL, "jwt-token", "prov-claude", 7)
 	require.NoError(t, err)
+	require.Equal(t, int64(99), created.ID)
 	require.Equal(t, "sk-upstream-xxx", created.Key)
+	require.Equal(t, "prov-claude", created.Name)
+	require.NotNil(t, created.GroupID)
+	require.Equal(t, int64(7), *created.GroupID)
 	require.Equal(t, "prov-claude", gotBody["name"])
 	require.EqualValues(t, 7, gotBody["group_id"])
 }

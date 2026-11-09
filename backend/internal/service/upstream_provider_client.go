@@ -131,7 +131,8 @@ type UpstreamCreatedKey struct {
 	Key     string `json:"key"`
 	Name    string `json:"name"`
 	GroupID *int64 `json:"group_id"`
-	Group   string `json:"group"`
+	// Group 仅由 NewAPI 流程赋值；sub2api 返回的 group 对象无需解析。
+	Group string `json:"-"`
 }
 
 // UpstreamProviderClient 封装对单个 sub2api / NewAPI 上游站点的 HTTP 调用。
