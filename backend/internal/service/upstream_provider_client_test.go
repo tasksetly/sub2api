@@ -241,32 +241,55 @@ func TestUpstreamClientGetGroupRatesToleratesNull(t *testing.T) {
 }
 
 func TestUpstreamClientCreateAPIKey(t *testing.T) {
-	var gotBody map[string]any
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/api/v1/keys", r.URL.Path)
-		require.Equal(t, http.MethodPost, r.Method)
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(upstreamEnvelopeJSON(t, map[string]any{
-			"id":       99,
-			"key":      "sk-upstream-xxx",
-			"name":     "prov-claude",
-			"group_id": 7,
-			"group":    map[string]any{"id": 7, "name": "claude", "platform": "anthropic"},
-		})))
-	}))
-	defer server.Close()
+	group := map[string]any{"id": 7, "name": "claude", "platform": "anthropic"}
+	for _, tt := range []struct {
+		name   string
+		fields map[string]any
+	}{
+		{name: "group omitted"},
+		{name: "null group", fields: map[string]any{"group": nil}},
+		{name: "string group", fields: map[string]any{"group": "claude"}},
+		{name: "object group", fields: map[string]any{"group": group}},
+		{name: "object group with groups", fields: map[string]any{
+			"group": group,
+			"groups": []any{
+				map[string]any{"group_id": 7, "priority": 1, "group": group},
+			},
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			data := map[string]any{
+				"id":       99,
+				"key":      "sk-upstream-xxx",
+				"name":     "prov-claude",
+				"group_id": 7,
+			}
+			for field, value := range tt.fields {
+				data[field] = value
+			}
+			var gotBody map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "/api/v1/keys", r.URL.Path)
+				require.Equal(t, http.MethodPost, r.Method)
+				require.Equal(t, "Bearer jwt-token", r.Header.Get("Authorization"))
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(upstreamEnvelopeJSON(t, data)))
+			}))
+			defer server.Close()
 
-	client := NewUpstreamProviderClient()
-	created, err := client.CreateAPIKey(context.Background(), server.URL, "jwt-token", "prov-claude", 7)
-	require.NoError(t, err)
-	require.Equal(t, int64(99), created.ID)
-	require.Equal(t, "sk-upstream-xxx", created.Key)
-	require.Equal(t, "prov-claude", created.Name)
-	require.NotNil(t, created.GroupID)
-	require.Equal(t, int64(7), *created.GroupID)
-	require.Equal(t, "prov-claude", gotBody["name"])
-	require.EqualValues(t, 7, gotBody["group_id"])
+			client := NewUpstreamProviderClient()
+			created, err := client.CreateAPIKey(context.Background(), server.URL, "jwt-token", "prov-claude", 7)
+			require.NoError(t, err)
+			require.Equal(t, int64(99), created.ID)
+			require.Equal(t, "sk-upstream-xxx", created.Key)
+			require.Equal(t, "prov-claude", created.Name)
+			require.NotNil(t, created.GroupID)
+			require.Equal(t, int64(7), *created.GroupID)
+			require.Equal(t, "prov-claude", gotBody["name"])
+			require.EqualValues(t, 7, gotBody["group_id"])
+		})
+	}
 }
 
 // 上游返回空 key 时必须报错：否则会建出一个不可用的本地账号。
