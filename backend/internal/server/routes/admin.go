@@ -816,6 +816,8 @@ func registerFingerprintRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 }
 
 func registerIntelligenceTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	admin.POST("/accounts/:id/intelligence-tests", h.Admin.IntelligenceTest.RunAccount)
+	admin.GET("/accounts/:id/intelligence-tests", h.Admin.IntelligenceTest.ListAccountResults)
 	tests := admin.Group("/intelligence-test")
 	{
 		tests.GET("/configs", h.Admin.IntelligenceTest.ListConfigs)

@@ -1,7 +1,7 @@
 <template>
   <BaseDialog
     :show="show"
-    :title="t('admin.accounts.testAccountConnection')"
+    :title="t(svgTest ? 'admin.accounts.svgTest.title' : 'admin.accounts.testAccountConnection')"
     width="normal"
     @close="handleClose"
   >
@@ -41,6 +41,17 @@
         </span>
       </div>
 
+      <div class="flex gap-2" role="group" :aria-label="t('admin.accounts.svgTest.testType')">
+        <button type="button" class="btn" :class="!svgTest ? 'btn-primary' : 'btn-secondary'" :aria-pressed="!svgTest" :disabled="status === 'connecting'" @click="svgTest = false">
+          {{ t('admin.accounts.testAccountConnection') }}
+        </button>
+        <button type="button" class="btn" :class="svgTest ? 'btn-primary' : 'btn-secondary'" :aria-pressed="svgTest" :disabled="status === 'connecting'" @click="svgTest = true">
+          {{ t('admin.accounts.svgTest.title') }}
+        </button>
+      </div>
+      <AccountIntelligenceTestPanel v-if="svgTest && show && account" :key="account.id" :account="account" :models="availableModels" :loading-models="loadingModels" />
+
+      <template v-if="!svgTest">
       <!-- Grok: mode first, then optional model / mode params -->
       <div v-if="isGrokAccount" class="space-y-1.5">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -316,6 +327,7 @@
           {{ testModeSummary }}
         </span>
       </div>
+      </template>
     </div>
 
     <template #footer>
@@ -327,6 +339,7 @@
           {{ t('common.close') }}
         </button>
         <button
+          v-if="!svgTest"
           @click="startTest"
           :disabled="!canStartTest"
           :class="[
@@ -368,6 +381,7 @@
 import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import AccountIntelligenceTestPanel from './AccountIntelligenceTestPanel.vue'
 import Select from '@/components/common/Select.vue'
 import TextArea from '@/components/common/TextArea.vue'
 import { Icon } from '@/components/icons'
@@ -407,6 +421,7 @@ const errorMessage = ref('')
 const availableModels = ref<ClaudeModel[]>([])
 const selectedModelId = ref('')
 const testPrompt = ref('')
+const svgTest = ref(false)
 const loadingModels = ref(false)
 let abortController: AbortController | null = null
 const generatedImages = ref<PreviewMedia[]>([])
@@ -737,6 +752,7 @@ watch(
   () => props.show,
   async (newVal) => {
     if (newVal && props.account) {
+      svgTest.value = false
       testPrompt.value = ''
       testMode.value = 'default'
       grokTestMode.value = 'text'

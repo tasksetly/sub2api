@@ -47,6 +47,9 @@ type IntelligenceTestConfig struct {
 }
 
 type IntelligenceTestResult struct {
+	AccountID    *int64     `json:"account_id,omitempty"`
+	AccountName  string     `json:"account_name,omitempty"`
+	PromptText   string     `json:"prompt_text,omitempty"`
 	ID           int64      `json:"id"`
 	ConfigID     int64      `json:"config_id"`
 	APIKeyID     int64      `json:"api_key_id"`
@@ -85,6 +88,9 @@ type IntelligenceTestRepository interface {
 	UpdateRun(context.Context, int64, time.Time, time.Time) error
 	ListAPIKeyOptions(context.Context) ([]*IntelligenceTestAPIKeyOption, error)
 	InsertResult(context.Context, *IntelligenceTestResult) error
+	UpdateAccountResult(context.Context, *IntelligenceTestResult) error
+	FailInterruptedAccountResults(context.Context, int64) error
+	ListAccountResults(context.Context, int64, int64, int) ([]*IntelligenceTestResult, error)
 	PruneResults(context.Context, int64) error
 	ListResults(context.Context, int64, int) ([]*IntelligenceTestResult, error)
 	ListSVGResults(context.Context, int64, int) ([]*IntelligenceTestResult, error)
@@ -413,20 +419,8 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 			result.ErrorMessage = "gateway service unavailable"
 		} else {
 			run, runErr := s.runThroughGateway(ctx, key, c)
-			if runErr == nil && run != nil {
-				result.LatencyMs = run.LatencyMs
-				result.StartedAt, result.FinishedAt = run.StartedAt, run.FinishedAt
-				if run.Status == "success" {
-					result.SVGContent = extractSVG(run.ResponseText)
-					result.Check = result.SVGContent != ""
-					if result.Check { result.Status = "validated" } else { result.ErrorMessage = "svg_missing_or_invalid" }
-				} else {
-					result.ErrorMessage = "upstream test failed"
-					if run.ErrorCode >= 100 { result.ErrorMessage = "upstream HTTP " + strconv.Itoa(run.ErrorCode) }
-					if errors.Is(ctx.Err(), context.DeadlineExceeded) { result.ErrorMessage = "benchmark timed out" }
-				}
-			} else {
-				result.ErrorMessage = "upstream test failed"
+			applyIntelligenceTestRun(ctx, result, run, runErr)
+			if runErr != nil {
 				slog.Error("intelligence_test_upstream_failed", "config_id", c.ID, "error", runErr)
 			}
 		}

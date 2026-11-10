@@ -126,10 +126,10 @@ ORDER BY g.name, k.name, k.id`)
 
 func (r *intelligenceTestRepository) InsertResult(ctx context.Context, item *service.IntelligenceTestResult) error {
 	row := r.db.QueryRowContext(ctx, `INSERT INTO intelligence_test_results
-(question_id, api_key_id, group_id, group_name, model_id, model_name, reasoning_effort, status, check_ok, svg_content, error_message, latency_ms, started_at, finished_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, created_at`, item.ConfigID,
+(question_id, api_key_id, group_id, group_name, model_id, model_name, reasoning_effort, status, check_ok, svg_content, error_message, latency_ms, started_at, finished_at, account_id, account_name, prompt_text)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id, created_at`, intelligenceTestNullInt64(item.ConfigID),
 		intelligenceTestNullInt64(item.APIKeyID), item.GroupID, item.GroupName, item.ModelID, item.ModelName, item.ReasoningEffort, item.Status, item.Check, item.SVGContent,
-		item.ErrorMessage, item.LatencyMs, item.StartedAt, item.FinishedAt)
+		item.ErrorMessage, item.LatencyMs, item.StartedAt, item.FinishedAt, item.AccountID, item.AccountName, item.PromptText)
 	return row.Scan(&item.ID, &item.CreatedAt)
 }
 

@@ -29,6 +29,10 @@ export interface IntelligenceTestAPIKeyOption {
 }
 
 export interface IntelligenceTestResult {
+  account_id?: number
+  account_name?: string
+  prompt_text?: string
+  svg_content?: string
   id: number
   config_id: number
   group_name: string
@@ -102,5 +106,23 @@ export async function listResults(id: number, limit = 20) {
   return data ?? []
 }
 
-export const intelligenceTestAPI = { listConfigs, listAPIKeys, create, update, remove, runNow, getRunStatus, listResults }
+export interface AccountIntelligenceTestInput {
+  model_id: string
+  prompt_text: string
+  reasoning_effort: string
+}
+
+export async function runAccount(accountId: number, input: AccountIntelligenceTestInput) {
+  const { data } = await apiClient.post<IntelligenceTestResult>(`/admin/accounts/${accountId}/intelligence-tests`, input)
+  return data
+}
+
+export async function listAccountResults(accountId: number, beforeId = 0, signal?: AbortSignal) {
+  const { data } = await apiClient.get<IntelligenceTestResult[]>(`/admin/accounts/${accountId}/intelligence-tests`, {
+    params: { before_id: beforeId }, signal
+  })
+  return data ?? []
+}
+
+export const intelligenceTestAPI = { runAccount, listAccountResults, listConfigs, listAPIKeys, create, update, remove, runNow, getRunStatus, listResults }
 export default intelligenceTestAPI

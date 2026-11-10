@@ -178,7 +178,7 @@
         </header>
         <div v-if="previewMode === 'source' && preview.item.svg_content" class="preview-source"><pre><code>{{ preview.item.svg_content }}</code></pre></div>
         <div v-else class="preview-canvas">
-          <iframe v-if="preview.item.svg_content" :srcdoc="getPreviewDocument(preview.item.svg_content)" sandbox="" :title="copy.preview" />
+          <iframe v-if="preview.item.svg_content" :srcdoc="getSVGPreviewDocument(preview.item.svg_content)" sandbox="" :title="copy.preview" />
           <img v-else :src="getAssetUrl(preview.item)" :alt="copy.svgWork" />
         </div>
         <footer class="preview-footer">
@@ -194,6 +194,7 @@
 </template>
 
 <script setup lang="ts">
+import { getSVGPreviewDocument } from '@/utils/svgPreview'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
@@ -320,15 +321,6 @@ function getAssetUrl(item: IntelligenceTestItem) {
   if (/^(data:|blob:|https?:\/\/|\/)/i.test(source)) return source
   const base = config.value.asset_base_url || '/pelican-test/data/'
   return `${base.replace(/\/+$/, '')}/${source.replace(/^\/+/, '')}`
-}
-
-const previewCSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src 'none'; base-uri 'none'; form-action 'none'"
-
-function getPreviewDocument(svg: string) {
-  return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="'
-    + previewCSP
-    + '"><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;overflow:auto;background:#fff}body>svg{max-width:100%;max-height:100%}</style></head><body>'
-    + svg + '</body></html>'
 }
 
 function hasSVGAnimation(svg: string) {
