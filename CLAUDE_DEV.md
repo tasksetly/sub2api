@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-10 | SVG 测试提示词模板复用 | 接入现有数据库提示词模板，支持命名保存、跨账号模型选择复用和历史提示词回填；模型选项转换为 SelectOption，修复 TS2322 | `frontend/src/components/admin/account/AccountIntelligenceTestPanel.vue`<br>`frontend/src/components/admin/account/__tests__/AccountIntelligenceTestPanel.spec.ts`<br>`frontend/src/i18n/locales/{zh,en}/admin/accounts.ts` | 8804ea134 |
 | 2026-11-10 | 指定账号模型的 SVG 智商测试 | 账号测试弹窗支持选择或输入模型、自定义提示词及推理等级，复用 SVG 生成和安全预览；后台执行，按账号持久化提示词与 SVG 历史，支持预览、复制、下载和翻查，仅管理员可见；新增迁移 261 | `backend/internal/service/intelligence_test_account.go`<br>`backend/internal/repository/intelligence_test_account_repo.go`<br>`backend/migrations/261_account_intelligence_tests.sql`<br>`frontend/src/components/admin/account/AccountIntelligenceTestPanel.vue` | 791001b98 |
 | 2026-11-09 | 上游 Key 新旧分组结构兼容用例 | 覆盖 group 缺失、null、字符串、对象及对象附带 groups 数组的创建响应，保留旧结构兼容 | `backend/internal/service/upstream_provider_client_test.go` | 5410de68c |
 | 2026-11-09 | 上游创建账号分组解析修复 | 忽略 sub2api 创建 Key 响应中的 group 对象，保留 NewAPI 分组赋值，并补充分组对象响应回归用例 | `backend/internal/service/upstream_provider_client.go`<br>`backend/internal/service/upstream_provider_client_test.go` | 5300c767a |
