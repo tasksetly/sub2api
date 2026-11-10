@@ -1758,6 +1758,16 @@ export default {
       reAuthorizedSuccess: '账号重新授权成功',
       // Test Modal
       svgTest: {
+        promptTemplate: "常用提示词",
+        templatePlaceholder: "选择已保存的提示词",
+        templateHint: "模板保存在服务器，可跨账号、模型复用；选择后仍可修改提示词。",
+        templateName: "模板名称",
+        templateNamePlaceholder: "例如：骑车的鹈鹕（最多 200 字）",
+        saveTemplate: "保存为模板",
+        templateSaved: "提示词模板已保存，下次可直接选择使用。",
+        templatesLoadFailed: "加载提示词模板失败",
+        templateSaveFailed: "保存提示词模板失败",
+        reusePrompt: "复用此提示词",
         title: "SVG 智商测试",
         testType: "测试类型",
         hint: "使用当前账号和指定模型执行一次测试，结果自动保存，可在下方查看历史。",

@@ -1668,6 +1668,16 @@ export default {
       reAuthorizedSuccess: 'Account re-authorized successfully',
       // Test Modal
       svgTest: {
+        promptTemplate: "Saved prompts",
+        templatePlaceholder: "Select a saved prompt",
+        templateHint: "Templates are saved on the server and reusable across accounts and models. You can edit the prompt after selecting one.",
+        templateName: "Template name",
+        templateNamePlaceholder: "e.g. Pelican on a bicycle (up to 200 characters)",
+        saveTemplate: "Save as template",
+        templateSaved: "Prompt template saved. Select it again next time.",
+        templatesLoadFailed: "Failed to load prompt templates",
+        templateSaveFailed: "Failed to save prompt template",
+        reusePrompt: "Reuse this prompt",
         title: "SVG intelligence test",
         testType: "Test type",
         hint: "Run a test with this account and your chosen model. Results are saved automatically and available in the history below.",
