@@ -469,13 +469,17 @@ WHERE id = $5`,
 // 同标识的并发事务在唯一索引上等待先写入者结束：先写入者提交后返回 claimed=false，
 // 回滚后本事务继续写入。
 func claimAffiliateWithdrawLedger(ctx context.Context, client affiliateQueryExecer, userID int64, amount float64, operationID string, payoutJSON any) (int64, bool, error) {
-	rows, err := client.QueryContext(ctx, `
+	var ledgerID int64
+	err := scanSingleRow(ctx, client, `
 INSERT INTO user_affiliate_ledger (user_id, action, amount, operation_id, payout, created_at, updated_at)
 SELECT ua.user_id, 'withdraw', $2, $3, $4::jsonb, NOW(), NOW()
 FROM user_affiliates ua
 WHERE ua.user_id = $1
 ON CONFLICT (operation_id) WHERE operation_id IS NOT NULL DO NOTHING
-RETURNING id`, userID, amount, operationID, payoutJSON)
+RETURNING id`, []any{userID, amount, operationID, payoutJSON}, &ledgerID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
 	if err != nil {
 		var pgErr *pq.Error
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.Constraint == "idx_affiliate_payout_network_tx" {
@@ -483,19 +487,7 @@ RETURNING id`, userID, amount, operationID, payoutJSON)
 		}
 		return 0, false, fmt.Errorf("claim affiliate withdraw ledger: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
-
-	if !rows.Next() {
-		if err := rows.Err(); err != nil {
-			return 0, false, fmt.Errorf("claim affiliate withdraw ledger: %w", err)
-		}
-		return 0, false, nil
-	}
-	var ledgerID int64
-	if err := rows.Scan(&ledgerID); err != nil {
-		return 0, false, err
-	}
-	return ledgerID, true, rows.Close()
+	return ledgerID, true, nil
 }
 
 // findAffiliateWithdrawByOperation 读取 operation_id 已对应的线下提现流水，
