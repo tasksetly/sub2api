@@ -121,13 +121,48 @@
         </div>
 
         <div>
-          <label class="input-label">{{ t('admin.upstreamProviders.provisionLocalGroups') }}</label>
+          <label class="input-label">
+            {{ t('admin.upstreamProviders.provisionLocalGroups') }}
+            <span class="font-normal text-gray-400">
+              {{ t('common.selectedCount', { count: selectedLocal.size }) }}
+            </span>
+          </label>
+          <div v-if="localPlatforms.length > 1" class="mb-2 flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              class="rounded px-2 py-0.5 text-xs"
+              :class="
+                localPlatformFilters.size === 0
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+              "
+              :aria-pressed="localPlatformFilters.size === 0"
+              @click="localPlatformFilters.clear()"
+            >
+              {{ t('admin.upstreamProviders.provisionPlatformAll') }}
+            </button>
+            <button
+              v-for="platform in localPlatforms"
+              :key="platform.value"
+              type="button"
+              class="rounded px-2 py-0.5 text-xs"
+              :class="
+                localPlatformFilters.has(platform.value)
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+              "
+              :aria-pressed="localPlatformFilters.has(platform.value)"
+              @click="toggleLocalPlatform(platform.value)"
+            >
+              {{ platform.label }}
+            </button>
+          </div>
           <div
             v-if="localGroups.length > 0"
             class="max-h-40 divide-y divide-gray-200 overflow-y-auto rounded border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
           >
             <label
-              v-for="group in localGroups"
+              v-for="group in filteredLocalGroups"
               :key="group.id"
               class="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50"
             >
@@ -194,7 +229,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { AdminGroup } from '@/types'
+import type { AdminGroup, GroupPlatform } from '@/types'
+import { GROUP_PLATFORM_OPTIONS } from '@/constants/platforms'
 import type {
   UpstreamProvider,
   UpstreamProviderWithStats,
@@ -229,6 +265,7 @@ const { t } = useI18n()
 const selected = ref<Set<number>>(new Set())
 const selectedLocal = ref<Set<number>>(new Set())
 const platformFilter = ref<string>('all')
+const localPlatformFilters = ref<Set<GroupPlatform>>(new Set())
 const form = ref({
   concurrency: undefined as number | undefined,
   priority: undefined as number | undefined,
@@ -252,6 +289,18 @@ const filteredGroups = computed(() =>
   [...filteredByPlatform.value].sort((a, b) => a.comparable_rate - b.comparable_rate)
 )
 
+const localPlatforms = computed(() =>
+  [...new Set(props.localGroups.map((group) => group.platform))].sort().map((platform) => ({
+    value: platform,
+    label: GROUP_PLATFORM_OPTIONS.find((option) => option.value === platform)?.label ?? platform
+  }))
+)
+
+const filteredLocalGroups = computed(() => {
+  if (localPlatformFilters.value.size === 0) return props.localGroups
+  return props.localGroups.filter((group) => localPlatformFilters.value.has(group.platform))
+})
+
 watch(
   () => props.show,
   (show) => {
@@ -260,6 +309,7 @@ watch(
     selected.value = new Set(props.presetRemoteGroupIDs ?? [])
     selectedLocal.value = new Set()
     platformFilter.value = 'all'
+    localPlatformFilters.value = new Set()
     form.value = { concurrency: undefined, priority: undefined, key_name_prefix: '' }
   }
 )
@@ -296,6 +346,14 @@ function toggleLocalGroup(groupID: number) {
     next.add(groupID)
   }
   selectedLocal.value = next
+}
+
+function toggleLocalPlatform(platform: GroupPlatform) {
+  if (localPlatformFilters.value.has(platform)) {
+    localPlatformFilters.value.delete(platform)
+  } else {
+    localPlatformFilters.value.add(platform)
+  }
 }
 
 function formatRate(value: number): string {
