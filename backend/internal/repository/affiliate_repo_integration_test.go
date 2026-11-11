@@ -474,7 +474,7 @@ func TestAffiliateRepository_WithdrawQuota_DeductsAndRecordsLedger(t *testing.T)
 	mustSeedAffiliateQuota(t, txCtx, client, u.ID, 20, 0, 30)
 	operationID := newAffiliateWithdrawOperationID("deduct")
 
-	result, err := repo.WithdrawQuota(txCtx, u.ID, 12.5, operationID)
+	result, err := repo.WithdrawQuota(txCtx, u.ID, 12.5, operationID, nil)
 	require.NoError(t, err)
 	require.Positive(t, result.LedgerID)
 	require.False(t, result.Replayed)
@@ -534,7 +534,7 @@ INSERT INTO user_affiliate_ledger (user_id, action, amount, frozen_until, create
 VALUES ($1, 'accrue', 10, NOW() - INTERVAL '1 hour', NOW(), NOW())`, u.ID)
 	require.NoError(t, err)
 
-	result, err := repo.WithdrawQuota(txCtx, u.ID, 10, newAffiliateWithdrawOperationID("thaw"))
+	result, err := repo.WithdrawQuota(txCtx, u.ID, 10, newAffiliateWithdrawOperationID("thaw"), nil)
 	require.NoError(t, err)
 	require.InDelta(t, 0.0, result.AvailableQuotaAfter, 1e-9)
 	require.InDelta(t, 0.0, result.FrozenQuotaAfter, 1e-9)
@@ -558,7 +558,7 @@ VALUES ($1, 'accrue', 10, NOW() + INTERVAL '1 hour', NOW(), NOW())`, u.ID)
 	require.NoError(t, err)
 	operationID := newAffiliateWithdrawOperationID("insufficient")
 
-	_, err = repo.WithdrawQuota(ctx, u.ID, 6, operationID)
+	_, err = repo.WithdrawQuota(ctx, u.ID, 6, operationID, nil)
 	require.ErrorIs(t, err, service.ErrAffiliateQuotaInsufficient)
 
 	require.InDelta(t, 5.0, querySingleFloat(t, ctx, client,
@@ -568,7 +568,7 @@ VALUES ($1, 'accrue', 10, NOW() + INTERVAL '1 hour', NOW(), NOW())`, u.ID)
 	require.Equal(t, 0, querySingleInt(t, ctx, client,
 		"SELECT COUNT(*) FROM user_affiliate_ledger WHERE user_id = $1 AND action = 'withdraw'", u.ID))
 
-	result, err := repo.WithdrawQuota(ctx, u.ID, 5, operationID)
+	result, err := repo.WithdrawQuota(ctx, u.ID, 5, operationID, nil)
 	require.NoError(t, err)
 	require.False(t, result.Replayed)
 	require.InDelta(t, 0.0, result.AvailableQuotaAfter, 1e-9)
@@ -577,7 +577,7 @@ VALUES ($1, 'accrue', 10, NOW() + INTERVAL '1 hour', NOW(), NOW())`, u.ID)
 	t.Cleanup(func() {
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", noProfile.ID)
 	})
-	_, err = repo.WithdrawQuota(ctx, noProfile.ID, 1, newAffiliateWithdrawOperationID("no-profile"))
+	_, err = repo.WithdrawQuota(ctx, noProfile.ID, 1, newAffiliateWithdrawOperationID("no-profile"), nil)
 	require.ErrorIs(t, err, service.ErrAffiliateQuotaInsufficient)
 	require.Equal(t, 0, querySingleInt(t, ctx, client,
 		"SELECT COUNT(*) FROM user_affiliate_ledger WHERE user_id = $1", noProfile.ID))
@@ -595,11 +595,11 @@ func TestAffiliateRepository_WithdrawQuota_RetryAfterCommitReplaysFirstResult(t 
 	u := mustCreateCommittedAffiliateWithdrawUser(t, "retry", 100, 0, 100)
 	operationID := newAffiliateWithdrawOperationID("retry")
 
-	first, err := repo.WithdrawQuota(ctx, u.ID, 10, operationID)
+	first, err := repo.WithdrawQuota(ctx, u.ID, 10, operationID, nil)
 	require.NoError(t, err)
 	require.False(t, first.Replayed)
 
-	retry, err := repo.WithdrawQuota(ctx, u.ID, 10, operationID)
+	retry, err := repo.WithdrawQuota(ctx, u.ID, 10, operationID, nil)
 	require.NoError(t, err)
 	require.True(t, retry.Replayed)
 	require.Equal(t, first.LedgerID, retry.LedgerID)
@@ -614,7 +614,7 @@ func TestAffiliateRepository_WithdrawQuota_RetryAfterCommitReplaysFirstResult(t 
 	require.Equal(t, 1, querySingleInt(t, ctx, client,
 		"SELECT COUNT(*) FROM user_affiliate_ledger WHERE user_id = $1 AND action = 'withdraw'", u.ID))
 
-	second, err := repo.WithdrawQuota(ctx, u.ID, 10, newAffiliateWithdrawOperationID("retry-second"))
+	second, err := repo.WithdrawQuota(ctx, u.ID, 10, newAffiliateWithdrawOperationID("retry-second"), nil)
 	require.NoError(t, err)
 	require.False(t, second.Replayed)
 	require.NotEqual(t, first.LedgerID, second.LedgerID)
@@ -645,7 +645,7 @@ func TestAffiliateRepository_WithdrawQuota_SameOperationWaitsForInFlightRegistra
 			tx, err := client.Tx(ctx)
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = tx.Rollback() })
-			first, err := repo.WithdrawQuota(dbent.NewTxContext(ctx, tx), u.ID, 10, operationID)
+			first, err := repo.WithdrawQuota(dbent.NewTxContext(ctx, tx), u.ID, 10, operationID, nil)
 			require.NoError(t, err)
 
 			type outcome struct {
@@ -654,7 +654,7 @@ func TestAffiliateRepository_WithdrawQuota_SameOperationWaitsForInFlightRegistra
 			}
 			waiting := make(chan outcome, 1)
 			go func() {
-				result, err := repo.WithdrawQuota(ctx, u.ID, 10, operationID)
+				result, err := repo.WithdrawQuota(ctx, u.ID, 10, operationID, nil)
 				waiting <- outcome{result: result, err: err}
 			}()
 
@@ -714,7 +714,7 @@ func TestAffiliateRepository_WithdrawQuota_ConcurrentSameOperationDeductsOnce(t 
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			results[i], errs[i] = repo.WithdrawQuota(ctx, u.ID, 10, operationID)
+			results[i], errs[i] = repo.WithdrawQuota(ctx, u.ID, 10, operationID, nil)
 		}(i)
 	}
 	close(start)
@@ -748,12 +748,12 @@ func TestAffiliateRepository_WithdrawQuota_RejectsOperationReuseWithDifferentReq
 	other := mustCreateCommittedAffiliateWithdrawUser(t, "conflict-other", 100, 0, 100)
 	operationID := newAffiliateWithdrawOperationID("conflict")
 
-	_, err := repo.WithdrawQuota(ctx, u.ID, 10, operationID)
+	_, err := repo.WithdrawQuota(ctx, u.ID, 10, operationID, nil)
 	require.NoError(t, err)
 
-	_, err = repo.WithdrawQuota(ctx, u.ID, 11, operationID)
+	_, err = repo.WithdrawQuota(ctx, u.ID, 11, operationID, nil)
 	require.ErrorIs(t, err, service.ErrIdempotencyKeyConflict)
-	_, err = repo.WithdrawQuota(ctx, other.ID, 10, operationID)
+	_, err = repo.WithdrawQuota(ctx, other.ID, 10, operationID, nil)
 	require.ErrorIs(t, err, service.ErrIdempotencyKeyConflict)
 
 	require.InDelta(t, 90.0, querySingleFloat(t, ctx, client,
@@ -799,4 +799,68 @@ func TestAffiliateRepository_ListAffiliateRebateRecords_IncludesNonOrderAccruals
 	require.NotNil(t, record.InviteeID)
 	require.Equal(t, invitee.ID, *record.InviteeID)
 	require.InDelta(t, 2.0, record.RebateAmount, 1e-9)
+}
+
+func TestAffiliateRepository_USDTPayoutReceiptAndReplay(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewAffiliateRepository(client, integrationDB)
+	u := mustCreateCommittedAffiliateWithdrawUser(t, "payout", 100, 20, 120)
+	admin := mustCreateCommittedAffiliateWithdrawUser(t, "payout-admin", 0, 0, 0)
+	payout := &service.AffiliatePayout{
+		Network: "polygon", WalletAddress: "0x1111111111111111111111111111111111111111",
+		TxHash: "0x" + newAffiliateWithdrawOperationID("tx"), ExchangeRate: 6.8, USDTAmount: 10, AdminID: admin.ID,
+		Attachments: []service.TicketAttachment{{Key: "tickets/proof.png", Name: "proof.png", ContentType: "image/png", Size: 10}},
+	}
+	op := newAffiliateWithdrawOperationID("payout")
+	first, err := repo.WithdrawQuota(ctx, u.ID, 68, op, payout)
+	require.NoError(t, err)
+	require.Equal(t, 32.0, first.AvailableQuotaAfter)
+	require.Positive(t, first.Payout.TicketID)
+	ticket, err := NewTicketRepository(integrationDB).GetByID(ctx, first.Payout.TicketID)
+	require.NoError(t, err)
+	require.Equal(t, u.ID, ticket.UserID)
+	require.Len(t, ticket.Messages, 1)
+	require.Equal(t, admin.ID, ticket.Messages[0].AuthorID)
+	require.Equal(t, "admin", ticket.Messages[0].AuthorRole)
+	require.Equal(t, payout.Attachments, ticket.Messages[0].Attachments)
+
+	retry, err := repo.WithdrawQuota(ctx, u.ID, 68, op, payout)
+	require.NoError(t, err)
+	require.True(t, retry.Replayed)
+	require.Equal(t, first.Payout.TicketID, retry.Payout.TicketID)
+	require.Equal(t, 10.0, retry.Payout.USDTAmount)
+	_, err = repo.WithdrawQuota(ctx, u.ID, 68, newAffiliateWithdrawOperationID("duplicate"), payout)
+	require.ErrorIs(t, err, service.ErrAffiliatePayoutDuplicate)
+	changed := *payout
+	changed.ExchangeRate = 7
+	_, err = repo.WithdrawQuota(ctx, u.ID, 68, op, &changed)
+	require.ErrorIs(t, err, service.ErrIdempotencyKeyConflict)
+	require.Equal(t, 32.0, querySingleFloat(t, ctx, client, "SELECT aff_quota::double precision FROM user_affiliates WHERE user_id = $1", u.ID))
+	require.Equal(t, 1, querySingleInt(t, ctx, client, "SELECT COUNT(*) FROM tickets WHERE user_id = $1", u.ID))
+
+	items, total, err := repo.ListAffiliateTransferRecords(ctx, service.AffiliateRecordFilter{UserID: u.ID, Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.Equal(t, first.Payout.TicketID, items[0].Payout.TicketID)
+	items, total, err = repo.ListAffiliateTransferRecords(ctx, service.AffiliateRecordFilter{UserID: admin.ID, Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	require.Zero(t, total)
+	require.Empty(t, items)
+}
+
+func TestAffiliateRepository_USDTPayoutReceiptFailureRollsBackDeduction(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewAffiliateRepository(client, integrationDB)
+	u := mustCreateCommittedAffiliateWithdrawUser(t, "payout-rollback", 100, 0, 100)
+	payout := &service.AffiliatePayout{
+		Network: "bsc", TxHash: "0x" + newAffiliateWithdrawOperationID("rollback-tx"),
+		ExchangeRate: 6.8, USDTAmount: 10, AdminID: -1, // Missing author makes receipt insertion fail.
+	}
+	_, err := repo.WithdrawQuota(ctx, u.ID, 68, newAffiliateWithdrawOperationID("rollback"), payout)
+	require.Error(t, err)
+	require.Equal(t, 100.0, querySingleFloat(t, ctx, client, "SELECT aff_quota::double precision FROM user_affiliates WHERE user_id = $1", u.ID))
+	require.Equal(t, 0, querySingleInt(t, ctx, client, "SELECT COUNT(*) FROM tickets WHERE user_id = $1", u.ID))
+	require.Equal(t, 0, querySingleInt(t, ctx, client, "SELECT COUNT(*) FROM user_affiliate_ledger WHERE user_id = $1 AND action = 'withdraw'", u.ID))
 }

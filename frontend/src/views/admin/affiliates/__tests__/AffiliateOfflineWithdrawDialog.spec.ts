@@ -1,6 +1,8 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import TicketComposer from '@/components/tickets/TicketComposer.vue'
+
 import AffiliateOfflineWithdrawDialog from '../AffiliateOfflineWithdrawDialog.vue'
 
 const { lookupUsers, getUserOverview, withdrawUserQuota, showError, showSuccess } = vi.hoisted(() => ({
@@ -39,7 +41,7 @@ const BaseDialogStub = {
 function mountDialog() {
   return mount(AffiliateOfflineWithdrawDialog, {
     props: { show: true },
-    global: { stubs: { BaseDialog: BaseDialogStub } },
+    global: { stubs: { BaseDialog: BaseDialogStub, TicketComposer: { name: 'TicketComposer', emits: ['change'], template: '<div />' } } },
   })
 }
 
@@ -50,6 +52,7 @@ function overviewWithQuota(availableQuota: number) {
     username: 'inviter',
     aff_code: 'INVITER',
     rebate_rate_percent: 20,
+    usdt_exchange_rate: 6.8,
     invited_count: 3,
     rebated_invitee_count: 2,
     available_quota: availableQuota,
@@ -71,6 +74,12 @@ function withdrawResponse(amount: number, availableAfter: number, replayed = fal
   }
 }
 
+const proofImage = new File(['image'], 'proof.png', { type: 'image/png' })
+const payout = {
+  network: 'polygon', wallet_address: '0x' + '1'.repeat(40), tx_hash: '0x' + '2'.repeat(64), exchange_rate: 6.8, note: '',
+}
+let testAdminID = 5000
+
 async function pickUser(wrapper: VueWrapper, availableQuota: number) {
   lookupUsers.mockResolvedValue([{ id: 42, email: 'inviter@example.com', username: 'inviter' }])
   getUserOverview.mockResolvedValue(overviewWithQuota(availableQuota))
@@ -79,12 +88,18 @@ async function pickUser(wrapper: VueWrapper, availableQuota: number) {
   await flushPromises()
   await wrapper.get('[data-test="withdraw-user-option"]').trigger('click')
   await flushPromises()
+  await wrapper.get('[data-test="payout-address"]').setValue(payout.wallet_address)
+  await wrapper.get('[data-test="payout-tx"]').setValue(payout.tx_hash)
+  wrapper.findComponent(TicketComposer).vm.$emit('change', { content: '', images: [proofImage] })
+  await flushPromises()
 }
 
 describe('AffiliateOfflineWithdrawDialog', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
+    localStorage.setItem('auth_user', JSON.stringify({ id: ++testAdminID }))
+    sessionStorage.clear()
   })
 
   afterEach(() => {
@@ -106,7 +121,7 @@ describe('AffiliateOfflineWithdrawDialog', () => {
     await wrapper.get('[data-test="withdraw-submit"]').trigger('click')
     await flushPromises()
 
-    expect(withdrawUserQuota).toHaveBeenCalledWith(42, { amount: 12.34567891 }, expect.stringMatching(/^affiliate-withdraw-/))
+    expect(withdrawUserQuota).toHaveBeenCalledWith(42, { amount: 12.34567891, payout }, expect.stringMatching(/^affiliate-withdraw-/), [proofImage])
     expect(showSuccess).toHaveBeenCalledWith(
       'admin.affiliates.withdraw.success {"amount":"￥12.34567891","remaining":"￥0.00"}',
     )
@@ -191,7 +206,7 @@ describe('AffiliateOfflineWithdrawDialog', () => {
 
     expect(withdrawUserQuota).toHaveBeenCalledTimes(2)
     const [firstCall, retryCall] = withdrawUserQuota.mock.calls
-    expect(firstCall).toEqual([42, { amount: 10 }, expect.stringMatching(/^affiliate-withdraw-/)])
+    expect(firstCall).toEqual([42, { amount: 10, payout }, expect.stringMatching(/^affiliate-withdraw-/), [proofImage]])
     expect(retryCall).toEqual(firstCall)
     expect(showSuccess).toHaveBeenCalledWith(
       'admin.affiliates.withdraw.replayed {"amount":"￥10.00","remaining":"￥0.00"}',
@@ -218,8 +233,24 @@ describe('AffiliateOfflineWithdrawDialog', () => {
 
     expect(withdrawUserQuota).toHaveBeenCalledTimes(2)
     const [rejectedCall, nextCall] = withdrawUserQuota.mock.calls
-    expect(nextCall[1]).toEqual({ amount: 5 })
+    expect(nextCall[1]).toEqual({ amount: 5, payout })
     expect(nextCall[2]).not.toBe(rejectedCall[2])
     expect(showSuccess).toHaveBeenCalledWith('admin.affiliates.withdraw.success {"amount":"￥5.00","remaining":"￥5.00"}')
   })
+})
+
+
+it('requires a screenshot and validates the payout before allowing registration', async () => {
+  vi.useFakeTimers()
+  const wrapper = mountDialog()
+  await pickUser(wrapper, 68)
+  await wrapper.get('[data-test="withdraw-amount"]').setValue('68')
+  expect(wrapper.get('[data-test="payout-usdt"]').text()).toContain('10.000000 USDT')
+  wrapper.findComponent(TicketComposer).vm.$emit('change', { content: '', images: [] })
+  await flushPromises()
+  expect(wrapper.get('[data-test="withdraw-submit"]').attributes('disabled')).toBeDefined()
+  await wrapper.get('[data-test="payout-rate"]').setValue('0')
+  expect(wrapper.get('[data-test="payout-error"]').text()).toBe('affiliate.payout.invalidRate')
+  wrapper.unmount()
+  vi.useRealTimers()
 })

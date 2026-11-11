@@ -4,6 +4,8 @@
  */
 
 import { apiClient } from './client'
+import type { PaginatedResponse } from '@/types'
+import type { AffiliateTransferRecord } from '@/types/affiliate'
 import {
   resolveWeChatOAuthStartStrict,
   prepareOAuthBindAccessTokenCookie,
@@ -181,6 +183,13 @@ export async function getAffiliateDetail(): Promise<UserAffiliateDetail> {
   return data
 }
 
+export async function getAffiliateTransfers(page = 1): Promise<PaginatedResponse<AffiliateTransferRecord>> {
+  const { data } = await apiClient.get<PaginatedResponse<AffiliateTransferRecord>>('/user/aff/transfers', {
+    params: { page, page_size: 10 },
+  })
+  return data
+}
+
 export async function transferAffiliateQuota(): Promise<AffiliateTransferResponse> {
   const { data } = await apiClient.post<AffiliateTransferResponse>('/user/aff/transfer')
   return data
@@ -208,6 +217,7 @@ export const userAPI = {
   buildOAuthBindingStartURL,
   startOAuthBinding,
   getAffiliateDetail,
+  getAffiliateTransfers,
   transferAffiliateQuota,
   getMyPlatformQuotas,
 }

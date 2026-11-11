@@ -806,8 +806,8 @@ export default {
   },
 
   affiliate: {
-    title: 'Affiliate Rebates',
-    description: 'Invite new users and convert your rebate quota into account balance',
+    title: 'Invite Cashback',
+    description: 'Earn cashback from invitees’ top-ups and receive USDT on Polygon or BSC',
     yourCode: 'Your Affiliate Code',
     inviteLink: 'Invite Link',
     copyCode: 'Copy Code',
@@ -825,20 +825,46 @@ export default {
     loadFailed: 'Failed to load affiliate data',
     transferFailed: 'Failed to transfer affiliate quota',
     stats: {
-      rebateRate: 'My Rebate Rate',
+      rebateRate: 'My Cashback Rate',
       rebateRateHint: 'What you earn each time an invitee recharges',
       invitedUsers: 'Invited Users',
-      availableQuota: 'Available Rebate Quota',
+      availableQuota: 'Available Cashback (CNY)',
       frozenQuota: 'Frozen',
-      frozenQuotaHint: 'Recently earned rebates pending release',
-      totalQuota: 'Historical Rebate Quota'
+      frozenQuotaHint: 'Recently earned cashback pending release',
+      totalQuota: 'Historical Cashback Quota'
+    },
+    payout: {
+      title: 'Withdraw Cashback in USDT',
+      description: 'Cashback is recorded in CNY and can be paid in USDT on Polygon or BSC.',
+      estimate: 'Estimated payout: {amount} USDT at 1 USDT = {rate} CNY.',
+      requestHint: 'Submit a support ticket with the amount, network and wallet address. The payout uses the rate recorded by the administrator, rounded to 6 decimal places. Screenshots and the on-chain transaction are available below after payment.',
+      request: 'Request Payout via Ticket',
+      history: 'Payouts and Balance Transfers',
+      empty: 'No payouts or transfers yet',
+      paid: 'Paid',
+      receipt: 'View Payment Receipt',
+      openTicket: 'Open Receipt Ticket / Continue Conversation',
+      cashbackAmount: 'Cashback Deducted (CNY)',
+      paidAmount: 'Paid Amount',
+      network: 'USDT Network',
+      exchangeRate: 'Exchange Rate (CNY / USDT)',
+      address: 'Recipient Address',
+      transaction: 'Transaction Hash (TxID)',
+      proof: 'Payment Screenshots and Note',
+      proofHint: 'Upload at least one screenshot. Images use ticket storage settings. Confirming creates a receipt ticket and deducts the cashback amount.',
+      notePlaceholder: 'Optional note (up to 2,000 characters)',
+      invalidRate: 'Enter a valid rate from 0.00000001 up to, but excluding, 1 trillion',
+      invalidAddress: 'Enter a valid Polygon / BSC address (0x followed by 40 hexadecimal characters)',
+      invalidTransaction: 'Enter the full transaction hash (0x followed by 64 hexadecimal characters)',
+      invalidAmount: 'The USDT amount is too small or out of range; adjust the cashback amount or rate',
+      noteTooLong: 'The note cannot exceed 2,000 characters'
     },
     transfer: {
-      title: 'Transfer Rebate Quota',
-      description: 'Move available rebate quota into your account balance',
+      title: 'Transfer Cashback Quota',
+      description: 'Move available cashback quota into your account balance',
       button: 'Transfer to Balance',
       transferring: 'Transferring...',
-      empty: 'No available rebate quota',
+      empty: 'No available cashback quota',
       success: '{amount} has been transferred to your balance'
     },
     invitees: {
@@ -847,16 +873,16 @@ export default {
       columns: {
         email: 'Email',
         username: 'Username',
-        rebate: 'Rebate',
+        rebate: 'Cashback',
         joinedAt: 'Joined At'
       }
     },
     tips: {
       title: 'How It Works',
       line1: 'Share your affiliate code or invite link with new users.',
-      line2: 'When invitees recharge, you receive {rate} of the recharge as rebate quota.',
-      line3: 'Transfer rebate quota to balance at any time.',
-      line4: 'Newly earned rebates may have a waiting period before they can be transferred.'
+      line2: 'When invitees recharge, you receive {rate} of the recharge as cashback quota.',
+      line3: 'Request a USDT payout on Polygon or BSC via a support ticket, or transfer cashback to your account balance.',
+      line4: 'Newly earned cashback may have a waiting period before they can be transferred.'
     }
   },
 

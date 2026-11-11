@@ -5,7 +5,7 @@
     width="normal"
     @close="handleClose"
   >
-    <form class="space-y-4" @submit.prevent="submit">
+    <div class="space-y-4">
       <div>
         <label class="input-label">{{ t('admin.affiliates.withdraw.user') }}</label>
         <div
@@ -101,6 +101,45 @@
         <p v-else class="input-hint">{{ t('admin.affiliates.withdraw.amountHint') }}</p>
       </div>
 
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="payout-network" class="input-label">{{ t('affiliate.payout.network') }}</label>
+          <select id="payout-network" v-model="payout.network" class="input" :disabled="submitting || outcomeUncertain" data-test="payout-network">
+            <option value="polygon">Polygon</option>
+            <option value="bsc">BSC</option>
+          </select>
+        </div>
+        <div>
+          <label for="payout-rate" class="input-label">{{ t('affiliate.payout.exchangeRate') }}</label>
+          <input id="payout-rate" v-model.number="payout.exchange_rate" type="number" min="0.00000001" step="0.00000001" class="input" :disabled="submitting || outcomeUncertain" data-test="payout-rate" />
+        </div>
+      </div>
+      <p class="text-sm font-semibold text-emerald-600 dark:text-emerald-400" data-test="payout-usdt">
+        {{ t('affiliate.payout.paidAmount') }}: {{ usdtAmount.toFixed(6) }} USDT
+      </p>
+      <div>
+        <label for="payout-address" class="input-label">{{ t('affiliate.payout.address') }}</label>
+        <input id="payout-address" v-model="payout.wallet_address" class="input font-mono" placeholder="0x…" :disabled="submitting || outcomeUncertain" data-test="payout-address" />
+      </div>
+      <div>
+        <label for="payout-tx" class="input-label">{{ t('affiliate.payout.transaction') }}</label>
+        <input id="payout-tx" v-model="payout.tx_hash" class="input font-mono" placeholder="0x…" :disabled="submitting || outcomeUncertain" data-test="payout-tx" />
+      </div>
+      <div>
+        <p class="input-label">{{ t('affiliate.payout.proof') }}</p>
+        <TicketComposer
+          :key="composerKey"
+          hide-submit
+          :max-files="5"
+          :submitting="submitting"
+          :disabled="outcomeUncertain"
+          :placeholder="t('affiliate.payout.notePlaceholder')"
+          @change="updateProof"
+        />
+        <p class="input-hint">{{ t('affiliate.payout.proofHint') }}</p>
+      </div>
+      <p v-if="payoutError" class="input-error-text" data-test="payout-error">{{ payoutError }}</p>
+
       <div
         v-if="outcomeUncertain"
         class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300"
@@ -112,7 +151,7 @@
       <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300">
         {{ t('admin.affiliates.withdraw.warning') }}
       </div>
-    </form>
+    </div>
 
     <template #footer>
       <div class="flex justify-end gap-3">
@@ -137,6 +176,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import TicketComposer from '@/components/tickets/TicketComposer.vue'
+import type { AffiliatePayoutInput } from '@/types/affiliate'
+import { calculateAffiliateUSDT } from '@/utils/affiliate'
 import { useAppStore } from '@/stores/app'
 import { affiliatesAPI, type AffiliateWithdrawResult, type SimpleUser } from '@/api/admin/affiliates'
 import { extractApiErrorCode, extractI18nErrorMessage } from '@/utils/apiError'
@@ -169,6 +211,32 @@ const availableQuota = ref(0)
 const overviewLoading = ref(false)
 const amount = ref<number | string>('')
 const submitting = ref(false)
+const payout = ref<AffiliatePayoutInput>({ network: 'polygon', wallet_address: '', tx_hash: '', exchange_rate: 6.8, note: '' })
+const images = ref<File[]>([])
+const composerKey = ref(0)
+const usdtAmount = computed(() => calculateAffiliateUSDT(parsedAmount.value, Number(payout.value.exchange_rate)))
+const payoutError = computed(() => {
+  if (outcomeUncertain.value) return ''
+  const value = payout.value
+  if (!Number.isFinite(Number(value.exchange_rate)) || Number(value.exchange_rate) < 1e-8 || Number(value.exchange_rate) >= 1e12) return t('affiliate.payout.invalidRate')
+  if (value.wallet_address && (!/^0x[\da-fA-F]{40}$/.test(value.wallet_address.trim()) || /^0x0{40}$/i.test(value.wallet_address.trim()))) return t('affiliate.payout.invalidAddress')
+  if (value.tx_hash && (!/^0x[\da-f]{64}$/i.test(value.tx_hash.trim()) || /^0x0{64}$/i.test(value.tx_hash.trim()))) return t('affiliate.payout.invalidTransaction')
+  if (Array.from(value.note).length > 2000) return t('affiliate.payout.noteTooLong')
+  if (parsedAmount.value > 0 && (!Number.isFinite(usdtAmount.value) || usdtAmount.value <= 0 || usdtAmount.value >= 1e12)) return t('affiliate.payout.invalidAmount')
+  return ''
+})
+
+function updateProof(proof: { content: string; images: File[] }) {
+  if (submitting.value || outcomeUncertain.value) return
+  payout.value.note = proof.content
+  images.value = proof.images
+}
+
+function resetPayout() {
+  payout.value = { network: 'polygon', wallet_address: '', tx_hash: '', exchange_rate: 6.8, note: '' }
+  images.value = []
+  composerKey.value++
+}
 // 已提交、尚未拿到确定结果的登记。结果未知时锁定用户与金额，重试沿用它的幂等键。
 const pendingOperation = ref<AffiliateWithdrawOperation | null>(null)
 const outcomeUncertain = computed(() => pendingOperation.value?.outcomeUncertain === true)
@@ -197,6 +265,7 @@ const canSubmit = computed(() => {
   if (selectedUser.value === null || submitting.value) return false
   if (outcomeUncertain.value) return true
   return !overviewLoading.value && amountText.value !== '' && amountError.value === ''
+    && payoutError.value === '' && payout.value.wallet_address.trim() !== '' && payout.value.tx_hash.trim() !== '' && images.value.length > 0
 })
 
 function formatPreciseAmount(value: number): string {
@@ -249,6 +318,7 @@ async function loadAvailableQuota(userId: number) {
     const overview = await affiliatesAPI.getUserOverview(userId)
     if (seq !== overviewSeq) return
     availableQuota.value = Number(overview.available_quota || 0)
+    if (!pendingOperation.value && !amountText.value) payout.value.exchange_rate = overview.usdt_exchange_rate ?? 6.8
   } catch (error) {
     if (seq !== overviewSeq) return
     availableQuota.value = 0
@@ -262,6 +332,7 @@ async function loadAvailableQuota(userId: number) {
 }
 
 function selectUser(user: SimpleUser) {
+  resetPayout()
   clearSearchTimer()
   searchSeq++
   selectedUser.value = user
@@ -286,6 +357,7 @@ function fillAll() {
 }
 
 function resetForm() {
+  resetPayout()
   clearSearchTimer()
   searchSeq++
   overviewSeq++
@@ -309,15 +381,18 @@ async function submit() {
   const user = selectedUser.value
   if (!user || !canSubmit.value) return
   if (!pendingOperation.value) {
-    pendingOperation.value = prepareAffiliateWithdrawOperation(user.id, parsedAmount.value)
+    pendingOperation.value = prepareAffiliateWithdrawOperation(user.id, parsedAmount.value, payout.value)
   }
   const operation = pendingOperation.value
+  amount.value = operation.amount
+  if (operation.payout) payout.value = { ...operation.payout }
   submitting.value = true
   try {
     const { result, replayed } = await affiliatesAPI.withdrawUserQuota(
       operation.userId,
-      { amount: operation.amount },
+      { amount: operation.amount, payout: operation.payout },
       operation.key,
+      images.value,
     )
     completeAffiliateWithdrawOperation(operation)
     pendingOperation.value = null

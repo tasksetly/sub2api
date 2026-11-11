@@ -39,7 +39,7 @@ func TestAdminFulfillmentBypassesLimitAndKeepsRedeemAffiliate(t *testing.T) {
 		SettingKeyAffiliateRebateRate:        "10",
 		SettingKeyAffiliateRebateFreezeHours: "0",
 	}}, nil)
-	affiliateSvc := NewAffiliateService(affiliateRepo, settingSvc, nil, nil)
+	affiliateSvc := NewAffiliateService(affiliateRepo, settingSvc, nil, nil, nil)
 	svc := NewRedeemService(redeemRepo, userRepo, nil, cache, nil, client, nil, affiliateSvc)
 
 	result, err := svc.RedeemForAdminFulfillment(ctx, userID, code.Code)

@@ -48,3 +48,19 @@ describe('affiliate offline withdrawal operation identity', () => {
     expect(prepareAffiliateWithdrawOperation(42, 12.5).key).not.toBe('saved-withdraw-key')
   })
 })
+
+it('keeps the original payout rate and amount when retrying the same network transaction', () => {
+  const payout = { network: 'polygon' as const, wallet_address: '0x' + '1'.repeat(40), tx_hash: '0x' + 'A'.repeat(64), exchange_rate: 6.8, note: 'paid' }
+  const first = prepareAffiliateWithdrawOperation(42, 68, payout)
+  const retry = prepareAffiliateWithdrawOperation(42, 70, { ...payout, exchange_rate: 7, note: 'changed' })
+  expect(retry.key).toBe(first.key)
+  expect(retry.amount).toBe(68)
+  expect(retry.payout?.exchange_rate).toBe(6.8)
+  expect(retry.payout?.note).toBe('paid')
+  expect(retry.payout?.tx_hash).toBe('0x' + 'a'.repeat(64))
+  expect(retry.outcomeUncertain).toBe(true)
+  const otherNetwork = prepareAffiliateWithdrawOperation(42, 68, { ...payout, network: 'bsc' })
+  expect(otherNetwork.key).not.toBe(first.key)
+  completeAffiliateWithdrawOperation(retry)
+  completeAffiliateWithdrawOperation(otherNetwork)
+})

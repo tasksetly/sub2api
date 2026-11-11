@@ -137,7 +137,7 @@ func TestEmailOAuthCallbackCreatesPasswordRegistrationSessionForNewEmail(t *test
 			service.SettingKeyAffiliateEnabled: "true",
 		},
 		affiliateFactory: func(_ *dbent.Client, settingSvc *service.SettingService) *service.AffiliateService {
-			return service.NewAffiliateService(affiliateRepo, settingSvc, nil, nil)
+			return service.NewAffiliateService(affiliateRepo, settingSvc, nil, nil, nil)
 		},
 	})
 	ctx := context.Background()
@@ -235,7 +235,7 @@ func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *te
 			service.SettingKeyAffiliateEnabled: "true",
 		},
 		affiliateFactory: func(_ *dbent.Client, settingSvc *service.SettingService) *service.AffiliateService {
-			return service.NewAffiliateService(affiliateRepo, settingSvc, nil, nil)
+			return service.NewAffiliateService(affiliateRepo, settingSvc, nil, nil, nil)
 		},
 	})
 	ctx := context.Background()
@@ -407,7 +407,7 @@ func (r *oauthEmailAffiliateRepoStub) TransferQuotaToBalance(context.Context, in
 	panic("unexpected TransferQuotaToBalance call")
 }
 
-func (r *oauthEmailAffiliateRepoStub) WithdrawQuota(context.Context, int64, float64, string) (*service.AffiliateWithdrawResult, error) {
+func (r *oauthEmailAffiliateRepoStub) WithdrawQuota(context.Context, int64, float64, string, *service.AffiliatePayout) (*service.AffiliateWithdrawResult, error) {
 	panic("unexpected WithdrawQuota call")
 }
 

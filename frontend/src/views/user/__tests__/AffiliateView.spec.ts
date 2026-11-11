@@ -3,14 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AffiliateView from '../AffiliateView.vue'
 
-const { copyToClipboard, getAffiliateDetail } = vi.hoisted(() => ({
+const { copyToClipboard, getAffiliateDetail, getAffiliateTransfers } = vi.hoisted(() => ({
   copyToClipboard: vi.fn(),
   getAffiliateDetail: vi.fn(),
+  getAffiliateTransfers: vi.fn(),
 }))
 
 vi.mock('@/api/user', () => ({
   default: {
     getAffiliateDetail,
+    getAffiliateTransfers,
     transferAffiliateQuota: vi.fn(),
   },
 }))
@@ -50,6 +52,7 @@ describe('AffiliateView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     copyToClipboard.mockResolvedValue(true)
+    getAffiliateTransfers.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 10 })
     getAffiliateDetail.mockResolvedValue({
       user_id: 1,
       aff_code: affiliateCode,
@@ -59,6 +62,7 @@ describe('AffiliateView', () => {
       aff_frozen_quota: 0,
       aff_history_quota: 0,
       effective_rebate_rate_percent: 10,
+      usdt_exchange_rate: 6.8,
       invitees: [],
     })
   })
@@ -69,6 +73,9 @@ describe('AffiliateView', () => {
         stubs: {
           AppLayout: { template: '<main><slot /></main>' },
           Icon: true,
+          AffiliatePayoutReceipt: true,
+          RouterLink: true,
+          Pagination: true,
         },
       },
     })
@@ -122,6 +129,9 @@ describe('AffiliateView', () => {
         stubs: {
           AppLayout: { template: '<main><slot /></main>' },
           Icon: true,
+          AffiliatePayoutReceipt: true,
+          RouterLink: true,
+          Pagination: true,
         },
       },
     })

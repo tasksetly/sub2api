@@ -27,12 +27,20 @@ func (r *ticketRepository) Create(ctx context.Context, item *service.Ticket, mes
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	err = tx.QueryRowContext(ctx, `
+	if err := createTicketWithMessage(ctx, tx, item, message); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func createTicketWithMessage(ctx context.Context, tx sqlQueryer, item *service.Ticket, message *service.TicketMessage) error {
+	err := scanSingleRow(ctx, tx, `
 		INSERT INTO tickets (user_id, subject, category, status, priority, last_message_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 		RETURNING id, created_at, updated_at`,
-		item.UserID, item.Subject, item.Category, item.Status, item.Priority, item.LastMessageAt,
-	).Scan(&item.ID, &item.CreatedAt, &item.UpdatedAt)
+		[]any{item.UserID, item.Subject, item.Category, item.Status, item.Priority, item.LastMessageAt},
+		&item.ID, &item.CreatedAt, &item.UpdatedAt,
+	)
 	if err != nil {
 		return err
 	}
@@ -40,17 +48,18 @@ func (r *ticketRepository) Create(ctx context.Context, item *service.Ticket, mes
 	if err != nil {
 		return err
 	}
-	err = tx.QueryRowContext(ctx, `
+	err = scanSingleRow(ctx, tx, `
 		INSERT INTO ticket_messages (ticket_id, author_id, author_role, content, attachments, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id`,
-		item.ID, message.AuthorID, message.AuthorRole, message.Content, attachments, message.CreatedAt,
-	).Scan(&message.ID)
+		[]any{item.ID, message.AuthorID, message.AuthorRole, message.Content, attachments, message.CreatedAt},
+		&message.ID,
+	)
 	if err != nil {
 		return err
 	}
 	message.TicketID = item.ID
-	return tx.Commit()
+	return nil
 }
 
 func (r *ticketRepository) List(ctx context.Context, params pagination.PaginationParams, filters service.TicketListFilters) ([]service.Ticket, *pagination.PaginationResult, error) {

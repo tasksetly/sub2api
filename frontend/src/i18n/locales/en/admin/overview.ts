@@ -423,12 +423,20 @@ export default {
 
     affiliates: {
       invitesDescription: 'View site-wide inviter and invitee relationships',
-      rebatesDescription: 'View every affiliate rebate accrual from recharge orders, redeem codes, and admin recharges',
+      rebatesDescription: 'View every affiliate cashback accrual from recharge orders, redeem codes, and admin recharges',
       transfersDescription: 'View affiliate quota transfers into balance and offline withdrawals',
       errors: {
         loadFailed: 'Failed to load affiliate records',
         AFFILIATE_QUOTA_INSUFFICIENT: 'Insufficient available affiliate quota',
-        AFFILIATE_WITHDRAW_AMOUNT_INVALID: 'Invalid withdrawal amount'
+        AFFILIATE_WITHDRAW_AMOUNT_INVALID: 'Invalid withdrawal amount',
+        AFFILIATE_PAYOUT_INVALID: 'Check the network, address, transaction hash and rate, and upload a payment screenshot',
+        AFFILIATE_PAYOUT_DUPLICATE: 'This transaction is already recorded. Check the existing receipt; do not pay again.',
+        TICKET_STORAGE_DISABLED: 'Enable ticket image storage in settings first',
+        TICKET_STORAGE_INCOMPLETE: 'Ticket image storage configuration is incomplete',
+        TICKET_IMAGE_INVALID: 'Screenshots must be PNG, JPEG, GIF or WebP',
+        TICKET_IMAGE_TOO_LARGE: 'The screenshot exceeds the configured size limit',
+        TICKET_TOO_MANY_IMAGES: 'Too many screenshots for the configured limit',
+        TICKET_IMAGE_UPLOAD_FAILED: 'Screenshot upload failed; please retry'
       },
       records: {
         search: 'Search',
@@ -440,17 +448,17 @@ export default {
         user: 'User',
         affCode: 'Invite Code',
         order: 'Order',
-        totalRebate: 'Total Rebate',
+        totalRebate: 'Total Cashback',
         orderAmount: 'Top-up Amount',
         payAmount: 'Paid Amount',
-        rebateAmount: 'Rebate Amount',
+        rebateAmount: 'Cashback Amount',
         paymentType: 'Payment Method',
         orderStatus: 'Order Status',
         transferAmount: 'Transfer Amount',
         balanceAfter: 'Balance After',
         availableQuotaAfter: 'Available After',
         frozenQuotaAfter: 'Frozen After',
-        historyQuotaAfter: 'Historical Rebate After',
+        historyQuotaAfter: 'Historical Cashback After',
         invitedAt: 'Invited At',
         rebatedAt: 'Rebated At',
         transferredAt: 'Transferred At',
@@ -461,34 +469,34 @@ export default {
         withdraw: 'Offline Withdrawal'
       },
       withdraw: {
-        button: 'Record Offline Withdrawal',
-        title: 'Record Offline Withdrawal',
+        button: 'Record USDT Payout',
+        title: 'Record USDT Payout',
         user: 'User',
         userPlaceholder: 'Search by email or username',
         noUserFound: 'No matching users',
         changeUser: 'Change user',
         availableQuota: 'Available quota',
-        frozenHint: 'Rebates still in the freeze period are not included in the available quota',
-        amount: 'Withdrawal amount (USD)',
-        amountHint: 'Enter the amount already paid to this user outside the site',
+        frozenHint: 'Cashback still in the freeze period are not included in the available quota',
+        amount: 'Cashback to Deduct (CNY)',
+        amountHint: 'Enter the CNY cashback to deduct. The USDT payment amount is calculated below.',
         fillAll: 'All',
         warning: 'Recording deducts this amount from the user\'s available affiliate quota and cannot be undone. Make sure the off-site payment is complete.',
         submit: 'Confirm',
         submitting: 'Recording...',
         success: 'Recorded offline withdrawal of {amount}; {remaining} still available',
         replayed: 'This offline withdrawal of {amount} was already recorded and was not deducted again; {remaining} was left available after it',
-        uncertainHint: 'The last submission returned no result and may already be recorded. The user and amount are locked; submitting again retries the same registration and never deducts twice.',
+        uncertainHint: 'The last submission returned no result and may already be recorded. The user, amount and payout details are locked; submitting again retries the same registration and never deducts twice.',
         amountRequired: 'Enter an amount greater than 0',
         amountExceeds: 'Amount cannot exceed the available quota'
       },
       overview: {
         title: 'Affiliate User Overview',
         affCode: 'Invite Code',
-        rebateRate: 'Rebate Rate',
+        rebateRate: 'Cashback Rate',
         invitedCount: 'Invited Users',
         rebatedInviteeCount: 'Rebated Invitees',
         availableQuota: 'Available Quota',
-        historyQuota: 'Historical Rebate'
+        historyQuota: 'Historical Cashback'
       }
     },
 

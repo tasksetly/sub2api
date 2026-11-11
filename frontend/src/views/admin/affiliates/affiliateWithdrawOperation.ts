@@ -1,16 +1,18 @@
-/** 一笔线下提现登记及标识它的幂等键。 */
+import type { AffiliatePayoutInput } from '@/types/affiliate'
+
+/** 一笔提现登记；重试保留首次提交的金额和结算信息。 */
 export interface AffiliateWithdrawOperation {
   userId: number
   amount: number
+  payout?: AffiliatePayoutInput
   key: string
   storageKey: string | null
   outcomeUncertain: boolean
 }
 
-// 返利额度按 8 位小数记账。
+type StoredOperation = Pick<AffiliateWithdrawOperation, 'key' | 'amount' | 'payout'>
 const LEDGER_SCALE = 1e8
-
-const pendingKeys = new Map<string, string>()
+const pendingKeys = new Map<string, StoredOperation>()
 
 function currentAdminId(): number | null {
   try {
@@ -22,47 +24,55 @@ function currentAdminId(): number | null {
   }
 }
 
-function readStoredKey(storageKey: string): string | null {
+function readStoredOperation(storageKey: string, amount: number): StoredOperation | null {
   try {
-    return globalThis.sessionStorage?.getItem(storageKey) ?? null
+    const raw = globalThis.sessionStorage?.getItem(storageKey)
+    if (!raw) return null
+    // 兼容之前只保存幂等键的普通线下提现。
+    if (!raw.startsWith('{')) return { key: raw, amount }
+    const stored = JSON.parse(raw) as StoredOperation
+    return typeof stored.key === 'string' && Number.isFinite(stored.amount) ? stored : null
   } catch {
     return null
   }
 }
 
-function storeKey(storageKey: string, key: string | null) {
+function storeOperation(storageKey: string, operation: StoredOperation | null) {
   try {
-    if (key) globalThis.sessionStorage?.setItem(storageKey, key)
+    if (operation) globalThis.sessionStorage?.setItem(storageKey, JSON.stringify(operation))
     else globalThis.sessionStorage?.removeItem(storageKey)
   } catch {
     // 浏览器存储不可用时，同一页面内的重试仍由内存中的键保护。
   }
 }
 
-/**
- * 取得该用户与金额对应的登记。结果未知的登记在完成前一直保留它的键，
- * 再次提交同一用户与金额时沿用该键，服务端据此返回首次结果而不重复扣减。
- */
-export function prepareAffiliateWithdrawOperation(userId: number, amount: number): AffiliateWithdrawOperation {
+export function prepareAffiliateWithdrawOperation(userId: number, amount: number, payout?: AffiliatePayoutInput): AffiliateWithdrawOperation {
   const normalizedAmount = Math.round(amount * LEDGER_SCALE) / LEDGER_SCALE
+  const normalizedPayout = payout ? {
+    ...payout,
+    exchange_rate: Math.round(payout.exchange_rate * LEDGER_SCALE) / LEDGER_SCALE,
+    wallet_address: payout.wallet_address.trim(),
+    tx_hash: payout.tx_hash.trim().toLowerCase(),
+    note: payout.note.trim(),
+  } : undefined
   const adminId = currentAdminId()
-  const storageKey = adminId ? `sub2api:admin:affiliate-withdraw:${adminId}:${userId}:${normalizedAmount}` : null
-  let key = storageKey ? pendingKeys.get(storageKey) ?? readStoredKey(storageKey) : null
-  const outcomeUncertain = !!key
-  if (!key) {
+  const identity = normalizedPayout ? `${normalizedPayout.network}:${normalizedPayout.tx_hash}` : String(normalizedAmount)
+  const storageKey = adminId ? `sub2api:admin:affiliate-withdraw:${adminId}:${userId}:${identity}` : null
+  let stored = storageKey ? pendingKeys.get(storageKey) ?? readStoredOperation(storageKey, normalizedAmount) : null
+  const outcomeUncertain = !!stored
+  if (!stored) {
     const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    key = `affiliate-withdraw-${adminId ?? 'unknown'}-${requestId}`
+    stored = { key: `affiliate-withdraw-${adminId ?? 'unknown'}-${requestId}`, amount: normalizedAmount, payout: normalizedPayout }
   }
   if (storageKey) {
-    pendingKeys.set(storageKey, key)
-    storeKey(storageKey, key)
+    pendingKeys.set(storageKey, stored)
+    storeOperation(storageKey, stored)
   }
-  return { userId, amount: normalizedAmount, key, storageKey, outcomeUncertain }
+  return { userId, ...stored, storageKey, outcomeUncertain }
 }
 
-/** 登记有了确定结果后释放它的键。 */
 export function completeAffiliateWithdrawOperation(operation: AffiliateWithdrawOperation) {
   if (!operation.storageKey) return
   pendingKeys.delete(operation.storageKey)
-  storeKey(operation.storageKey, null)
+  storeOperation(operation.storageKey, null)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 )
@@ -347,7 +349,7 @@ VALUES ($1, 'transfer', $2, NULL, $3, $4, $5, $6, NOW(), NOW())`,
 // ErrIdempotencyKeyConflict。占位成功后先解冻已到期的冻结额度，再以
 // aff_quota >= amount 为条件原子扣减并补写额度快照。可提取额度不足或用户没有
 // 返利档案时返回 ErrAffiliateQuotaInsufficient，占位随事务回滚，不占用该标识。
-func (r *affiliateRepository) WithdrawQuota(ctx context.Context, userID int64, amount float64, operationID string) (*service.AffiliateWithdrawResult, error) {
+func (r *affiliateRepository) WithdrawQuota(ctx context.Context, userID int64, amount float64, operationID string, payout *service.AffiliatePayout) (*service.AffiliateWithdrawResult, error) {
 	if userID <= 0 {
 		return nil, service.ErrUserNotFound
 	}
@@ -358,14 +360,22 @@ func (r *affiliateRepository) WithdrawQuota(ctx context.Context, userID int64, a
 		return nil, service.ErrIdempotencyKeyRequired
 	}
 
+	var payoutJSON any
+	if payout != nil {
+		data, err := json.Marshal(payout)
+		if err != nil {
+			return nil, err
+		}
+		payoutJSON = string(data)
+	}
 	var result *service.AffiliateWithdrawResult
 	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
-		ledgerID, claimed, err := claimAffiliateWithdrawLedger(txCtx, txClient, userID, amount, operationID)
+		ledgerID, claimed, err := claimAffiliateWithdrawLedger(txCtx, txClient, userID, amount, operationID, payoutJSON)
 		if err != nil {
 			return err
 		}
 		if !claimed {
-			result, err = findAffiliateWithdrawByOperation(txCtx, txClient, userID, amount, operationID)
+			result, err = findAffiliateWithdrawByOperation(txCtx, txClient, userID, amount, operationID, payoutJSON)
 			return err
 		}
 
@@ -395,12 +405,36 @@ WHERE user_id = $2
 			return err
 		}
 
+		if payout != nil {
+			now := time.Now()
+			ticket := &service.Ticket{
+				UserID: userID, Subject: fmt.Sprintf("邀请返现 / Cashback #%d", ledgerID),
+				Category: "billing", Status: domain.TicketStatusWaitingUser,
+				Priority: domain.TicketPriorityNormal, LastMessageAt: now,
+			}
+			message := &service.TicketMessage{
+				AuthorID: payout.AdminID, AuthorRole: domain.TicketAuthorAdmin,
+				Content:     fmt.Sprintf("邀请返现已打款 / Cashback paid\n人民币 / CNY: %.8f\nUSDT: %.6f\n汇率 / CNY per USDT: %.8f\n网络 / Network: %s\n收款地址 / Address: %s\n交易哈希 / TxID: %s\n%s", amount, payout.USDTAmount, payout.ExchangeRate, payout.Network, payout.WalletAddress, payout.TxHash, payout.Note),
+				Attachments: payout.Attachments, CreatedAt: now,
+			}
+			if err := createTicketWithMessage(txCtx, txClient, ticket, message); err != nil {
+				return err
+			}
+			payout.TicketID = ticket.ID
+			data, err := json.Marshal(payout)
+			if err != nil {
+				return err
+			}
+			payoutJSON = string(data)
+		}
+
 		if _, err := txClient.ExecContext(txCtx, `
 UPDATE user_affiliate_ledger
 SET balance_after = $1,
     aff_quota_after = $2,
     aff_frozen_quota_after = $3,
     aff_history_quota_after = $4,
+    payout = $6::jsonb,
     updated_at = NOW()
 WHERE id = $5`,
 			snapshot.BalanceAfter,
@@ -408,11 +442,13 @@ WHERE id = $5`,
 			snapshot.FrozenQuotaAfter,
 			snapshot.HistoryQuotaAfter,
 			ledgerID,
+			payoutJSON,
 		); err != nil {
 			return fmt.Errorf("record affiliate withdraw snapshot: %w", err)
 		}
 
 		result = &service.AffiliateWithdrawResult{
+			Payout:              payout,
 			LedgerID:            ledgerID,
 			UserID:              userID,
 			Amount:              amount,
@@ -432,15 +468,19 @@ WHERE id = $5`,
 // withdraw 占位流水。同标识的流水已存在或用户没有返利档案时 claimed 为 false。
 // 同标识的并发事务在唯一索引上等待先写入者结束：先写入者提交后返回 claimed=false，
 // 回滚后本事务继续写入。
-func claimAffiliateWithdrawLedger(ctx context.Context, client affiliateQueryExecer, userID int64, amount float64, operationID string) (int64, bool, error) {
+func claimAffiliateWithdrawLedger(ctx context.Context, client affiliateQueryExecer, userID int64, amount float64, operationID string, payoutJSON any) (int64, bool, error) {
 	rows, err := client.QueryContext(ctx, `
-INSERT INTO user_affiliate_ledger (user_id, action, amount, operation_id, created_at, updated_at)
-SELECT ua.user_id, 'withdraw', $2, $3, NOW(), NOW()
+INSERT INTO user_affiliate_ledger (user_id, action, amount, operation_id, payout, created_at, updated_at)
+SELECT ua.user_id, 'withdraw', $2, $3, $4::jsonb, NOW(), NOW()
 FROM user_affiliates ua
 WHERE ua.user_id = $1
 ON CONFLICT (operation_id) WHERE operation_id IS NOT NULL DO NOTHING
-RETURNING id`, userID, amount, operationID)
+RETURNING id`, userID, amount, operationID, payoutJSON)
 	if err != nil {
+		var pgErr *pq.Error
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.Constraint == "idx_affiliate_payout_network_tx" {
+			return 0, false, service.ErrAffiliatePayoutDuplicate
+		}
 		return 0, false, fmt.Errorf("claim affiliate withdraw ledger: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
@@ -462,17 +502,19 @@ RETURNING id`, userID, amount, operationID)
 // 用户与金额一致时返回该流水记录的登记结果（Replayed=true），不一致返回
 // ErrIdempotencyKeyConflict；没有对应流水说明用户没有返利档案，返回
 // ErrAffiliateQuotaInsufficient。
-func findAffiliateWithdrawByOperation(ctx context.Context, client affiliateQueryExecer, userID int64, amount float64, operationID string) (*service.AffiliateWithdrawResult, error) {
+func findAffiliateWithdrawByOperation(ctx context.Context, client affiliateQueryExecer, userID int64, amount float64, operationID string, payoutJSON any) (*service.AffiliateWithdrawResult, error) {
 	rows, err := client.QueryContext(ctx, `
 SELECT id,
-       user_id = $2 AND action = 'withdraw' AND amount = CAST($3 AS DECIMAL(20,8)),
+       user_id = $2 AND action = 'withdraw' AND amount = CAST($3 AS DECIMAL(20,8))
+       AND (payout - 'ticket_id') IS NOT DISTINCT FROM ($4::jsonb - 'ticket_id'),
        user_id,
        amount::double precision,
        COALESCE(aff_quota_after, 0)::double precision,
        COALESCE(aff_frozen_quota_after, 0)::double precision,
-       COALESCE(aff_history_quota_after, 0)::double precision
+       COALESCE(aff_history_quota_after, 0)::double precision,
+       payout
 FROM user_affiliate_ledger
-WHERE operation_id = $1`, operationID, userID, amount)
+WHERE operation_id = $1`, operationID, userID, amount, payoutJSON)
 	if err != nil {
 		return nil, fmt.Errorf("query affiliate withdraw by operation: %w", err)
 	}
@@ -485,6 +527,7 @@ WHERE operation_id = $1`, operationID, userID, amount)
 		return nil, service.ErrAffiliateQuotaInsufficient
 	}
 	var sameRequest bool
+	var storedPayout []byte
 	result := &service.AffiliateWithdrawResult{Replayed: true}
 	if err := rows.Scan(
 		&result.LedgerID,
@@ -494,6 +537,7 @@ WHERE operation_id = $1`, operationID, userID, amount)
 		&result.AvailableQuotaAfter,
 		&result.FrozenQuotaAfter,
 		&result.HistoryQuotaAfter,
+		&storedPayout,
 	); err != nil {
 		return nil, err
 	}
@@ -502,6 +546,11 @@ WHERE operation_id = $1`, operationID, userID, amount)
 	}
 	if !sameRequest {
 		return nil, service.ErrIdempotencyKeyConflict
+	}
+	if len(storedPayout) > 0 {
+		if err := json.Unmarshal(storedPayout, &result.Payout); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }
@@ -733,6 +782,11 @@ WHERE ual.action IN ('transfer', 'withdraw')`
 		where = strings.Replace(where, "WHERE ", " AND ", 1)
 	}
 
+	if filter.UserID > 0 {
+		args = append(args, filter.UserID)
+		where += fmt.Sprintf(" AND ual.user_id = $%d", len(args))
+	}
+
 	total, err := queryAffiliateRecordCount(ctx, client, "SELECT COUNT(*) "+baseJoin+where, args...)
 	if err != nil {
 		return nil, 0, err
@@ -760,7 +814,8 @@ SELECT ual.id,
        ual.aff_quota_after::double precision,
        ual.aff_frozen_quota_after::double precision,
        ual.aff_history_quota_after::double precision,
-       ual.created_at
+       ual.created_at,
+       ual.payout
 `+baseJoin+where+`
 `+orderBy+`
 LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args)), args...)
@@ -772,6 +827,7 @@ LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args)), args...)
 	items := make([]service.AffiliateTransferRecord, 0)
 	for rows.Next() {
 		var item service.AffiliateTransferRecord
+		var payoutJSON []byte
 		var balanceAfter sql.NullFloat64
 		var availableQuotaAfter sql.NullFloat64
 		var frozenQuotaAfter sql.NullFloat64
@@ -788,8 +844,14 @@ LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args)), args...)
 			&frozenQuotaAfter,
 			&historyQuotaAfter,
 			&item.CreatedAt,
+			&payoutJSON,
 		); err != nil {
 			return nil, 0, err
+		}
+		if len(payoutJSON) > 0 {
+			if err := json.Unmarshal(payoutJSON, &item.Payout); err != nil {
+				return nil, 0, err
+			}
 		}
 		item.BalanceAfter = nullableFloat64Ptr(balanceAfter)
 		item.AvailableQuotaAfter = nullableFloat64Ptr(availableQuotaAfter)

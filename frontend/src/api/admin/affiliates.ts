@@ -6,6 +6,8 @@
 
 import { apiClient } from '../client'
 import type { PaginatedResponse } from '@/types'
+import type { AffiliatePayout, AffiliatePayoutInput, AffiliateTransferRecord } from '@/types/affiliate'
+export type { AffiliateTransferRecord, AffiliateOutflowAction } from '@/types/affiliate'
 
 export interface AffiliateAdminEntry {
   user_id: number
@@ -68,31 +70,14 @@ export interface AffiliateRebateRecord {
   created_at: string
 }
 
-/** transfer = user moved quota into balance; withdraw = admin-recorded offline withdrawal. */
-export type AffiliateOutflowAction = 'transfer' | 'withdraw'
-
-/** One affiliate quota outflow: a transfer into balance or an offline withdrawal. */
-export interface AffiliateTransferRecord {
-  ledger_id: number
-  action: AffiliateOutflowAction
-  user_id: number
-  user_email: string
-  username: string
-  amount: number
-  balance_after?: number | null
-  available_quota_after?: number | null
-  frozen_quota_after?: number | null
-  history_quota_after?: number | null
-  snapshot_available: boolean
-  created_at: string
-}
-
 export interface WithdrawAffiliateQuotaRequest {
-  /** Amount already paid to the user outside the site (USD). */
+  payout?: AffiliatePayoutInput
+  /** Cashback deducted from the user, in CNY. */
   amount: number
 }
 
 export interface AffiliateWithdrawResult {
+  payout?: AffiliatePayout | null
   ledger_id: number
   user_id: number
   amount: number
@@ -108,6 +93,7 @@ export interface AffiliateWithdrawResponse {
 }
 
 export interface AffiliateUserOverview {
+  usdt_exchange_rate: number
   user_id: number
   email: string
   username: string
@@ -254,11 +240,22 @@ export async function withdrawUserQuota(
   userId: number,
   payload: WithdrawAffiliateQuotaRequest,
   idempotencyKey: string,
+  images: File[] = [],
 ): Promise<AffiliateWithdrawResponse> {
+  let body: WithdrawAffiliateQuotaRequest | FormData = payload
+  if (payload.payout) {
+    const form = new FormData()
+    form.append('payload', JSON.stringify(payload))
+    images.forEach(image => form.append('images', image))
+    body = form
+  }
   const response = await apiClient.post<AffiliateWithdrawResult>(
     `/admin/affiliates/users/${userId}/withdraw`,
-    payload,
-    { headers: { 'Idempotency-Key': idempotencyKey } },
+    body,
+    { headers: {
+      'Idempotency-Key': idempotencyKey,
+      ...(payload.payout ? { 'Content-Type': 'multipart/form-data' } : {}),
+    } },
   )
   return {
     result: response.data,

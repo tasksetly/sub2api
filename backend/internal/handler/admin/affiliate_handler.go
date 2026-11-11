@@ -1,6 +1,9 @@
 package admin
 
 import (
+	"encoding/json"
+	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"strconv"
 	"strings"
 	"time"
@@ -220,6 +223,10 @@ func (h *AffiliateHandler) WithdrawQuota(c *gin.Context) {
 		return
 	}
 
+	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
+		h.withdrawUSDT(c, userID)
+		return
+	}
 	var req WithdrawQuotaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
@@ -326,4 +333,37 @@ func parseAffiliateRecordEndTime(raw string, userTZ string) *time.Time {
 		return &end
 	}
 	return nil
+}
+
+func (h *AffiliateHandler) withdrawUSDT(c *gin.Context, userID int64) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	_, _, _, uploads, err := dto.ParseTicketMultipart(c)
+	if c.Request.MultipartForm != nil {
+		defer c.Request.MultipartForm.RemoveAll()
+	}
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	var req struct {
+		Amount float64                 `json:"amount"`
+		Payout service.AffiliatePayout `json:"payout"`
+	}
+	if err := json.Unmarshal([]byte(c.PostForm("payload")), &req); err != nil {
+		response.BadRequest(c, "Invalid payout payload")
+		return
+	}
+	result, err := h.affiliateService.AdminWithdrawUSDT(c.Request.Context(), userID, subject.UserID, req.Amount, c.GetHeader("Idempotency-Key"), req.Payout, uploads)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if result != nil && result.Replayed {
+		c.Header("X-Idempotency-Replayed", "true")
+	}
+	response.Success(c, result)
 }

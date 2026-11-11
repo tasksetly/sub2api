@@ -28,7 +28,7 @@ type withdrawQuotaRepoStub struct {
 	err    error
 }
 
-func (s *withdrawQuotaRepoStub) WithdrawQuota(_ context.Context, userID int64, amount float64, operationID string) (*service.AffiliateWithdrawResult, error) {
+func (s *withdrawQuotaRepoStub) WithdrawQuota(_ context.Context, userID int64, amount float64, operationID string, payout *service.AffiliatePayout) (*service.AffiliateWithdrawResult, error) {
 	s.calls = append(s.calls, withdrawQuotaCall{userID: userID, amount: amount, operationID: operationID})
 	return s.result, s.err
 }
@@ -43,7 +43,7 @@ func performWithdrawQuota(t *testing.T, repo *withdrawQuotaRepoStub, userID, ide
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	handler := NewAffiliateHandler(service.NewAffiliateService(repo, nil, nil, nil), nil)
+	handler := NewAffiliateHandler(service.NewAffiliateService(repo, nil, nil, nil, nil), nil)
 	router.POST("/api/v1/admin/affiliates/users/:user_id/withdraw", handler.WithdrawQuota)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/affiliates/users/"+userID+"/withdraw", bytes.NewBufferString(body))

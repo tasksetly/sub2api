@@ -637,3 +637,19 @@ func buildUserProfileSourceContext(provider string) *userProfileSourceContext {
 		Source:   provider,
 	}
 }
+
+// GetAffiliateTransfers returns only the authenticated user's cashback outflows.
+func (h *UserHandler) GetAffiliateTransfers(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	items, total, err := h.affiliateService.ListUserAffiliateTransfers(c.Request.Context(), subject.UserID, page, pageSize)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, total, page, pageSize)
+}

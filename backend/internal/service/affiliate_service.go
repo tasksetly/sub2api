@@ -96,6 +96,7 @@ type AffiliateDetail struct {
 	// 优先用户自己的专属比例（aff_rebate_rate_percent），否则回退到全局比例。
 	// 用于在用户的 /affiliate 页面直观展示「分享后能拿到多少」。
 	EffectiveRebateRatePercent float64            `json:"effective_rebate_rate_percent"`
+	USDTExchangeRate           float64            `json:"usdt_exchange_rate"`
 	Invitees                   []AffiliateInvitee `json:"invitees"`
 }
 
@@ -107,7 +108,7 @@ type AffiliateRepository interface {
 	GetAccruedRebateFromInvitee(ctx context.Context, inviterID, inviteeUserID int64) (float64, error)
 	ThawFrozenQuota(ctx context.Context, userID int64) (float64, error)
 	TransferQuotaToBalance(ctx context.Context, userID int64) (float64, float64, error)
-	WithdrawQuota(ctx context.Context, userID int64, amount float64, operationID string) (*AffiliateWithdrawResult, error)
+	WithdrawQuota(ctx context.Context, userID int64, amount float64, operationID string, payout *AffiliatePayout) (*AffiliateWithdrawResult, error)
 	ListInvitees(ctx context.Context, inviterID int64, limit int) ([]AffiliateInvitee, error)
 
 	// 管理端：用户级专属配置
@@ -141,6 +142,7 @@ type AffiliateAdminEntry struct {
 }
 
 type AffiliateRecordFilter struct {
+	UserID   int64
 	Search   string
 	Page     int
 	PageSize int
@@ -185,37 +187,40 @@ type AffiliateRebateRecord struct {
 // AffiliateTransferRecord 是一笔返利额度流出：Action 为 transfer（用户转入余额）
 // 或 withdraw（管理员登记的线下提现）。
 type AffiliateTransferRecord struct {
-	LedgerID            int64     `json:"ledger_id"`
-	Action              string    `json:"action"`
-	UserID              int64     `json:"user_id"`
-	UserEmail           string    `json:"user_email"`
-	Username            string    `json:"username"`
-	Amount              float64   `json:"amount"`
-	BalanceAfter        *float64  `json:"balance_after,omitempty"`
-	AvailableQuotaAfter *float64  `json:"available_quota_after,omitempty"`
-	FrozenQuotaAfter    *float64  `json:"frozen_quota_after,omitempty"`
-	HistoryQuotaAfter   *float64  `json:"history_quota_after,omitempty"`
-	SnapshotAvailable   bool      `json:"snapshot_available"`
-	CurrentBalance      float64   `json:"-"`
-	RemainingQuota      float64   `json:"-"`
-	FrozenQuota         float64   `json:"-"`
-	HistoryQuota        float64   `json:"-"`
-	CreatedAt           time.Time `json:"created_at"`
+	Payout              *AffiliatePayout `json:"payout,omitempty"`
+	LedgerID            int64            `json:"ledger_id"`
+	Action              string           `json:"action"`
+	UserID              int64            `json:"user_id"`
+	UserEmail           string           `json:"user_email"`
+	Username            string           `json:"username"`
+	Amount              float64          `json:"amount"`
+	BalanceAfter        *float64         `json:"balance_after,omitempty"`
+	AvailableQuotaAfter *float64         `json:"available_quota_after,omitempty"`
+	FrozenQuotaAfter    *float64         `json:"frozen_quota_after,omitempty"`
+	HistoryQuotaAfter   *float64         `json:"history_quota_after,omitempty"`
+	SnapshotAvailable   bool             `json:"snapshot_available"`
+	CurrentBalance      float64          `json:"-"`
+	RemainingQuota      float64          `json:"-"`
+	FrozenQuota         float64          `json:"-"`
+	HistoryQuota        float64          `json:"-"`
+	CreatedAt           time.Time        `json:"created_at"`
 }
 
 // AffiliateWithdrawResult 是线下提现登记完成后的流水 ID 与额度快照。
 // Replayed 表示本次请求命中了同一幂等标识的已有登记，返回的是首次登记的结果。
 type AffiliateWithdrawResult struct {
-	LedgerID            int64   `json:"ledger_id"`
-	UserID              int64   `json:"user_id"`
-	Amount              float64 `json:"amount"`
-	AvailableQuotaAfter float64 `json:"available_quota_after"`
-	FrozenQuotaAfter    float64 `json:"frozen_quota_after"`
-	HistoryQuotaAfter   float64 `json:"history_quota_after"`
-	Replayed            bool    `json:"-"`
+	Payout              *AffiliatePayout `json:"payout,omitempty"`
+	LedgerID            int64            `json:"ledger_id"`
+	UserID              int64            `json:"user_id"`
+	Amount              float64          `json:"amount"`
+	AvailableQuotaAfter float64          `json:"available_quota_after"`
+	FrozenQuotaAfter    float64          `json:"frozen_quota_after"`
+	HistoryQuotaAfter   float64          `json:"history_quota_after"`
+	Replayed            bool             `json:"-"`
 }
 
 type AffiliateUserOverview struct {
+	USDTExchangeRate    float64 `json:"usdt_exchange_rate"`
 	UserID              int64   `json:"user_id"`
 	Email               string  `json:"email"`
 	Username            string  `json:"username"`
@@ -233,14 +238,16 @@ type AffiliateService struct {
 	settingService       *SettingService
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	billingCacheService  *BillingCacheService
+	ticketService        *TicketService
 }
 
-func NewAffiliateService(repo AffiliateRepository, settingService *SettingService, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCacheService *BillingCacheService) *AffiliateService {
+func NewAffiliateService(repo AffiliateRepository, settingService *SettingService, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCacheService *BillingCacheService, ticketService *TicketService) *AffiliateService {
 	return &AffiliateService{
 		repo:                 repo,
 		settingService:       settingService,
 		authCacheInvalidator: authCacheInvalidator,
 		billingCacheService:  billingCacheService,
+		ticketService:        ticketService,
 	}
 }
 
@@ -286,6 +293,7 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 		AffFrozenQuota:             summary.AffFrozenQuota,
 		AffHistoryQuota:            summary.AffHistoryQuota,
 		EffectiveRebateRatePercent: s.resolveRebateRatePercent(ctx, summary),
+		USDTExchangeRate:           s.usdtExchangeRate(ctx),
 		Invitees:                   invitees,
 	}, nil
 }
@@ -610,7 +618,7 @@ func (s *AffiliateService) AdminWithdrawQuota(ctx context.Context, userID int64,
 	if amount <= 0 || math.IsInf(amount, 0) {
 		return nil, ErrAffiliateWithdrawAmountInvalid
 	}
-	return s.repo.WithdrawQuota(ctx, userID, amount, affiliateWithdrawOperationID(key))
+	return s.repo.WithdrawQuota(ctx, userID, amount, affiliateWithdrawOperationID(key), nil)
 }
 
 // affiliateWithdrawOperationID 把线下提现登记的幂等键映射为流水的 operation_id，
@@ -661,6 +669,7 @@ func (s *AffiliateService) AdminGetUserOverview(ctx context.Context, userID int6
 		return nil, err
 	}
 	if overview != nil {
+		overview.USDTExchangeRate = s.usdtExchangeRate(ctx)
 		if !overview.RebateRateCustom {
 			overview.RebateRatePercent = s.globalRebateRatePercent(ctx)
 		}

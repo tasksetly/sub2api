@@ -810,8 +810,8 @@ export default {
   },
 
   affiliate: {
-    title: '邀请返利',
-    description: '邀请新用户注册，并将返利额度转入账户余额',
+    title: '邀请返现',
+    description: '邀请新用户充值获得返现，可通过 Polygon 或 BSC 收取 USDT',
     yourCode: '我的邀请码',
     inviteLink: '邀请链接',
     copyCode: '复制邀请码',
@@ -826,20 +826,46 @@ export default {
       template:
         '我在用 {site} 一站式调用 Claude、GPT、Gemini 等主流大模型 API，稳定快速、按量计费，注册即可上手。\n\n点我的专属邀请链接注册：\n{link}\n\n也可以在注册时填写我的邀请码：{code}'
     },
-    loadFailed: '加载邀请返利数据失败',
+    loadFailed: '加载邀请返现数据失败',
     transferFailed: '转入余额失败',
     stats: {
-      rebateRate: '我的返利比例',
-      rebateRateHint: '被邀请用户每次充值后你可获得的返利比例',
+      rebateRate: '我的返现比例',
+      rebateRateHint: '被邀请用户每次充值后你可获得的返现比例',
       invitedUsers: '邀请人数',
-      availableQuota: '可转返利额度',
+      availableQuota: '可提现金额（人民币）',
       frozenQuota: '冻结中',
-      frozenQuotaHint: '新产生的返利正在冻结期中',
-      totalQuota: '历史返利额度'
+      frozenQuotaHint: '新产生的返现正在冻结期中',
+      totalQuota: '历史返现额度'
+    },
+    payout: {
+      title: 'USDT 返现提现',
+      description: '返现以人民币记账，支持通过 Polygon、BSC 网络打款 USDT。',
+      estimate: '预计可提现 {amount} USDT；参考汇率 1 USDT = {rate} 元。',
+      requestHint: '请通过工单提供提现金额、网络和收款地址。实际金额按管理员登记的汇率换算，保留 6 位小数；打款后可在下方查看截图及链上交易记录。',
+      request: '通过工单申请提现',
+      history: '提现与转入记录',
+      empty: '暂无提现或转入记录',
+      paid: '已打款',
+      receipt: '查看打款凭证',
+      openTicket: '打开凭证工单 / 继续沟通',
+      cashbackAmount: '扣除返现金额（人民币）',
+      paidAmount: '打款金额',
+      network: 'USDT 收款网络',
+      exchangeRate: '汇率（人民币 / USDT）',
+      address: '收款地址',
+      transaction: '交易哈希（TxID）',
+      proof: '打款截图与备注',
+      proofHint: '至少上传一张截图。截图存储复用工单图片配置；确认后生成凭证工单，并扣减相应可提现金额。',
+      notePlaceholder: '补充说明（可选，最多 2000 字）',
+      invalidRate: '请输入有效汇率，范围 0.00000001 至 1 万亿（不含）',
+      invalidAddress: '请输入有效的 Polygon / BSC 收款地址（0x 开头的 40 位十六进制字符）',
+      invalidTransaction: '请输入完整交易哈希（0x 开头的 64 位十六进制字符）',
+      invalidAmount: '换算后的 USDT 金额过小或超出范围，请调整提现金额或汇率',
+      noteTooLong: '备注不能超过 2000 字'
     },
     transfer: {
-      title: '返利额度转余额',
-      description: '将当前可用返利额度一键转入账户余额',
+      title: '返现额度转余额',
+      description: '将当前可用返现额度一键转入账户余额',
       button: '转入余额',
       transferring: '转入中...',
       empty: '当前没有可转入额度',
@@ -851,16 +877,16 @@ export default {
       columns: {
         email: '邮箱',
         username: '用户名',
-        rebate: '返利明细',
+        rebate: '返现明细',
         joinedAt: '注册时间'
       }
     },
     tips: {
       title: '使用说明',
       line1: '将邀请码或邀请链接分享给新用户。',
-      line2: '被邀请用户充值后，你可获得 {rate} 的返利额度。',
-      line3: '返利额度可随时转入账户余额。',
-      line4: '新产生的返利需要经过冻结期后才能提现。'
+      line2: '被邀请用户充值后，你可获得 {rate} 的返现额度。',
+      line3: '可通过工单申请 USDT 提现，支持 Polygon、BSC；也可转入账户余额。',
+      line4: '新产生的返现需要经过冻结期后才能提现。'
     }
   },
 
@@ -890,7 +916,7 @@ export default {
     recentActivity: '最近活动',
     historyWillAppear: '您的兑换历史将显示在这里',
     balanceAddedRedeem: '余额充值（兑换）',
-    balanceAddedAffiliate: '余额充值（返利转入）',
+    balanceAddedAffiliate: '余额充值（返现转入）',
     balanceAddedAdmin: '余额充值（管理员）',
     balanceDeductedAdmin: '余额扣除（管理员）',
     concurrencyAddedRedeem: '并发增加（兑换）',

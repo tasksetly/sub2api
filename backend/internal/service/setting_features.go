@@ -1229,3 +1229,16 @@ func mergePlatformQuotaDefaults(dst, src *DefaultPlatformQuotaSetting) {
 		dst.MonthlyLimitUSD = src.MonthlyLimitUSD
 	}
 }
+
+// GetAffiliateUSDTExchangeRate 返回人工配置的人民币 / USDT 结算汇率。
+func (s *SettingService) GetAffiliateUSDTExchangeRate(ctx context.Context) float64 {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateUSDTExchangeRate)
+	if err != nil {
+		return AffiliateUSDTExchangeRateDefault
+	}
+	rate, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || !validAffiliateUSDTExchangeRate(rate) {
+		return AffiliateUSDTExchangeRateDefault
+	}
+	return roundTo(rate, 8)
+}

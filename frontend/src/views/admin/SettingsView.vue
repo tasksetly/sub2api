@@ -7541,6 +7541,24 @@
               </div>
 
               <div>
+                <label for="affiliate-usdt-rate" class="input-label">
+                  {{ t('admin.settings.features.affiliate.usdtExchangeRate') }}
+                </label>
+                <input
+                  id="affiliate-usdt-rate"
+                  v-model.number="form.affiliate_usdt_exchange_rate"
+                  type="number"
+                  step="0.00000001"
+                  min="0.00000001"
+                  class="input"
+                  required
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.usdtExchangeRateHint') }}
+                </p>
+              </div>
+
+              <div>
                 <label class="input-label">
                   {{ t('admin.settings.features.affiliate.freezeHours') }}
                 </label>
@@ -9741,6 +9759,7 @@ const form = reactive<SettingsForm>({
   default_platform_quotas: normalizePlatformQuotasMap() as DefaultPlatformQuotasMap,
   account_scheduling_thresholds: normalizeAccountSchedulingThresholdsMap(),
   affiliate_rebate_rate: 20,
+  affiliate_usdt_exchange_rate: 6.8,
   affiliate_rebate_freeze_hours: 0,
   affiliate_rebate_duration_days: 0,
   affiliate_rebate_per_invitee_cap: 0,
@@ -11261,6 +11280,11 @@ const siteBillingModeHint = computed(() =>
 );
 
 async function saveSettings() {
+  const usdtRate = Number(form.affiliate_usdt_exchange_rate);
+  if (!Number.isFinite(usdtRate) || usdtRate < 1e-8 || usdtRate >= 1e12) {
+    appStore.showError(t("affiliate.payout.invalidRate"));
+    return;
+  }
   saving.value = true;
   try {
     const normalizedTableDefaultPageSize = Math.floor(
@@ -11445,6 +11469,7 @@ async function saveSettings() {
       login_agreement_updated_at: form.login_agreement_updated_at,
       login_agreement_documents: form.login_agreement_documents,
       default_balance: form.default_balance,
+      affiliate_usdt_exchange_rate: Number(form.affiliate_usdt_exchange_rate),
       affiliate_rebate_rate: Math.min(
         100,
         Math.max(0, Number(form.affiliate_rebate_rate) || 0),

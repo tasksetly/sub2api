@@ -65,6 +65,7 @@ function mountTable(type: 'invites' | 'rebates' | 'transfers') {
         Icon: true,
         OrderStatusBadge: true,
         BaseDialog: true,
+        AffiliatePayoutReceipt: true,
         AffiliateOfflineWithdrawDialog: WithdrawDialogStub,
       },
     },

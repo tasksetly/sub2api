@@ -15,6 +15,7 @@
           type="button"
           class="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white hover:bg-black/80"
           :aria-label="t('tickets.removeImage')"
+          :disabled="disabled || submitting"
           @click="removeFile(index)"
         >
           <Icon name="x" size="sm" />
@@ -28,7 +29,7 @@
         {{ t('tickets.addImages') }}
         <input class="sr-only" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple :disabled="disabled || submitting" @change="selectFiles" />
       </label>
-      <button type="submit" class="btn btn-primary" :disabled="disabled || submitting || (!content.trim() && !files.length)">
+      <button v-if="!hideSubmit" type="submit" class="btn btn-primary" :disabled="disabled || submitting || (!content.trim() && !files.length)">
         <Icon v-if="submitting" name="refresh" size="sm" class="animate-spin" />
         <Icon v-else name="arrowRight" size="sm" />
         {{ submitLabel }}
@@ -38,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 
@@ -47,20 +48,27 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   placeholder?: string
   submitLabel?: string
+  hideSubmit?: boolean
   maxFiles?: number
 }>(), {
   submitting: false,
   disabled: false,
   placeholder: '',
   submitLabel: '',
+  hideSubmit: false,
   maxFiles: 5
 })
 
-const emit = defineEmits<{ submit: [payload: { content: string; images: File[] }] }>()
+const emit = defineEmits<{
+  submit: [payload: { content: string; images: File[] }]
+  change: [payload: { content: string; images: File[] }]
+}>()
 const { t } = useI18n()
 const content = ref('')
 const files = ref<File[]>([])
 const previews = ref<string[]>([])
+
+watch([content, files], () => emit('change', { content: content.value.trim(), images: [...files.value] }), { deep: true })
 
 function selectFiles(event: Event) {
   const input = event.target as HTMLInputElement

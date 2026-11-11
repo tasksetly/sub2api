@@ -103,6 +103,13 @@
           <template #cell-amount="{ row }">
             <AmountText :value="row.amount" strong />
           </template>
+          <template #cell-payout="{ row }">
+            <div v-if="row.payout" class="space-y-1">
+              <p class="whitespace-nowrap text-sm font-medium">{{ row.payout.usdt_amount.toFixed(6) }} USDT · {{ row.payout.network === 'polygon' ? 'Polygon' : 'BSC' }}</p>
+              <button class="text-sm text-primary-600 hover:underline" @click="selectedReceipt = row">{{ t('affiliate.payout.receipt') }}</button>
+            </div>
+            <span v-else>-</span>
+          </template>
           <template #cell-balance_after="{ row }">
             <NullableAmountText :value="row.balance_after" />
           </template>
@@ -132,6 +139,8 @@
         />
       </template>
     </TablePageLayout>
+
+    <AffiliatePayoutReceipt :record="selectedReceipt" admin @close="selectedReceipt = null" />
 
     <AffiliateOfflineWithdrawDialog
       v-if="props.type === 'transfers'"
@@ -179,6 +188,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
 import AffiliateOfflineWithdrawDialog from './AffiliateOfflineWithdrawDialog.vue'
+import AffiliatePayoutReceipt from '@/components/affiliate/AffiliatePayoutReceipt.vue'
 import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
 import { affiliatesAPI, type AffiliateInviteRecord, type AffiliateRebateRecord, type AffiliateTransferRecord, type AffiliateUserOverview, type ListAffiliateRecordsParams } from '@/api/admin/affiliates'
@@ -203,6 +213,7 @@ const overviewDialog = ref(false)
 const overviewLoading = ref(false)
 const selectedOverview = ref<AffiliateUserOverview | null>(null)
 const withdrawDialog = ref(false)
+const selectedReceipt = ref<AffiliateTransferRecord | null>(null)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const columns = computed<Column[]>(() => {
@@ -232,6 +243,7 @@ const columns = computed<Column[]>(() => {
     { key: 'user', label: t('admin.affiliates.records.user'), sortable: true },
     { key: 'action', label: t('admin.affiliates.records.outflowType'), sortable: true },
     { key: 'amount', label: t('admin.affiliates.records.transferAmount'), sortable: true },
+    { key: 'payout', label: t('affiliate.payout.paidAmount') },
     { key: 'balance_after', label: t('admin.affiliates.records.balanceAfter'), sortable: true },
     { key: 'available_quota_after', label: t('admin.affiliates.records.availableQuotaAfter'), sortable: true },
     { key: 'frozen_quota_after', label: t('admin.affiliates.records.frozenQuotaAfter'), sortable: true },

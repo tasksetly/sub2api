@@ -32,6 +32,7 @@
             <p class="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
               {{ formatCurrency(detail.aff_quota) }}
             </p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">≈ {{ availableUSDT.toFixed(6) }} USDT</p>
           </div>
           <div class="card p-5">
             <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.stats.totalQuota') }}</p>
@@ -98,13 +99,41 @@
         </div>
 
         <div class="card p-6">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.payout.title') }}</h3>
+          <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.payout.description') }}</p>
+          <p class="mt-3 text-sm">{{ t('affiliate.payout.estimate', { amount: availableUSDT.toFixed(6), rate: detail.usdt_exchange_rate }) }}</p>
+          <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.payout.requestHint') }}</p>
+          <RouterLink to="/tickets" class="btn btn-primary mt-4">{{ t('affiliate.payout.request') }}</RouterLink>
+        </div>
+
+        <div class="card p-6">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.payout.history') }}</h3>
+            <button class="btn btn-secondary btn-sm" :disabled="historyLoading" @click="refreshCashback">{{ t('common.refresh') }}</button>
+          </div>
+          <p v-if="historyLoading" class="mt-4 text-sm text-gray-500">{{ t('common.loading') }}</p>
+          <p v-else-if="historyError" class="mt-4 text-sm text-red-500">{{ historyError }}</p>
+          <p v-else-if="history.length === 0" class="mt-4 text-sm text-gray-500">{{ t('affiliate.payout.empty') }}</p>
+          <div v-else class="mt-4 divide-y divide-gray-100 dark:divide-dark-700">
+            <article v-for="record in history" :key="record.ledger_id" class="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.amount) }} <span v-if="record.payout">→ {{ record.payout.usdt_amount.toFixed(6) }} USDT · {{ record.payout.network === 'polygon' ? 'Polygon' : 'BSC' }}</span></p>
+                <p class="mt-1 text-xs text-gray-500">{{ formatDateTime(record.created_at) }} · {{ t(record.action === 'withdraw' ? 'affiliate.payout.paid' : 'affiliate.transfer.button') }}</p>
+              </div>
+              <button v-if="record.payout?.ticket_id" class="btn btn-secondary btn-sm" @click="selectedReceipt = record">{{ t('affiliate.payout.receipt') }}</button>
+            </article>
+          </div>
+          <Pagination v-if="historyTotal > 10" :page="historyPage" :page-size="10" :total="historyTotal" :show-page-size-selector="false" @update:page="loadHistory" />
+        </div>
+
+        <div class="card p-6">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.transfer.title') }}</h3>
               <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.transfer.description') }}</p>
             </div>
             <button
-              class="btn btn-primary"
+              class="btn btn-secondary"
               :disabled="transferring || detail.aff_quota <= 0"
               @click="transferQuota"
             >
@@ -150,6 +179,7 @@
         </div>
       </template>
     </div>
+    <AffiliatePayoutReceipt :record="selectedReceipt" @close="selectedReceipt = null" />
   </AppLayout>
 </template>
 
@@ -158,6 +188,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import Pagination from '@/components/common/Pagination.vue'
+import AffiliatePayoutReceipt from '@/components/affiliate/AffiliatePayoutReceipt.vue'
+import type { AffiliateTransferRecord } from '@/types/affiliate'
+import { calculateAffiliateUSDT } from '@/utils/affiliate'
 import userAPI from '@/api/user'
 import type { UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/stores/app'
@@ -174,6 +208,35 @@ const { copyToClipboard } = useClipboard()
 const loading = ref(true)
 const transferring = ref(false)
 const detail = ref<UserAffiliateDetail | null>(null)
+const availableUSDT = computed(() => calculateAffiliateUSDT(detail.value?.aff_quota ?? 0, detail.value?.usdt_exchange_rate ?? 6.8))
+const history = ref<AffiliateTransferRecord[]>([])
+const historyLoading = ref(false)
+const historyError = ref('')
+const historyPage = ref(1)
+const historyTotal = ref(0)
+const selectedReceipt = ref<AffiliateTransferRecord | null>(null)
+let historyRequest = 0
+
+async function loadHistory(page = historyPage.value) {
+  const request = ++historyRequest
+  historyLoading.value = true
+  historyError.value = ''
+  try {
+    const result = await userAPI.getAffiliateTransfers(page)
+    if (request !== historyRequest) return
+    history.value = result.items
+    historyTotal.value = result.total
+    historyPage.value = page
+  } catch (error) {
+    if (request === historyRequest) historyError.value = extractApiErrorMessage(error, t('affiliate.loadFailed'))
+  } finally {
+    if (request === historyRequest) historyLoading.value = false
+  }
+}
+
+async function refreshCashback() {
+  await Promise.all([loadAffiliateDetail(true), loadHistory()])
+}
 
 const inviteLink = computed(() => {
   if (!detail.value) return ''
@@ -240,6 +303,7 @@ async function transferQuota(): Promise<void> {
     appStore.showSuccess(t('affiliate.transfer.success', { amount: formatCurrency(resp.transferred_quota) }))
     await Promise.all([
       loadAffiliateDetail(true),
+      loadHistory(1),
       authStore.refreshUser().catch(() => undefined),
     ])
   } catch (error) {
@@ -251,5 +315,6 @@ async function transferQuota(): Promise<void> {
 
 onMounted(() => {
   void loadAffiliateDetail()
+  void loadHistory(1)
 })
 </script>

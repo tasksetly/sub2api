@@ -144,7 +144,7 @@ type affiliateWithdrawRepoStub struct {
 	err    error
 }
 
-func (s *affiliateWithdrawRepoStub) WithdrawQuota(_ context.Context, userID int64, amount float64, operationID string) (*AffiliateWithdrawResult, error) {
+func (s *affiliateWithdrawRepoStub) WithdrawQuota(_ context.Context, userID int64, amount float64, operationID string, payout *AffiliatePayout) (*AffiliateWithdrawResult, error) {
 	s.calls = append(s.calls, affiliateWithdrawCall{userID: userID, amount: amount, operationID: operationID})
 	return s.result, s.err
 }
