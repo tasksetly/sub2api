@@ -37,10 +37,11 @@ type UpstreamProvider struct {
 	UpstreamConcurrency *int     `json:"upstream_concurrency"`
 	UpstreamUserID      string   `json:"upstream_user_id,omitempty"`
 
-	Status        string     `json:"status"`
-	LastSyncAt    *time.Time `json:"last_sync_at"`
-	LastSyncError string     `json:"last_sync_error,omitempty"`
-	SyncEnabled   bool       `json:"sync_enabled"`
+	Status        string                             `json:"status"`
+	LastSyncAt    *time.Time                         `json:"last_sync_at"`
+	LastSyncError string                             `json:"last_sync_error,omitempty"`
+	SyncEnabled   bool                               `json:"sync_enabled"`
+	Automation    service.UpstreamProviderAutomation `json:"automation"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -139,6 +140,7 @@ func UpstreamProviderFromService(p *service.UpstreamProvider) *UpstreamProvider 
 		LastSyncAt:          p.LastSyncAt,
 		LastSyncError:       p.LastSyncError,
 		SyncEnabled:         p.SyncEnabled,
+		Automation:          p.Automation,
 		CreatedAt:           p.CreatedAt,
 		UpdatedAt:           p.UpdatedAt,
 	}

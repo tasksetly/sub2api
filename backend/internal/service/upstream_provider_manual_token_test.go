@@ -112,7 +112,7 @@ func newManualTokenService(repo *fakeUpstreamProviderRepo) *UpstreamProviderServ
 	// 关掉白名单校验，测试只关心 token 落库，不测 SSRF 那套
 	cfg := &config.Config{}
 	cfg.Security.URLAllowlist.Enabled = false
-	return NewUpstreamProviderService(repo, nil, nil, cfg, nil)
+	return NewUpstreamProviderService(repo, nil, nil, cfg, nil, nil)
 }
 
 func signedToken(t *testing.T, claims jwt.MapClaims) string {
@@ -332,4 +332,16 @@ func TestEnsureTokenDistinguishesExpiredManualToken(t *testing.T) {
 		BaseURL: "https://upstream.example.com",
 	})
 	require.ErrorIs(t, err, ErrUpstreamProviderMissingCredentials)
+}
+
+func (f *fakeUpstreamProviderRepo) ClaimScheduledSync(context.Context, int64, string, time.Time, time.Time) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeUpstreamProviderRepo) PrepareBalanceAlert(context.Context, *UpstreamProvider, UpstreamSyncSnapshot, time.Time) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeUpstreamProviderRepo) FinishBalanceAlert(context.Context, int64, time.Time, string) error {
+	return nil
 }

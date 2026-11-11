@@ -5,6 +5,19 @@
  * 安全约定：后端绝不回传明文密码/token，只给 has_password / has_totp_secret / has_refresh_token 布尔位。
  */
 
+export interface UpstreamProviderAutomationConfig {
+  sync_cron: string
+  balance_alert_enabled: boolean
+  balance_alert_threshold: number
+  balance_alert_email: string
+}
+
+export interface UpstreamProviderAutomation extends UpstreamProviderAutomationConfig {
+  next_sync_at: string | null
+  balance_alert_sent_at: string | null
+  balance_alert_last_error?: string
+}
+
 export interface UpstreamProvider {
   id: number
   provider_type: 'sub2api' | 'newapi'
@@ -41,6 +54,7 @@ export interface UpstreamProvider {
   /** 上次同步失败原因；空表示成功。验证码/2FA/密码错误都会落在这里 */
   last_sync_error?: string
   sync_enabled: boolean
+  automation?: UpstreamProviderAutomation
 
   created_at: string
   updated_at: string
@@ -152,6 +166,7 @@ export interface CreateUpstreamProviderRequest {
   totp_secret?: string
   notes?: string | null
   sync_enabled?: boolean
+  automation?: UpstreamProviderAutomationConfig
 }
 
 /** password/totp_secret/token/refresh_token 留空表示不修改 */
@@ -171,6 +186,7 @@ export interface UpdateUpstreamProviderRequest {
   notes?: string | null
   status?: 'active' | 'inactive'
   sync_enabled?: boolean
+  automation?: UpstreamProviderAutomationConfig
 }
 
 export interface ProvisionAccountsRequest {

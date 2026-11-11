@@ -61,6 +61,7 @@ type UpstreamProviderService struct {
 	adminService       AdminService
 	accountTestService *AccountTestService
 	cfg                *config.Config
+	emailService       upstreamBalanceEmailSender
 }
 
 func NewUpstreamProviderService(
@@ -69,8 +70,9 @@ func NewUpstreamProviderService(
 	accountTestService *AccountTestService,
 	cfg *config.Config,
 	accountRepo AccountRepository,
+	emailService *EmailService,
 ) *UpstreamProviderService {
-	return &UpstreamProviderService{
+	svc := &UpstreamProviderService{
 		repo:               repo,
 		accountRepo:        accountRepo,
 		client:             NewUpstreamProviderClient(),
@@ -78,6 +80,10 @@ func NewUpstreamProviderService(
 		accountTestService: accountTestService,
 		cfg:                cfg,
 	}
+	if emailService != nil {
+		svc.emailService = emailService
+	}
+	return svc
 }
 
 func normalizeUpstreamProviderBaseURL(baseURL, providerType string) string {
@@ -103,6 +109,7 @@ type CreateUpstreamProviderInput struct {
 	TotpSecret     string
 	Notes          *string
 	SyncEnabled    bool
+	Automation     *UpstreamProviderAutomationConfig
 	// Token 是手填的上游凭据：sub2api 为 access JWT，NewAPI 为 nap_ dashboard PAT
 	// 或已生成的 relay API key（通常是 sk-）。
 	// 只有 sub2api 会从 JWT 的 exp 解析有效期。
@@ -125,6 +132,7 @@ type UpdateUpstreamProviderInput struct {
 	Notes          *string
 	Status         string
 	SyncEnabled    bool
+	Automation     *UpstreamProviderAutomationConfig
 	// Token 为空表示不修改；非空时替换当前凭据。sub2api 这里是 access JWT，
 	// NewAPI 可以是 dashboard PAT（nap_）或 relay API key（通常是 sk-）。
 	Token string
@@ -180,6 +188,7 @@ func (s *UpstreamProviderService) Create(
 		Notes:          input.Notes,
 		Status:         StatusActive,
 		SyncEnabled:    input.SyncEnabled,
+		Automation:     DefaultUpstreamProviderAutomation(),
 	}
 	if provider.ProviderType == UpstreamProviderTypeNewAPI {
 		provider.Username = ""
@@ -199,6 +208,9 @@ func (s *UpstreamProviderService) Create(
 	}
 	if provider.ProviderType == UpstreamProviderTypeSub2API {
 		provider.RefreshToken = refreshToken
+	}
+	if err := applyUpstreamAutomation(provider, input.Automation, time.Now()); err != nil {
+		return nil, err
 	}
 	if err := s.repo.Create(ctx, provider); err != nil {
 		return nil, fmt.Errorf("create upstream provider: %w", err)
@@ -307,6 +319,9 @@ func (s *UpstreamProviderService) Update(
 		provider.RefreshToken = refreshToken
 	}
 
+	if err := applyUpstreamAutomation(provider, input.Automation, time.Now()); err != nil {
+		return nil, err
+	}
 	if err := s.repo.Update(ctx, provider); err != nil {
 		return nil, fmt.Errorf("update upstream provider: %w", err)
 	}
@@ -403,9 +418,17 @@ func (s *UpstreamProviderService) Sync(ctx context.Context, id int64) (*Upstream
 	return s.repo.GetByID(ctx, id)
 }
 
-// SyncAll 供后台定时任务调用，并行同步已启用的上游。
+// SyncAll 手动并行同步已启用的上游，不受下次计划时间限制。
 // 单个失败不影响其余，失败原因各自落库。
 func (s *UpstreamProviderService) SyncAll(ctx context.Context) (succeeded, failed int) {
+	return s.syncAll(ctx, false)
+}
+
+func (s *UpstreamProviderService) SyncDue(ctx context.Context) (succeeded, failed int) {
+	return s.syncAll(ctx, true)
+}
+
+func (s *UpstreamProviderService) syncAll(ctx context.Context, dueOnly bool) (succeeded, failed int) {
 	providers, err := s.repo.ListSyncable(ctx)
 	if err != nil {
 		slog.Error("upstream_provider_list_syncable_failed", "error", err)
@@ -416,7 +439,31 @@ func (s *UpstreamProviderService) SyncAll(ctx context.Context) (succeeded, faile
 	results := make(chan bool, len(providers))
 	for i := range providers {
 		provider := providers[i]
+		if dueOnly && provider.Automation.NextSyncAt != nil && provider.Automation.NextSyncAt.After(time.Now()) {
+			continue
+		}
 		group.Go(func() error {
+			if ctx.Err() != nil {
+				return nil
+			}
+			if dueOnly {
+				now := time.Now()
+				next, err := nextUpstreamSync(provider.Automation.SyncCron, now)
+				if err != nil {
+					slog.Warn("upstream_provider_schedule_invalid", "provider_id", provider.ID, "error", err)
+					results <- false
+					return nil
+				}
+				claimed, err := s.repo.ClaimScheduledSync(ctx, provider.ID, provider.Automation.SyncCron, now, next)
+				if err != nil {
+					slog.Warn("upstream_provider_schedule_claim_failed", "provider_id", provider.ID, "error", err)
+					results <- false
+					return nil
+				}
+				if !claimed {
+					return nil
+				}
+			}
 			if err := s.syncProvider(ctx, &provider); err != nil {
 				slog.Warn("upstream_provider_sync_failed",
 					"provider_id", provider.ID, "provider", provider.Name, "error", err)
@@ -500,6 +547,7 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 		if err := s.repo.UpdateSyncSnapshot(ctx, provider.ID, newSnapshot); err != nil {
 			return fmt.Errorf("store upstream snapshot: %w", err)
 		}
+		s.notifyUpstreamBalance(ctx, provider, snapshot)
 		return nil
 	}
 
@@ -550,6 +598,7 @@ func (s *UpstreamProviderService) syncProvider(ctx context.Context, provider *Up
 	if err := s.repo.UpdateSyncSnapshot(ctx, provider.ID, snapshot); err != nil {
 		return fmt.Errorf("store upstream snapshot: %w", err)
 	}
+	s.notifyUpstreamBalance(ctx, provider, snapshot)
 	return nil
 }
 

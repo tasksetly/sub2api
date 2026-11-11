@@ -174,6 +174,35 @@
         </span>
       </label>
 
+      <div v-if="form.sync_enabled">
+        <label for="upstream-sync-cron" class="input-label">{{ t('admin.upstreamProviders.formSyncCron') }}</label>
+        <input id="upstream-sync-cron" v-model="form.sync_cron" class="input font-mono" maxlength="128" required />
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.upstreamProviders.formSyncCronHelp') }}</p>
+      </div>
+
+      <label class="flex cursor-pointer items-start gap-2">
+        <input
+          v-model="form.balance_alert_enabled"
+          type="checkbox"
+          class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+        />
+        <span>
+          <span class="text-sm text-gray-900 dark:text-white">{{ t('admin.upstreamProviders.formBalanceAlertEnabled') }}</span>
+          <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">{{ t('admin.upstreamProviders.formBalanceAlertHelp') }}</span>
+        </span>
+      </label>
+      <div v-if="form.balance_alert_enabled" class="space-y-4">
+        <div>
+          <label for="upstream-balance-threshold" class="input-label">{{ t('admin.upstreamProviders.formBalanceAlertThreshold') }}</label>
+          <input id="upstream-balance-threshold" v-model.number="form.balance_alert_threshold" class="input" type="number" min="0" max="999999999999" step="0.00000001" required />
+        </div>
+        <div>
+          <label for="upstream-balance-email" class="input-label">{{ t('admin.upstreamProviders.formBalanceAlertEmail') }}</label>
+          <input id="upstream-balance-email" v-model="form.balance_alert_email" class="input" type="email" maxlength="254" required />
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.upstreamProviders.formBalanceAlertEmailHelp') }}</p>
+        </div>
+      </div>
+
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" class="btn btn-secondary" @click="emit('close')">
           {{ t('common.cancel') }}
@@ -227,7 +256,11 @@ function emptyForm() {
     totp_secret: '',
     notes: '',
     status: 'active' as 'active' | 'inactive',
-    sync_enabled: true
+    sync_enabled: true,
+    sync_cron: '*/30 * * * *',
+    balance_alert_enabled: false,
+    balance_alert_threshold: 0,
+    balance_alert_email: ''
   }
 }
 
@@ -301,7 +334,11 @@ watch(
         totp_secret: '',
         notes: editing.notes ?? '',
         status: editing.status,
-        sync_enabled: editing.sync_enabled
+        sync_enabled: editing.sync_enabled,
+        sync_cron: editing.automation?.sync_cron ?? '*/30 * * * *',
+        balance_alert_enabled: editing.automation?.balance_alert_enabled ?? false,
+        balance_alert_threshold: editing.automation?.balance_alert_threshold ?? 0,
+        balance_alert_email: editing.automation?.balance_alert_email ?? ''
       }
     } else {
       form.value = emptyForm()
@@ -339,7 +376,13 @@ function handleSubmit() {
     username: form.value.username.trim(),
     rate_correction: normalizedRateCorrection(),
     notes: notes === '' ? null : notes,
-    sync_enabled: form.value.sync_enabled
+    sync_enabled: form.value.sync_enabled,
+    automation: {
+      sync_cron: form.value.sync_cron.trim(),
+      balance_alert_enabled: form.value.balance_alert_enabled,
+      balance_alert_threshold: Number(form.value.balance_alert_threshold),
+      balance_alert_email: form.value.balance_alert_email.trim()
+    }
   }
 
   if (props.editing) {

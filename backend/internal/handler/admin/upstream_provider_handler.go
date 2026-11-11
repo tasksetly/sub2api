@@ -35,10 +35,11 @@ type CreateUpstreamProviderRequest struct {
 	// RefreshToken 是与 access JWT 配对的上游 refresh token，用于 access JWT 过期后自动续期。
 	RefreshToken string `json:"refresh_token"`
 	// RateCorrection 充值比例修正系数（充值 10 倍填 0.1）。省略按 1.0 处理。
-	RateCorrection *float64 `json:"rate_correction" binding:"omitempty,gt=0"`
-	TotpSecret     string   `json:"totp_secret"`
-	Notes          *string  `json:"notes"`
-	SyncEnabled    *bool    `json:"sync_enabled"`
+	RateCorrection *float64                                  `json:"rate_correction" binding:"omitempty,gt=0"`
+	TotpSecret     string                                    `json:"totp_secret"`
+	Notes          *string                                   `json:"notes"`
+	SyncEnabled    *bool                                     `json:"sync_enabled"`
+	Automation     *service.UpstreamProviderAutomationConfig `json:"automation"`
 }
 
 // UpdateUpstreamProviderRequest 编辑上游。
@@ -54,11 +55,12 @@ type UpdateUpstreamProviderRequest struct {
 	// RefreshToken 非空时更新缓存的 refresh token，可单独补填。
 	RefreshToken string `json:"refresh_token"`
 	// RateCorrection 省略表示不修改
-	RateCorrection *float64 `json:"rate_correction" binding:"omitempty,gt=0"`
-	TotpSecret     string   `json:"totp_secret"`
-	Notes          *string  `json:"notes"`
-	Status         string   `json:"status" binding:"omitempty,oneof=active inactive"`
-	SyncEnabled    *bool    `json:"sync_enabled"`
+	RateCorrection *float64                                  `json:"rate_correction" binding:"omitempty,gt=0"`
+	TotpSecret     string                                    `json:"totp_secret"`
+	Notes          *string                                   `json:"notes"`
+	Status         string                                    `json:"status" binding:"omitempty,oneof=active inactive"`
+	SyncEnabled    *bool                                     `json:"sync_enabled"`
+	Automation     *service.UpstreamProviderAutomationConfig `json:"automation"`
 }
 
 // ProvisionAccountsRequest 勾选上游分组后创建 Key 与本地账号。
@@ -145,6 +147,7 @@ func (h *UpstreamProviderHandler) Create(c *gin.Context) {
 		TotpSecret:     req.TotpSecret,
 		Notes:          req.Notes,
 		SyncEnabled:    syncEnabled,
+		Automation:     req.Automation,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -184,6 +187,7 @@ func (h *UpstreamProviderHandler) Update(c *gin.Context) {
 		Notes:          req.Notes,
 		Status:         req.Status,
 		SyncEnabled:    syncEnabled,
+		Automation:     req.Automation,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

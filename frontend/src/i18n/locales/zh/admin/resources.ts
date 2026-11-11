@@ -128,7 +128,17 @@ export default {
       formTotpSecretHelp: '仅当上游开启了 2FA 时需要填写，用于自动生成验证码',
       formNotes: '备注',
       formSyncEnabled: '启用定时同步',
-      formSyncEnabledHelp: '每 30 分钟自动刷新余额、分组倍率、充值订单与累计消耗',
+      formSyncEnabledHelp: '按下方时间自动刷新余额、分组倍率、充值订单与累计消耗；关闭后仍可手动刷新',
+      formSyncCron: '同步时间（Cron）',
+      formSyncCronHelp: '默认 UTC 时区。*/30 * * * * 表示每 30 分钟；CRON_TZ=Asia/Shanghai 0 9 * * * 表示每天北京时间 09:00。约每分钟检查一次，错过的时间会补同步一次。',
+      formBalanceAlertEnabled: '启用上游余额邮件提醒',
+      formBalanceAlertHelp: '同步成功且余额低于阈值时发送一次；持续低余额不重复发送，恢复到阈值及以上后再次降低才重新提醒。手动刷新也会检查；关闭定时同步后不会自动检查。',
+      formBalanceAlertThreshold: '余额阈值（上游余额单位，未做倍率修正）',
+      formBalanceAlertEmail: '收件邮箱',
+      formBalanceAlertEmailHelp: '使用系统已配置的 SMTP 发信。保存设置不会发送邮件；发送失败会在下次同步时重试。',
+      nextSyncAt: '下次计划：{time}',
+      balanceAlertFailed: '余额提醒发送失败',
+      balanceAlertSentAt: '余额提醒已发送：{time}',
       formStatus: '状态',
 
       // 操作

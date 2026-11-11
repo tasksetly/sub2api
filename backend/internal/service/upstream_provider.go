@@ -49,6 +49,7 @@ type UpstreamProvider struct {
 	LastSyncAt    *time.Time
 	LastSyncError string
 	SyncEnabled   bool
+	Automation    UpstreamProviderAutomation
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -182,6 +183,12 @@ type UpstreamProviderRepository interface {
 	// 只查名称，不解密任何凭据：这条路径每次列表请求都会走，没必要付解密开销。
 	// 包含软删除的上游——账号还在用它签发的 Key，名称得照样显示得出来。
 	ListNamesByIDs(ctx context.Context, ids []int64) (map[int64]string, error)
+
+	// ClaimScheduledSync atomically advances a due schedule before contacting the upstream.
+	ClaimScheduledSync(ctx context.Context, id int64, cron string, now, next time.Time) (bool, error)
+	// PrepareBalanceAlert records a fresh balance and reserves one notification per low-balance episode.
+	PrepareBalanceAlert(ctx context.Context, provider *UpstreamProvider, snapshot UpstreamSyncSnapshot, claimedAt time.Time) (bool, error)
+	FinishBalanceAlert(ctx context.Context, id int64, claimedAt time.Time, lastError string) error
 
 	// UpdateSession 只更新会话缓存，避免整行覆盖把并发的同步结果写丢。
 	UpdateSession(ctx context.Context, id int64, token, refreshToken string, expiresAt time.Time) error

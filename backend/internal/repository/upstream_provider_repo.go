@@ -40,6 +40,12 @@ func providerTypeOrDefault(value string) string {
 }
 
 func (r *upstreamProviderRepository) Create(ctx context.Context, provider *service.UpstreamProvider) error {
+	return r.withAutomationTransaction(ctx, func(txRepo *upstreamProviderRepository) error {
+		return txRepo.create(ctx, provider)
+	})
+}
+
+func (r *upstreamProviderRepository) create(ctx context.Context, provider *service.UpstreamProvider) error {
 	encryptedPassword, err := r.encryptor.Encrypt(provider.Password)
 	if err != nil {
 		return fmt.Errorf("encrypt upstream password: %w", err)
@@ -90,7 +96,7 @@ func (r *upstreamProviderRepository) Create(ctx context.Context, provider *servi
 	provider.ID = created.ID
 	provider.CreatedAt = created.CreatedAt
 	provider.UpdatedAt = created.UpdatedAt
-	return nil
+	return r.saveAutomation(ctx, provider, true)
 }
 
 func (r *upstreamProviderRepository) GetByID(ctx context.Context, id int64) (*service.UpstreamProvider, error) {
@@ -102,6 +108,9 @@ func (r *upstreamProviderRepository) GetByID(ctx context.Context, id int64) (*se
 		return nil, err
 	}
 	provider := r.entityToService(entity)
+	if err := r.loadAutomation(ctx, []*service.UpstreamProvider{provider}); err != nil {
+		return nil, err
+	}
 	if err := r.loadFinance(ctx, []*service.UpstreamProvider{provider}); err != nil {
 		slog.Warn("upstream_provider_finance_load_failed", "provider_id", id, "error", err)
 	}
@@ -109,6 +118,12 @@ func (r *upstreamProviderRepository) GetByID(ctx context.Context, id int64) (*se
 }
 
 func (r *upstreamProviderRepository) Update(ctx context.Context, provider *service.UpstreamProvider) error {
+	return r.withAutomationTransaction(ctx, func(txRepo *upstreamProviderRepository) error {
+		return txRepo.update(ctx, provider)
+	})
+}
+
+func (r *upstreamProviderRepository) update(ctx context.Context, provider *service.UpstreamProvider) error {
 	current, err := r.client.UpstreamProvider.Get(ctx, provider.ID)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -235,7 +250,7 @@ func (r *upstreamProviderRepository) Update(ctx context.Context, provider *servi
 			return fmt.Errorf("invalidate upstream finance after credential change: %w", err)
 		}
 	}
-	return nil
+	return r.saveAutomation(ctx, provider, typeChanged || current.BaseURL != provider.BaseURL || current.Username != provider.Username)
 }
 
 func (r *upstreamProviderRepository) Delete(ctx context.Context, id int64) error {
@@ -286,6 +301,13 @@ func (r *upstreamProviderRepository) List(
 		ids = append(ids, entity.ID)
 	}
 
+	baseProviders := make([]*service.UpstreamProvider, 0, len(providers))
+	for i := range providers {
+		baseProviders = append(baseProviders, &providers[i].UpstreamProvider)
+	}
+	if err := r.loadAutomation(ctx, baseProviders); err != nil {
+		return nil, nil, err
+	}
 	if len(ids) > 0 {
 		if err := r.attachStats(ctx, providers, ids); err != nil {
 			// Finance and cost snapshots are supplementary; a failed snapshot read
@@ -428,6 +450,9 @@ func (r *upstreamProviderRepository) ListSyncable(ctx context.Context) ([]servic
 	}
 	if err := r.loadFinance(ctx, baseProviders); err != nil {
 		slog.Warn("upstream_provider_finance_load_failed", "error", err)
+	}
+	if err := r.loadAutomation(ctx, baseProviders); err != nil {
+		return nil, err
 	}
 	return providers, nil
 }

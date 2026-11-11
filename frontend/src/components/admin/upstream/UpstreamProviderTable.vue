@@ -138,6 +138,15 @@
               <span v-else class="text-gray-400">
                 {{ t('admin.upstreamProviders.neverSynced') }}
               </span>
+              <div v-if="provider.sync_enabled && provider.status === 'active' && provider.automation?.next_sync_at" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.upstreamProviders.nextSyncAt', { time: formatDateTime(provider.automation.next_sync_at) }) }}
+              </div>
+              <div v-if="provider.automation?.balance_alert_last_error" class="mt-1 max-w-[200px] truncate text-xs text-red-600 dark:text-red-400" :title="provider.automation.balance_alert_last_error">
+                {{ t('admin.upstreamProviders.balanceAlertFailed') }}: {{ provider.automation.balance_alert_last_error }}
+              </div>
+              <div v-else-if="provider.automation?.balance_alert_sent_at" class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                {{ t('admin.upstreamProviders.balanceAlertSentAt', { time: formatDateTime(provider.automation.balance_alert_sent_at) }) }}
+              </div>
             </td>
 
             <td class="px-3 py-3">

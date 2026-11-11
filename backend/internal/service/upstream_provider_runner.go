@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	// 30 分钟同步一次：余额和倍率不是高频变化的量，更密只是徒增上游负载。
-	upstreamProviderSyncInterval = 30 * time.Minute
+	// 每分钟检查到期计划；实际同步频率由各上游的 Cron 决定。
+	upstreamProviderSyncInterval = time.Minute
 	// TTL 必须大于一轮同步的最坏耗时，否则锁会在跑到一半时过期。
 	// 每个上游最多 5 次 HTTP 调用 × 15s 超时，留足余量。
 	upstreamProviderSyncLockTTL   = 10 * time.Minute
@@ -130,7 +130,9 @@ func (r *UpstreamProviderSyncRunner) runOnce() {
 	}
 	defer release()
 
-	succeeded, failed := r.svc.SyncAll(r.parentCtx)
+	ctx, cancelSync := context.WithTimeout(r.parentCtx, upstreamProviderSyncLockTTL-time.Minute)
+	defer cancelSync()
+	succeeded, failed := r.svc.SyncDue(ctx)
 	if succeeded > 0 || failed > 0 {
 		slog.Info("upstream_provider_sync_cycle",
 			"succeeded", succeeded, "failed", failed)
