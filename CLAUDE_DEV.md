@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-11 | 上游建号本地分组多平台筛选 | 创建账号弹窗的本地分组支持多平台筛选和全部平台重置，保留跨平台已选分组并显示选中数量，重开弹窗重置筛选；复用平台目录与国际化文案 | `frontend/src/components/admin/upstream/UpstreamProvisionDialog.vue` | 5c7025547 |
 | 2026-11-11 | 合并上游 main 到 new | 合入 up/main（530c5e3a4），解决 17 个文件冲突，保留工单、SVG 测试、供应商溯源及人民币展示；修复受限管理查询参数并升级认证缓存版本；静态检查、国际化检查及 dev Compose 镜像构建通过（构建时改用官方 Go 下载源） | `backend/cmd/server/wire_gen.go`<br>`backend/internal/repository/custom_admin_key_scope.go`<br>`backend/internal/service/antigravity_gateway_service.go`<br>`backend/internal/service/api_key_auth_cache_impl.go`<br>`frontend/src/views/admin/SettingsView.vue`<br>`frontend/src/views/user/KeysView.vue` | 1f5ed80e9 |
 | 2026-11-10 | SVG 测试提示词模板复用 | 接入现有数据库提示词模板，支持命名保存、跨账号模型选择复用和历史提示词回填；模型选项转换为 SelectOption，修复 TS2322 | `frontend/src/components/admin/account/AccountIntelligenceTestPanel.vue`<br>`frontend/src/components/admin/account/__tests__/AccountIntelligenceTestPanel.spec.ts`<br>`frontend/src/i18n/locales/{zh,en}/admin/accounts.ts` | 8804ea134 |
 | 2026-11-10 | 指定账号模型的 SVG 智商测试 | 账号测试弹窗支持选择或输入模型、自定义提示词及推理等级，复用 SVG 生成和安全预览；后台执行，按账号持久化提示词与 SVG 历史，支持预览、复制、下载和翻查，仅管理员可见；新增迁移 261 | `backend/internal/service/intelligence_test_account.go`<br>`backend/internal/repository/intelligence_test_account_repo.go`<br>`backend/migrations/261_account_intelligence_tests.sql`<br>`frontend/src/components/admin/account/AccountIntelligenceTestPanel.vue` | 791001b98 |
