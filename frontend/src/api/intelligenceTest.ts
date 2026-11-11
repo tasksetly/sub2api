@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 
 export interface IntelligenceTestConfig {
+  answer_mode?: 'svg' | 'candy'
   title?: string
   description?: string
   prompt_name?: string
@@ -15,6 +16,8 @@ export interface IntelligenceTestConfig {
 }
 
 export interface IntelligenceTestItem {
+  answer_mode?: 'svg' | 'candy'
+  response_text?: string
   id?: string | number
   group?: string
   group_name?: string
@@ -65,6 +68,7 @@ export interface IntelligenceTestResponse {
 }
 
 export interface IntelligenceTestQuery {
+  answer_mode?: 'svg' | 'candy'
   user_id?: string
   token?: string
   question_id?: string
@@ -90,7 +94,7 @@ export async function getIntelligenceTest(
   let lastError: unknown
   const params = getQueryParams(query)
 
-  for (const endpoint of ENDPOINTS) {
+  for (const endpoint of query.answer_mode === 'candy' ? ENDPOINTS.slice(0, 1) : ENDPOINTS) {
     try {
       const { data } = await apiClient.get<IntelligenceTestResponse>(endpoint, {
         params,
@@ -101,6 +105,8 @@ export async function getIntelligenceTest(
       lastError = error
     }
   }
+
+  if (query.answer_mode === 'candy') throw lastError || new Error('Unable to load candy test results')
 
   try {
     const response = await fetch(`/pelican-test/data/history.json?t=${Date.now()}`, {

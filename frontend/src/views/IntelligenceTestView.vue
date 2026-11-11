@@ -19,8 +19,8 @@
       <section class="test-intro">
         <div>
           <p class="eyebrow"><Icon name="brain" size="xs" /> {{ copy.eyebrow }}</p>
-          <h1>{{ config.title || copy.title }}</h1>
-          <p class="intro-description">{{ config.description || copy.description }}</p>
+          <h1>{{ answerMode === 'candy' ? t('intelligenceTest.candy') : config.title || copy.title }}</h1>
+          <p class="intro-description">{{ answerMode === 'candy' ? t('intelligenceTest.description') : config.description || copy.description }}</p>
         </div>
         <button class="refresh-button" type="button" :disabled="loading" @click="loadResults">
           <Icon name="refresh" size="sm" :class="{ 'spin-once': loading }" />
@@ -28,6 +28,14 @@
         </button>
       </section>
 
+      <div class="mb-6 flex gap-2" role="group" :aria-label="t('intelligenceTest.types')">
+        <button v-for="mode in (['candy', 'svg'] as const)" :key="mode" type="button" class="filter-tab" :class="{ active: answerMode === mode }" :aria-pressed="answerMode === mode" :disabled="loading" @click="changeMode(mode)">
+          {{ t(mode === 'candy' ? 'intelligenceTest.candy' : 'intelligenceTest.svg') }}
+        </button>
+      </div>
+
+      <CandyTestResults v-if="answerMode === 'candy'" :response="response" :loading="loading && !hasLoaded" :error="error" @refresh="loadResults" />
+      <template v-else>
       <section class="prompt-panel" aria-labelledby="prompt-heading">
         <div class="prompt-panel__icon"><Icon name="lightbulb" size="md" /></div>
         <div class="prompt-panel__content">
@@ -159,6 +167,7 @@
           </div>
         </section>
       </template>
+      </template>
     </main>
 
     <div v-if="preview" class="preview-backdrop" role="dialog" aria-modal="true" :aria-label="copy.preview" @click.self="closePreview">
@@ -194,6 +203,9 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+import { setLocale } from '@/i18n'
+import CandyTestResults from '@/components/intelligenceTest/CandyTestResults.vue'
 import { getSVGPreviewDocument } from '@/utils/svgPreview'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
@@ -203,6 +215,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { getIntelligenceTest, type IntelligenceTestItem, type IntelligenceTestResponse } from '@/api/intelligenceTest'
 
+const { t, locale } = useI18n()
 const props = defineProps<{ inApp?: boolean }>()
 const ALL_GROUP = '__all__'
 const MODEL_FINGERPRINT_URL = 'https://lm.ikale.io/#/?mode=api'
@@ -211,6 +224,7 @@ const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
+const answerMode = ref<'svg' | 'candy'>(route.query.answer_mode === 'candy' ? 'candy' : 'svg')
 const loading = ref(false)
 const hasLoaded = ref(false)
 const error = ref('')
@@ -230,6 +244,7 @@ const isDark = ref(route.query.theme === 'dark' || (
 const siteName = computed(() => appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => appStore.siteLogo || '')
 const query = computed(() => ({
+  answer_mode: answerMode.value,
   user_id: asQueryString(route.query.user_id),
   token: asQueryString(route.query.token),
   question_id: asQueryString(route.query.question_id),
@@ -241,7 +256,7 @@ const config = computed(() => ({
   ...(response.value.config || {}),
 }))
 
-const isEnglish = computed(() => String(route.query.lang || '').toLowerCase().startsWith('en'))
+const isEnglish = computed(() => String(route.query.lang || locale.value).toLowerCase().startsWith('en'))
 const copy = computed(() => isEnglish.value ? {
   eyebrow: 'Capability benchmark', title: 'SVG intelligence benchmark', description: 'Compare SVG generation quality across configured API key groups.', refresh: 'Refresh', refreshing: 'Refreshing', currentPrompt: 'Current prompt', promptPlaceholder: 'The prompt configured by your administrator will appear here.', groupCount: 'Groups', workCount: 'Works', filters: 'Result filters', groups: 'Groups', allGroups: 'All groups', statusFilter: 'Status', allStatus: 'All status', validated: 'Validated', recent: 'Last hour', loading: 'Loading recent SVG works…', loadFailed: 'Unable to load results', retry: 'Try again', noResults: 'No works yet', noResultsDescription: 'Configure a prompt and API key group in the admin panel, then results will appear here.', emptyGroup: 'No works match the current filter.', works: 'works', previous: 'Previous', next: 'Next', svgWork: 'SVG work', unknownModel: 'Unknown model', preview: 'SVG preview', close: 'Close', reasoning: 'Effort', elapsed: 'Elapsed', renderedPreview: 'Preview', sourceCode: 'SVG source', staticSVG: 'Static SVG', animatedSVG: 'Animated SVG', quickCreateKey: 'Quick create API key', modelFingerprintTest: 'Model fingerprint test',
 } : {
@@ -349,6 +364,16 @@ function formatDate(item: IntelligenceTestItem) {
   return new Intl.DateTimeFormat(isEnglish.value ? 'en-US' : 'zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
+function changeMode(mode: 'svg' | 'candy') {
+  if (loading.value || answerMode.value === mode) return
+  answerMode.value = mode
+  response.value = {}
+  hasLoaded.value = false
+  selectedGroup.value = ALL_GROUP
+  closePreview()
+  void loadResults()
+}
+
 async function loadResults() {
   if (loading.value) return
   loading.value = true
@@ -403,6 +428,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  if (route.query.lang === 'en' || route.query.lang === 'zh') void setLocale(route.query.lang)
   void appStore.fetchPublicSettings()
   document.documentElement.classList.toggle('dark', isDark.value)
   document.addEventListener('keydown', onKeydown)

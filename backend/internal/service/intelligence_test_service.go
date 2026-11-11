@@ -27,6 +27,7 @@ var (
 const intelligenceTestSVGSystemPrompt = "只输出完整的 SVG 代码，以 <svg> 开始、以 </svg> 结束。不要 Markdown 代码块、解释文字或其他内容。"
 
 type IntelligenceTestConfig struct {
+	AnswerMode string `json:"answer_mode"`
 	ID              int64      `json:"id"`
 	Name            string     `json:"name"`
 	ModelID         string     `json:"model_id"`
@@ -47,6 +48,8 @@ type IntelligenceTestConfig struct {
 }
 
 type IntelligenceTestResult struct {
+	ResponseText string `json:"response_text,omitempty"`
+	AnswerMode string `json:"answer_mode"`
 	AccountID    *int64     `json:"account_id,omitempty"`
 	AccountName  string     `json:"account_name,omitempty"`
 	PromptText   string     `json:"prompt_text,omitempty"`
@@ -97,6 +100,7 @@ type IntelligenceTestRepository interface {
 }
 
 type IntelligenceTestConfigInput struct {
+	AnswerMode string `json:"answer_mode"`
 	Name           string `json:"name"`
 	ModelID        string `json:"model_id"`
 	ModelName      string `json:"model_name"`
@@ -109,6 +113,7 @@ type IntelligenceTestConfigInput struct {
 }
 
 type IntelligenceTestPublicConfig struct {
+	AnswerMode string `json:"answer_mode"`
 	Title      string     `json:"title"`
 	Description string    `json:"description"`
 	PromptName string     `json:"prompt_name"`
@@ -121,6 +126,8 @@ type IntelligenceTestPublicConfig struct {
 }
 
 type IntelligenceTestPublicResult struct {
+	ResponseText string `json:"response_text,omitempty"`
+	AnswerMode string `json:"answer_mode"`
 	ID         int64     `json:"id"`
 	GroupID    *int64    `json:"group_id,omitempty"`
 	GroupName  string    `json:"group_name"`
@@ -210,6 +217,9 @@ func (s *IntelligenceTestService) UpdateConfig(ctx context.Context, id int64, in
 	if err != nil { return nil, err }
 	next, err := s.normalizeConfig(input)
 	if err != nil { return nil, err }
+	if c.AnswerMode != next.AnswerMode {
+		return nil, infraerrors.BadRequest("INTELLIGENCE_TEST_MODE_IMMUTABLE", "create a new config to change the test type")
+	}
 	c.Name, c.ModelID, c.ModelName, c.PromptText, c.APIKeyID = next.Name, next.ModelID, next.ModelName, next.PromptText, next.APIKeyID
 	c.ReasoningEffort = next.ReasoningEffort
 	c.CronExpression, c.KeepCount, c.Enabled = next.CronExpression, next.KeepCount, next.Enabled
@@ -219,7 +229,11 @@ func (s *IntelligenceTestService) UpdateConfig(ctx context.Context, id int64, in
 func (s *IntelligenceTestService) DeleteConfig(ctx context.Context, id int64) error { return s.repo.DeleteConfig(ctx, id) }
 
 func (s *IntelligenceTestService) normalizeConfig(input IntelligenceTestConfigInput) (*IntelligenceTestConfig, error) {
+	mode := strings.TrimSpace(input.AnswerMode)
+	if mode == "" { mode = "svg" }
+	if mode != "svg" && mode != "candy" { return nil, infraerrors.BadRequest("INTELLIGENCE_TEST_MODE_INVALID", "test type must be svg or candy") }
 	name, model, prompt := strings.TrimSpace(input.Name), strings.TrimSpace(input.ModelID), strings.TrimSpace(input.PromptText)
+	if mode == "candy" { prompt = intelligenceTestCandyPrompt }
 	if name == "" || model == "" || prompt == "" || input.APIKeyID <= 0 { return nil, ErrIntelligenceTestConfigInvalid }
 	effort := strings.ToLower(strings.TrimSpace(input.ReasoningEffort))
 	switch effort {
@@ -239,7 +253,7 @@ func (s *IntelligenceTestService) normalizeConfig(input IntelligenceTestConfigIn
 	if schedule, err := scheduledTestCronParser.Parse(cronExpression); err == nil { next = schedule.Next(next) }
 	modelName := strings.TrimSpace(input.ModelName)
 	if modelName == "" { modelName = model }
-	return &IntelligenceTestConfig{Name: name, ModelID: model, ModelName: modelName, ReasoningEffort: effort, PromptText: prompt, APIKeyID: input.APIKeyID, CronExpression: cronExpression, KeepCount: keepCount, Enabled: enabled, NextRunAt: &next}, nil
+	return &IntelligenceTestConfig{AnswerMode: mode, Name: name, ModelID: model, ModelName: modelName, ReasoningEffort: effort, PromptText: prompt, APIKeyID: input.APIKeyID, CronExpression: cronExpression, KeepCount: keepCount, Enabled: enabled, NextRunAt: &next}, nil
 }
 
 func (s *IntelligenceTestService) RunNow(ctx context.Context, id int64) (*IntelligenceTestResult, error) {
@@ -410,7 +424,7 @@ func (s *IntelligenceTestService) runDue() {
 
 func (s *IntelligenceTestService) runConfig(ctx context.Context, c *IntelligenceTestConfig) (*IntelligenceTestResult, error) {
 	started := time.Now()
-	result := &IntelligenceTestResult{ConfigID: c.ID, APIKeyID: c.APIKeyID, ModelID: c.ModelID, ModelName: c.ModelName, ReasoningEffort: c.ReasoningEffort, Status: "failed", StartedAt: started, CreatedAt: started}
+	result := &IntelligenceTestResult{AnswerMode: c.AnswerMode, PromptText: c.PromptText, ConfigID: c.ID, APIKeyID: c.APIKeyID, ModelID: c.ModelID, ModelName: c.ModelName, ReasoningEffort: c.ReasoningEffort, Status: "failed", StartedAt: started, CreatedAt: started}
 	key, err := s.apiKeyRepo.GetByID(ctx, c.APIKeyID)
 	if err == nil && key.GroupID != nil {
 		result.GroupID = key.GroupID
@@ -427,7 +441,7 @@ func (s *IntelligenceTestService) runConfig(ctx context.Context, c *Intelligence
 	} else if err != nil { result.ErrorMessage = "API key lookup failed" } else { result.ErrorMessage = "API key is not bound to a group" }
 	if result.FinishedAt.IsZero() { result.FinishedAt = time.Now(); result.LatencyMs = result.FinishedAt.Sub(started).Milliseconds() }
 	// Persist the completed state with a fresh, short context even when the
-	// upstream inference hit its deadline. Never persist the raw model reply.
+	// upstream inference hit its deadline. Only successful candy replies are retained.
 	writeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := s.repo.InsertResult(writeCtx, result); err != nil { return result, err }
@@ -443,9 +457,13 @@ func (s *IntelligenceTestService) runThroughGateway(ctx context.Context, key *AP
 	if selection == nil || selection.Account == nil { return nil, fmt.Errorf("no schedulable account in the API key group") }
 	if selection.ReleaseFunc != nil { defer selection.ReleaseFunc() }
 
-	return s.accountTest.RunTestBackgroundWithOptions(ctx, selection.Account.ID, c.ModelID, c.PromptText, AccountTestOptions{
+	systemPrompt, prompt := intelligenceTestSVGSystemPrompt, c.PromptText
+	if c.AnswerMode == "candy" {
+		systemPrompt, prompt = "", intelligenceTestCandyPrompt
+	}
+	return s.accountTest.RunTestBackgroundWithOptions(ctx, selection.Account.ID, c.ModelID, prompt, AccountTestOptions{
 		ReasoningEffort: c.ReasoningEffort,
-		SystemPrompt:    intelligenceTestSVGSystemPrompt,
+		SystemPrompt:    systemPrompt,
 	})
 }
 
@@ -491,8 +509,13 @@ func extractSVGStrict(fragment string) string {
 	}
 }
 
-func (s *IntelligenceTestService) Public(ctx context.Context, configID int64) (*IntelligenceTestPublicResponse, error) {
+func (s *IntelligenceTestService) Public(ctx context.Context, configID int64, answerMode string) (*IntelligenceTestPublicResponse, error) {
+	if answerMode == "" { answerMode = "svg" }
+	if answerMode != "svg" && answerMode != "candy" { return nil, infraerrors.BadRequest("INTELLIGENCE_TEST_MODE_INVALID", "test type must be svg or candy") }
 	response := &IntelligenceTestPublicResponse{Items: make([]*IntelligenceTestPublicResult, 0), Groups: make([]IntelligenceTestPublicGroup, 0)}
+	if answerMode == "candy" {
+		response.Config = &IntelligenceTestPublicConfig{AnswerMode: "candy", PromptText: intelligenceTestCandyPrompt}
+	}
 	configs := make([]*IntelligenceTestConfig, 0)
 	if configID > 0 {
 		c, err := s.repo.GetConfig(ctx, configID)
@@ -500,28 +523,40 @@ func (s *IntelligenceTestService) Public(ctx context.Context, configID int64) (*
 			if errors.Is(err, ErrIntelligenceTestConfigNotFound) { return response, nil }
 			return nil, err
 		}
-		if c.Enabled { configs = append(configs, c) }
+		if c.Enabled && c.AnswerMode == answerMode { configs = append(configs, c) }
 	} else {
 		all, err := s.repo.ListConfigs(ctx)
 		if err != nil { return nil, err }
 		for _, c := range all {
-			if c.Enabled { configs = append(configs, c) }
+			if c.Enabled && c.AnswerMode == answerMode { configs = append(configs, c) }
 		}
 	}
 	if len(configs) == 0 { return response, nil }
 
 	first := configs[0]
 	keepCount := first.KeepCount
-	response.Config = &IntelligenceTestPublicConfig{Title: first.Name, Description: "API Key 分组 SVG 生成能力测试", PromptName: first.Name, PromptText: first.PromptText, ModelID: first.ModelID, ModelName: first.ModelName, ReasoningEffort: first.ReasoningEffort, KeepCount: keepCount, UpdatedAt: &first.UpdatedAt}
+	response.Config = &IntelligenceTestPublicConfig{AnswerMode: answerMode, Title: first.Name, Description: "API Key 分组 SVG 生成能力测试", PromptName: first.Name, PromptText: first.PromptText, ModelID: first.ModelID, ModelName: first.ModelName, ReasoningEffort: first.ReasoningEffort, KeepCount: keepCount, UpdatedAt: &first.UpdatedAt}
+	if answerMode == "candy" {
+		response.Config.Title, response.Config.Description = "", ""
+		response.Config.PromptText = intelligenceTestCandyPrompt
+	}
+	seenGroups := make(map[int64]bool)
 	for _, c := range configs {
+		if answerMode == "candy" && c.GroupID != nil && !seenGroups[*c.GroupID] {
+			seenGroups[*c.GroupID] = true
+			response.Groups = append(response.Groups, IntelligenceTestPublicGroup{ID: c.GroupID, Name: c.GroupName})
+		}
 		if c.KeepCount > keepCount { keepCount = c.KeepCount }
-		items, err := s.repo.ListSVGResults(ctx, c.ID, c.KeepCount)
+		var items []*IntelligenceTestResult
+		var err error
+		if answerMode == "candy" { items, err = s.repo.ListResults(ctx, c.ID, c.KeepCount) } else { items, err = s.repo.ListSVGResults(ctx, c.ID, c.KeepCount) }
 		if err != nil { return nil, err }
 		for _, item := range items {
+			if item.AnswerMode != answerMode { continue }
 			rateMultiplier := item.RateMultiplier
 			if rateMultiplier <= 0 { rateMultiplier = 1 }
 			response.Items = append(response.Items, &IntelligenceTestPublicResult{
-				ID: item.ID,
+				ID: item.ID, AnswerMode: item.AnswerMode, ResponseText: item.ResponseText,
 				GroupID: item.GroupID,
 				GroupName: item.GroupName, ModelID: item.ModelID, ModelName: item.ModelName, ReasoningEffort: item.ReasoningEffort, Status: item.Status,
 				RateMultiplier: rateMultiplier,
@@ -535,7 +570,7 @@ func (s *IntelligenceTestService) Public(ctx context.Context, configID int64) (*
 	sort.Slice(response.Items, func(i, j int) bool { return response.Items[i].CreatedAt.After(response.Items[j].CreatedAt) })
 	seen := make(map[string]struct{})
 	for _, item := range response.Items {
-		if item.GroupName != "" {
+		if item.GroupName != "" && answerMode != "candy" {
 			if _, ok := seen[item.GroupName]; !ok {
 				seen[item.GroupName] = struct{}{}
 				response.Groups = append(response.Groups, IntelligenceTestPublicGroup{

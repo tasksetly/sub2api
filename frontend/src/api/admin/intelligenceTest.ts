@@ -1,6 +1,7 @@
 import { apiClient } from '../client'
 
 export interface IntelligenceTestConfig {
+  answer_mode?: 'svg' | 'candy'
   id: number
   name: string
   model_id: string
@@ -29,6 +30,8 @@ export interface IntelligenceTestAPIKeyOption {
 }
 
 export interface IntelligenceTestResult {
+  answer_mode?: 'svg' | 'candy'
+  response_text?: string
   account_id?: number
   account_name?: string
   prompt_text?: string
@@ -56,6 +59,7 @@ export interface IntelligenceTestRunStatus {
 }
 
 export interface IntelligenceTestConfigInput {
+  answer_mode?: 'svg' | 'candy'
   name: string
   model_id: string
   model_name: string

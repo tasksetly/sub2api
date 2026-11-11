@@ -227,7 +227,7 @@ export default {
     channelPricing: 'Channel Pricing',
     channelMonitor: 'Channel Monitor',
     channelStatus: 'Channel Status',
-    intelligenceTest: 'SVG Intelligence Test',
+    intelligenceTest: 'Model Intelligence Tests',
     riskControl: 'Risk Control',
     securityAudit: 'Security Audit',
     contentModeration: 'Content Moderation',

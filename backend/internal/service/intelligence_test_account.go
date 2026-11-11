@@ -68,7 +68,7 @@ func (s *IntelligenceTestService) QueueAccountRun(ctx context.Context, accountID
 	}
 	now := time.Now()
 	result := &IntelligenceTestResult{
-		AccountID: &accountID, AccountName: account.Name, PromptText: input.PromptText,
+		AnswerMode: "svg", AccountID: &accountID, AccountName: account.Name, PromptText: input.PromptText,
 		ModelID: input.ModelID, ModelName: input.ModelID, ReasoningEffort: input.ReasoningEffort,
 		Status: "running", StartedAt: now, FinishedAt: now, CreatedAt: now,
 	}
@@ -112,8 +112,9 @@ func (s *IntelligenceTestService) ListAccountResults(ctx context.Context, accoun
 	return s.repo.ListAccountResults(ctx, accountID, beforeID, 20)
 }
 
-// Both scheduled and manual tests persist only extracted SVG and sanitized errors.
+// SVG tests retain extracted SVG; candy tests retain successful answers for inspection.
 func applyIntelligenceTestRun(ctx context.Context, result *IntelligenceTestResult, run *ScheduledTestResult, runErr error) {
+	result.Check, result.SVGContent, result.ResponseText = false, "", ""
 	result.Status = "failed"
 	result.ErrorMessage = "upstream test failed"
 	result.FinishedAt = time.Now()
@@ -122,19 +123,32 @@ func applyIntelligenceTestRun(ctx context.Context, result *IntelligenceTestResul
 		result.LatencyMs = run.LatencyMs
 		result.StartedAt, result.FinishedAt = run.StartedAt, run.FinishedAt
 		if run.Status == "success" {
-			result.SVGContent = extractSVG(run.ResponseText)
-			result.Check = result.SVGContent != ""
-			if result.Check {
-				result.Status, result.ErrorMessage = "validated", ""
+			if result.AnswerMode == "candy" {
+				result.ResponseText = strings.TrimSpace(run.ResponseText)
+				if result.ResponseText == "" {
+					result.ErrorMessage = "empty_response"
+				} else {
+					result.Check = candyAnswerPasses(result.ResponseText)
+					result.Status, result.ErrorMessage = "incorrect", ""
+					if result.Check {
+						result.Status = "validated"
+					}
+				}
 			} else {
-				result.ErrorMessage = "svg_missing_or_invalid"
+				result.SVGContent = extractSVG(run.ResponseText)
+				result.Check = result.SVGContent != ""
+				if result.Check {
+					result.Status, result.ErrorMessage = "validated", ""
+				} else {
+					result.ErrorMessage = "svg_missing_or_invalid"
+				}
 			}
 		} else if run.ErrorCode >= 100 {
 			result.ErrorMessage = "upstream HTTP " + strconv.Itoa(run.ErrorCode)
 		}
 	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		result.Status, result.Check, result.SVGContent = "failed", false, ""
+		result.Status, result.Check, result.SVGContent, result.ResponseText = "failed", false, "", ""
 		result.ErrorMessage = "benchmark timed out"
 	}
 }

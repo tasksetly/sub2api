@@ -81,3 +81,51 @@ VALUES ('manual-svg-history', 'openai', 'apikey', '{}') RETURNING id`).Scan(&acc
 	require.NoError(t, err)
 	require.Empty(t, public, "manual results must not be reachable through a public config")
 }
+
+func TestCandyHistoryRetainsAllStatusesUpToMaximumDisplayLimit(t *testing.T) {
+	ctx := context.Background()
+	repo := NewIntelligenceTestRepository(integrationDB)
+	config, err := repo.CreateConfig(ctx, &service.IntelligenceTestConfig{
+		Name: "candy-history", AnswerMode: "candy", ModelID: "test-model", ModelName: "test-model",
+		PromptText: "Candy puzzle", CronExpression: "0 * * * *", KeepCount: 60,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "candy", config.AnswerMode)
+	t.Cleanup(func() { require.NoError(t, repo.DeleteConfig(ctx, config.ID)) })
+	statuses := []string{"validated", "incorrect", "failed"}
+	var newestID int64
+	for i := 0; i < 105; i++ {
+		now := time.Now()
+		status := statuses[i%len(statuses)]
+		answer := ""
+		if status == "validated" {
+			answer = "21"
+		} else if status == "incorrect" {
+			answer = "29"
+		}
+		result := &service.IntelligenceTestResult{
+			ConfigID: config.ID, AnswerMode: "candy", ModelID: "test-model", ModelName: "test-model",
+			Status: status, Check: status == "validated", ResponseText: answer, StartedAt: now, FinishedAt: now,
+		}
+		require.NoError(t, repo.InsertResult(ctx, result))
+		require.NoError(t, repo.PruneResults(ctx, config.ID))
+		newestID = result.ID
+	}
+	history, err := repo.ListResults(ctx, config.ID, config.KeepCount)
+	require.NoError(t, err)
+	require.Len(t, history, 60)
+	require.Equal(t, newestID, history[0].ID)
+	for _, item := range history {
+		require.Equal(t, "candy", item.AnswerMode)
+		if item.Check {
+			require.Equal(t, "21", item.ResponseText)
+		}
+	}
+	var count int
+	err = integrationDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM intelligence_test_results WHERE question_id=$1`, config.ID).Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, 100, count)
+	svg, err := repo.ListSVGResults(ctx, config.ID, 100)
+	require.NoError(t, err)
+	require.Empty(t, svg)
+}

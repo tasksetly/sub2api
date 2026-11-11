@@ -16,6 +16,7 @@ func NewIntelligenceTestHandler(svc *service.IntelligenceTestService) *Intellige
 }
 
 type intelligenceTestConfigRequest struct {
+	AnswerMode string `json:"answer_mode"`
 	Name           string `json:"name"`
 	ModelID        string `json:"model_id"`
 	ModelName      string `json:"model_name"`
@@ -97,11 +98,11 @@ func (h *IntelligenceTestHandler) ListResults(c *gin.Context) {
 
 func (h *IntelligenceTestHandler) Public(c *gin.Context) {
 	id, _ := strconv.ParseInt(c.Query("config_id"), 10, 64)
-	result, err := h.svc.Public(c.Request.Context(), id)
-	if err != nil { response.InternalError(c, err.Error()); return }
+	result, err := h.svc.Public(c.Request.Context(), id, c.Query("answer_mode"))
+	if err != nil { response.ErrorFrom(c, err); return }
 	c.JSON(http.StatusOK, result)
 }
 
 func toIntelligenceTestInput(req intelligenceTestConfigRequest) service.IntelligenceTestConfigInput {
-	return service.IntelligenceTestConfigInput{Name: req.Name, ModelID: req.ModelID, ModelName: req.ModelName, ReasoningEffort: req.ReasoningEffort, PromptText: req.PromptText, APIKeyID: req.APIKeyID, CronExpression: req.CronExpression, KeepCount: req.KeepCount, Enabled: req.Enabled}
+	return service.IntelligenceTestConfigInput{AnswerMode: req.AnswerMode, Name: req.Name, ModelID: req.ModelID, ModelName: req.ModelName, ReasoningEffort: req.ReasoningEffort, PromptText: req.PromptText, APIKeyID: req.APIKeyID, CronExpression: req.CronExpression, KeepCount: req.KeepCount, Enabled: req.Enabled}
 }

@@ -35,7 +35,7 @@ ORDER BY id DESC LIMIT $3`, accountID, beforeID, limit)
 	defer rows.Close()
 	items := make([]*service.IntelligenceTestResult, 0)
 	for rows.Next() {
-		item := &service.IntelligenceTestResult{}
+		item := &service.IntelligenceTestResult{AnswerMode: "svg"}
 		if err := rows.Scan(&item.ID, &item.AccountID, &item.AccountName, &item.PromptText, &item.ModelID, &item.ModelName,
 			&item.ReasoningEffort, &item.Status, &item.Check, &item.SVGContent, &item.ErrorMessage, &item.LatencyMs,
 			&item.StartedAt, &item.FinishedAt, &item.CreatedAt); err != nil {

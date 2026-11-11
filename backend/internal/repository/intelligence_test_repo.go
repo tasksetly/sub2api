@@ -16,14 +16,14 @@ func NewIntelligenceTestRepository(db *sql.DB) service.IntelligenceTestRepositor
 
 const intelligenceTestConfigColumns = `q.id, q.name, q.model_id, q.model_name, q.reasoning_effort, q.question_text, q.api_key_id,
  q.cron_expression, q.keep_count, q.enabled, q.last_run_at, q.next_run_at, q.created_at, q.updated_at,
- COALESCE(k.name, ''), k.group_id, COALESCE(g.name, '')`
+ COALESCE(k.name, ''), k.group_id, COALESCE(g.name, ''), q.answer_mode`
 
 func scanIntelligenceTestConfig(scanner interface{ Scan(...any) error }) (*service.IntelligenceTestConfig, error) {
 	c := &service.IntelligenceTestConfig{}
 	var apiKeyID, groupID sql.NullInt64
 	if err := scanner.Scan(&c.ID, &c.Name, &c.ModelID, &c.ModelName, &c.ReasoningEffort, &c.PromptText, &apiKeyID, &c.CronExpression,
 		&c.KeepCount, &c.Enabled, &c.LastRunAt, &c.NextRunAt, &c.CreatedAt, &c.UpdatedAt,
-		&c.APIKeyName, &groupID, &c.GroupName); err != nil {
+		&c.APIKeyName, &groupID, &c.GroupName, &c.AnswerMode); err != nil {
 		return nil, err
 	}
 	if apiKeyID.Valid { c.APIKeyID = apiKeyID.Int64 }
@@ -58,8 +58,8 @@ LEFT JOIN groups g ON g.id = k.group_id WHERE q.id = $1`, id))
 func (r *intelligenceTestRepository) CreateConfig(ctx context.Context, c *service.IntelligenceTestConfig) (*service.IntelligenceTestConfig, error) {
 	row := r.db.QueryRowContext(ctx, `INSERT INTO intelligence_test_questions
 (name, model_id, model_name, reasoning_effort, question_text, answer_mode, strength, api_key_id, cron_expression, keep_count, enabled, next_run_at)
-VALUES ($1, $2, $3, $4, $5, 'svg', 'medium', $6, $7, $8, $9, $10) RETURNING id`, c.Name, c.ModelID, c.ModelName, c.ReasoningEffort, c.PromptText,
-		intelligenceTestNullInt64(c.APIKeyID), c.CronExpression, c.KeepCount, c.Enabled, c.NextRunAt)
+VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($11, ''), 'svg'), 'medium', $6, $7, $8, $9, $10) RETURNING id`, c.Name, c.ModelID, c.ModelName, c.ReasoningEffort, c.PromptText,
+		intelligenceTestNullInt64(c.APIKeyID), c.CronExpression, c.KeepCount, c.Enabled, c.NextRunAt, c.AnswerMode)
 	if err := row.Scan(&c.ID); err != nil { return nil, err }
 	return r.GetConfig(ctx, c.ID)
 }
@@ -126,23 +126,23 @@ ORDER BY g.name, k.name, k.id`)
 
 func (r *intelligenceTestRepository) InsertResult(ctx context.Context, item *service.IntelligenceTestResult) error {
 	row := r.db.QueryRowContext(ctx, `INSERT INTO intelligence_test_results
-(question_id, api_key_id, group_id, group_name, model_id, model_name, reasoning_effort, status, check_ok, svg_content, error_message, latency_ms, started_at, finished_at, account_id, account_name, prompt_text)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id, created_at`, intelligenceTestNullInt64(item.ConfigID),
+(question_id, api_key_id, group_id, group_name, model_id, model_name, reasoning_effort, status, check_ok, svg_content, error_message, latency_ms, started_at, finished_at, account_id, account_name, prompt_text, answer_mode, response_text)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, COALESCE(NULLIF($18, ''), 'svg'), $19) RETURNING id, created_at`, intelligenceTestNullInt64(item.ConfigID),
 		intelligenceTestNullInt64(item.APIKeyID), item.GroupID, item.GroupName, item.ModelID, item.ModelName, item.ReasoningEffort, item.Status, item.Check, item.SVGContent,
-		item.ErrorMessage, item.LatencyMs, item.StartedAt, item.FinishedAt, item.AccountID, item.AccountName, item.PromptText)
+		item.ErrorMessage, item.LatencyMs, item.StartedAt, item.FinishedAt, item.AccountID, item.AccountName, item.PromptText, item.AnswerMode, item.ResponseText)
 	return row.Scan(&item.ID, &item.CreatedAt)
 }
 
 func (r *intelligenceTestRepository) PruneResults(ctx context.Context, configID int64) error {
-	// The display limit must not delete valid SVG history.
+	// Preserve valid SVG history; keep up to 100 candy runs so every display limit remains available.
 	_, err := r.db.ExecContext(ctx, `WITH ranked AS (
-    SELECT id, ROW_NUMBER() OVER (ORDER BY created_at DESC, id DESC) AS rn
+    SELECT id, answer_mode, ROW_NUMBER() OVER (PARTITION BY answer_mode ORDER BY created_at DESC, id DESC) AS rn
     FROM intelligence_test_results WHERE question_id = $1
-      AND (check_ok = FALSE OR svg_content = '')
+      AND (answer_mode = 'candy' OR (answer_mode = 'svg' AND (check_ok = FALSE OR svg_content = '')))
 )
 DELETE FROM intelligence_test_results AS result USING ranked
 WHERE result.id = ranked.id
-  AND ranked.rn > 20`, configID)
+  AND ((ranked.answer_mode = 'svg' AND ranked.rn > 20) OR (ranked.answer_mode = 'candy' AND ranked.rn > 100))`, configID)
 	return err
 }
 
@@ -157,9 +157,9 @@ func (r *intelligenceTestRepository) ListSVGResults(ctx context.Context, configI
 func (r *intelligenceTestRepository) listResults(ctx context.Context, configID int64, limit int, svgOnly bool) ([]*service.IntelligenceTestResult, error) {
 	if limit <= 0 { limit = 20 }
 	if limit > 100 { limit = 100 }
-	query := `SELECT r.id, r.question_id, r.api_key_id, r.group_id, r.group_name, r.model_id, r.model_name, r.reasoning_effort, r.status, r.check_ok, r.svg_content, r.error_message, r.latency_ms, r.started_at, r.finished_at, r.created_at, COALESCE(g.rate_multiplier, 1)
+	query := `SELECT r.id, r.question_id, r.api_key_id, r.group_id, r.group_name, r.model_id, r.model_name, r.reasoning_effort, r.status, r.check_ok, r.svg_content, r.error_message, r.latency_ms, r.started_at, r.finished_at, r.created_at, COALESCE(g.rate_multiplier, 1), r.answer_mode, r.response_text
 FROM intelligence_test_results r LEFT JOIN groups g ON g.id = r.group_id WHERE r.question_id=$1`
-	if svgOnly { query += ` AND check_ok = TRUE AND svg_content <> ''` }
+	if svgOnly { query += ` AND r.answer_mode = 'svg' AND check_ok = TRUE AND svg_content <> ''` }
 	query += ` ORDER BY r.created_at DESC, r.id DESC LIMIT $2`
 	rows, err := r.db.QueryContext(ctx, query, configID, limit)
 	if err != nil { return nil, err }
@@ -169,7 +169,7 @@ FROM intelligence_test_results r LEFT JOIN groups g ON g.id = r.group_id WHERE r
 		item := &service.IntelligenceTestResult{}
 		var apiKeyID, groupID sql.NullInt64
 		if err := rows.Scan(&item.ID, &item.ConfigID, &apiKeyID, &groupID, &item.GroupName, &item.ModelID, &item.ModelName, &item.ReasoningEffort, &item.Status,
-			&item.Check, &item.SVGContent, &item.ErrorMessage, &item.LatencyMs, &item.StartedAt, &item.FinishedAt, &item.CreatedAt, &item.RateMultiplier); err != nil { return nil, err }
+			&item.Check, &item.SVGContent, &item.ErrorMessage, &item.LatencyMs, &item.StartedAt, &item.FinishedAt, &item.CreatedAt, &item.RateMultiplier, &item.AnswerMode, &item.ResponseText); err != nil { return nil, err }
 		if apiKeyID.Valid { item.APIKeyID = apiKeyID.Int64 }
 		if groupID.Valid { item.GroupID = &groupID.Int64 }
 		items = append(items, item)

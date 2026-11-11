@@ -9,6 +9,7 @@ import playground from './playground'
 import admin from './admin'
 import misc from './misc'
 import tickets from './tickets'
+import intelligenceTest from './intelligenceTest'
 
 export default {
   adminAccessKeys,
@@ -22,4 +23,5 @@ export default {
   admin,
   ...misc,
   ...tickets,
+  ...intelligenceTest,
 }
