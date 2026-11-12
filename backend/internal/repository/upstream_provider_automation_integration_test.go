@@ -136,8 +136,13 @@ func TestUpstreamBalanceAlertLeaseExpiryAndStaleCompletion(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, claimed)
 
-	// Recover work abandoned by a stopped process after the lease expires.
-	snapshot.SyncedAt = now.Add(11 * time.Minute)
+	snapshot.SyncedAt = now.Add(10*time.Minute - time.Microsecond)
+	claimed, err = repo.PrepareBalanceAlert(ctx, p, snapshot, snapshot.SyncedAt)
+	require.NoError(t, err)
+	require.False(t, claimed, "an unexpired lease must not be claimed again")
+
+	// Recover work at the 10-minute lease boundary; the SQL parameter must be a timestamp, not an interval.
+	snapshot.SyncedAt = now.Add(10 * time.Minute)
 	claimed, err = repo.PrepareBalanceAlert(ctx, p, snapshot, snapshot.SyncedAt)
 	require.NoError(t, err)
 	require.True(t, claimed)

@@ -130,7 +130,7 @@ func (r *upstreamProviderRepository) PrepareBalanceAlert(ctx context.Context, pr
         AND a.balance_checked_at = $2 AND $3 < a.balance_alert_threshold
         AND a.balance_alert_threshold = $4 AND a.balance_alert_email = $5
         AND a.balance_alert_sent_at IS NULL
-        AND (a.balance_alert_claimed_at IS NULL OR a.balance_alert_claimed_at <= $6 - INTERVAL '10 minutes')`,
+        AND (a.balance_alert_claimed_at IS NULL OR a.balance_alert_claimed_at <= $6::timestamptz - INTERVAL '10 minutes')`,
 		provider.ID, snapshot.SyncedAt, *snapshot.Balance, a.BalanceAlertThreshold, a.BalanceAlertEmail, claimedAt,
 		provider.BaseURL, providerTypeOrDefault(provider.ProviderType), provider.Username)
 	if err != nil {
