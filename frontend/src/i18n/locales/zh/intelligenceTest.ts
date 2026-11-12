@@ -1,5 +1,15 @@
 export default {
   "intelligenceTest": {
+    "combinedDescription": "查看不同 API Key 分组的糖果推理结果与 SVG 生成作品。",
+    "apiKey": "API Key（自动绑定分组）",
+    "selectKey": "选择 API Key",
+    "selectModel": "选择模型",
+    "modelsHint": "模型列表随所选 API Key 的分组动态加载。",
+    "modelsLoadFailed": "模型列表加载失败，请重试。",
+    "noModels": "这个 API Key 暂无可用于测试的模型。",
+    "modelUnavailable": "当前模型已不在该 Key 的可用列表中，请重新选择。",
+    "lastRun": "最近运行",
+    "nextRun": "下次运行",
     "title": "模型智商测试",
     "types": "检测项目",
     "svg": "SVG 测试",

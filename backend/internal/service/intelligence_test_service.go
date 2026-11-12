@@ -88,7 +88,7 @@ type IntelligenceTestRepository interface {
 	UpdateConfig(context.Context, *IntelligenceTestConfig) (*IntelligenceTestConfig, error)
 	DeleteConfig(context.Context, int64) error
 	ListDueConfigs(context.Context, time.Time) ([]*IntelligenceTestConfig, error)
-	UpdateRun(context.Context, int64, time.Time, time.Time) error
+	UpdateRun(context.Context, int64, time.Time, time.Time, *time.Time) error
 	ListAPIKeyOptions(context.Context) ([]*IntelligenceTestAPIKeyOption, error)
 	InsertResult(context.Context, *IntelligenceTestResult) error
 	UpdateAccountResult(context.Context, *IntelligenceTestResult) error
@@ -179,10 +179,11 @@ type IntelligenceTestService struct {
 	stopOnce      sync.Once
 	runMu         sync.Mutex
 	runs          map[int64]IntelligenceTestRunStatus
+	runSlots      chan struct{}
 }
 
 func NewIntelligenceTestService(repo IntelligenceTestRepository, apiKeyRepo APIKeyRepository, accountRepo AccountRepository, accountTest *AccountTestService, gateway *GatewayService, db *sql.DB) *IntelligenceTestService {
-	return &IntelligenceTestService{repo: repo, apiKeyRepo: apiKeyRepo, accountRepo: accountRepo, accountTest: accountTest, gateway: gateway, db: db, runs: make(map[int64]IntelligenceTestRunStatus)}
+	return &IntelligenceTestService{repo: repo, apiKeyRepo: apiKeyRepo, accountRepo: accountRepo, accountTest: accountTest, gateway: gateway, db: db, runs: make(map[int64]IntelligenceTestRunStatus), runSlots: make(chan struct{}, scheduledTestDefaultMaxWorkers)}
 }
 
 func (s *IntelligenceTestService) Start() {
@@ -206,6 +207,18 @@ func (s *IntelligenceTestService) GetConfig(ctx context.Context, id int64) (*Int
 func (s *IntelligenceTestService) ListAPIKeyOptions(ctx context.Context) ([]*IntelligenceTestAPIKeyOption, error) { return s.repo.ListAPIKeyOptions(ctx) }
 func (s *IntelligenceTestService) ListResults(ctx context.Context, id int64, limit int) ([]*IntelligenceTestResult, error) { return s.repo.ListResults(ctx, id, limit) }
 
+// GetModelListAPIKey supplies the selected key's group to the existing gateway model listing.
+func (s *IntelligenceTestService) GetModelListAPIKey(ctx context.Context, id int64) (*APIKey, error) {
+	key, err := s.apiKeyRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if key == nil || !key.IsActive() || key.IsExpired() || key.GroupID == nil || key.Group == nil {
+		return nil, infraerrors.BadRequest("INTELLIGENCE_TEST_KEY_INVALID", "an active API key bound to a group is required")
+	}
+	return key, nil
+}
+
 func (s *IntelligenceTestService) CreateConfig(ctx context.Context, input IntelligenceTestConfigInput) (*IntelligenceTestConfig, error) {
 	c, err := s.normalizeConfig(input)
 	if err != nil { return nil, err }
@@ -222,6 +235,9 @@ func (s *IntelligenceTestService) UpdateConfig(ctx context.Context, id int64, in
 	}
 	c.Name, c.ModelID, c.ModelName, c.PromptText, c.APIKeyID = next.Name, next.ModelID, next.ModelName, next.PromptText, next.APIKeyID
 	c.ReasoningEffort = next.ReasoningEffort
+	if c.CronExpression != next.CronExpression || (!c.Enabled && next.Enabled) || c.NextRunAt == nil || c.NextRunAt.After(*next.NextRunAt) {
+		c.NextRunAt = next.NextRunAt
+	}
 	c.CronExpression, c.KeepCount, c.Enabled = next.CronExpression, next.KeepCount, next.Enabled
 	return s.repo.UpdateConfig(ctx, c)
 }
@@ -399,27 +415,40 @@ func (s *IntelligenceTestService) executeRun(ctx context.Context, c *Intelligenc
 	if schedule, parseErr := scheduledTestCronParser.Parse(c.CronExpression); parseErr == nil { next = schedule.Next(now) }
 	writeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if updateErr := s.repo.UpdateRun(writeCtx, c.ID, now, next); updateErr != nil && err == nil { err = updateErr }
+	if updateErr := s.repo.UpdateRun(writeCtx, c.ID, now, next, c.NextRunAt); updateErr != nil && err == nil { err = updateErr }
 	return result, err
 }
 
 func (s *IntelligenceTestService) runDue() {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	now := time.Now()
 	configs, err := s.repo.ListDueConfigs(ctx, now)
+	cancel()
 	if err != nil {
 		slog.Error("intelligence_test_list_due_failed", "error", err)
 		return
 	}
+	var wg sync.WaitGroup
+dispatch:
 	for _, c := range configs {
-		if ctx.Err() != nil {
-			return
+		select {
+		case s.runSlots <- struct{}{}:
+		default:
+			break dispatch
 		}
-		if _, err := s.run(ctx, c.ID, &now); err != nil && !errors.Is(err, ErrIntelligenceTestAlreadyRunning) {
-			slog.Error("intelligence_test_run_failed", "config_id", c.ID, "error", err)
-		}
+		wg.Add(1)
+		go func(id int64) {
+			defer wg.Done()
+			defer func() { <-s.runSlots }()
+			// Give each inference its own timeout so a slow SVG cannot exhaust another test's budget.
+			jobCtx, jobCancel := context.WithTimeout(context.Background(), 15*time.Minute)
+			defer jobCancel()
+			if _, err := s.run(jobCtx, id, &now); err != nil && !errors.Is(err, ErrIntelligenceTestAlreadyRunning) {
+				slog.Error("intelligence_test_run_failed", "config_id", id, "error", err)
+			}
+		}(c.ID)
 	}
+	wg.Wait()
 }
 
 func (s *IntelligenceTestService) runConfig(ctx context.Context, c *IntelligenceTestConfig) (*IntelligenceTestResult, error) {

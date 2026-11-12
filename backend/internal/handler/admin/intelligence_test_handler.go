@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -38,6 +39,24 @@ func (h *IntelligenceTestHandler) ListAPIKeys(c *gin.Context) {
 	items, err := h.svc.ListAPIKeyOptions(c.Request.Context())
 	if err != nil { response.InternalError(c, err.Error()); return }
 	c.JSON(http.StatusOK, items)
+}
+
+// ModelListKey is only mounted on the admin model-list route; credentials never leave the server.
+func (h *IntelligenceTestHandler) ModelListKey(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, "invalid API key id")
+		c.Abort()
+		return
+	}
+	key, err := h.svc.GetModelListAPIKey(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		c.Abort()
+		return
+	}
+	c.Set(string(middleware.ContextKeyAPIKey), key)
+	c.Next()
 }
 
 func (h *IntelligenceTestHandler) Create(c *gin.Context) {

@@ -831,6 +831,7 @@ func registerIntelligenceTestRoutes(admin *gin.RouterGroup, h *handler.Handlers)
 	{
 		tests.GET("/configs", h.Admin.IntelligenceTest.ListConfigs)
 		tests.GET("/api-keys", h.Admin.IntelligenceTest.ListAPIKeys)
+		tests.GET("/api-keys/:id/models", h.Admin.IntelligenceTest.ModelListKey, h.Gateway.Models)
 		tests.POST("/configs", h.Admin.IntelligenceTest.Create)
 		tests.PUT("/configs/:id", h.Admin.IntelligenceTest.Update)
 		tests.DELETE("/configs/:id", h.Admin.IntelligenceTest.Delete)

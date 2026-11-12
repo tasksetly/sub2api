@@ -19,23 +19,21 @@
       <section class="test-intro">
         <div>
           <p class="eyebrow"><Icon name="brain" size="xs" /> {{ copy.eyebrow }}</p>
-          <h1>{{ answerMode === 'candy' ? t('intelligenceTest.candy') : config.title || copy.title }}</h1>
-          <p class="intro-description">{{ answerMode === 'candy' ? t('intelligenceTest.description') : config.description || copy.description }}</p>
+          <h1>{{ t('intelligenceTest.title') }}</h1>
+          <p class="intro-description">{{ t('intelligenceTest.combinedDescription') }}</p>
         </div>
-        <button class="refresh-button" type="button" :disabled="loading" @click="loadResults">
-          <Icon name="refresh" size="sm" :class="{ 'spin-once': loading }" />
-          {{ loading ? copy.refreshing : copy.refresh }}
+        <button class="refresh-button" type="button" :disabled="loading || candyLoading" @click="refreshAll">
+          <Icon name="refresh" size="sm" :class="{ 'spin-once': loading || candyLoading }" />
+          {{ loading || candyLoading ? copy.refreshing : copy.refresh }}
         </button>
       </section>
 
-      <div class="mb-6 flex gap-2" role="group" :aria-label="t('intelligenceTest.types')">
-        <button v-for="mode in (['candy', 'svg'] as const)" :key="mode" type="button" class="filter-tab" :class="{ active: answerMode === mode }" :aria-pressed="answerMode === mode" :disabled="loading" @click="changeMode(mode)">
-          {{ t(mode === 'candy' ? 'intelligenceTest.candy' : 'intelligenceTest.svg') }}
-        </button>
-      </div>
+      <section class="mb-10" aria-labelledby="candy-heading">
+        <h2 id="candy-heading" class="mb-4 text-lg font-semibold">{{ t('intelligenceTest.candy') }}</h2>
+        <CandyTestResults :response="candyResponse" :loading="candyLoading && !candyHasLoaded" :error="candyError" @refresh="loadCandyResults" />
+      </section>
 
-      <CandyTestResults v-if="answerMode === 'candy'" :response="response" :loading="loading && !hasLoaded" :error="error" @refresh="loadResults" />
-      <template v-else>
+      <h2 class="mb-4 text-lg font-semibold">{{ t('intelligenceTest.svg') }}</h2>
       <section class="prompt-panel" aria-labelledby="prompt-heading">
         <div class="prompt-panel__icon"><Icon name="lightbulb" size="md" /></div>
         <div class="prompt-panel__content">
@@ -167,7 +165,6 @@
           </div>
         </section>
       </template>
-      </template>
     </main>
 
     <div v-if="preview" class="preview-backdrop" role="dialog" aria-modal="true" :aria-label="copy.preview" @click.self="closePreview">
@@ -224,7 +221,10 @@ const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
-const answerMode = ref<'svg' | 'candy'>(route.query.answer_mode === 'candy' ? 'candy' : 'svg')
+const candyResponse = ref<IntelligenceTestResponse>({})
+const candyLoading = ref(false)
+const candyHasLoaded = ref(false)
+const candyError = ref('')
 const loading = ref(false)
 const hasLoaded = ref(false)
 const error = ref('')
@@ -244,7 +244,6 @@ const isDark = ref(route.query.theme === 'dark' || (
 const siteName = computed(() => appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => appStore.siteLogo || '')
 const query = computed(() => ({
-  answer_mode: answerMode.value,
   user_id: asQueryString(route.query.user_id),
   token: asQueryString(route.query.token),
   question_id: asQueryString(route.query.question_id),
@@ -364,13 +363,22 @@ function formatDate(item: IntelligenceTestItem) {
   return new Intl.DateTimeFormat(isEnglish.value ? 'en-US' : 'zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
-function changeMode(mode: 'svg' | 'candy') {
-  if (loading.value || answerMode.value === mode) return
-  answerMode.value = mode
-  response.value = {}
-  hasLoaded.value = false
-  selectedGroup.value = ALL_GROUP
-  closePreview()
+async function loadCandyResults() {
+  if (candyLoading.value) return
+  candyLoading.value = true
+  candyError.value = ''
+  try {
+    candyResponse.value = await getIntelligenceTest({ ...query.value, answer_mode: 'candy' })
+    candyHasLoaded.value = true
+  } catch (cause) {
+    candyError.value = cause instanceof Error ? cause.message : t('intelligenceTest.loadFailed')
+  } finally {
+    candyLoading.value = false
+  }
+}
+
+function refreshAll() {
+  void loadCandyResults()
   void loadResults()
 }
 
@@ -379,7 +387,7 @@ async function loadResults() {
   loading.value = true
   error.value = ''
   try {
-    response.value = await getIntelligenceTest(query.value)
+    response.value = await getIntelligenceTest({ ...query.value, answer_mode: 'svg' })
     hasLoaded.value = true
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : (isEnglish.value ? 'The test service is unavailable.' : '测试服务暂时不可用，请稍后重试。')
@@ -388,7 +396,7 @@ async function loadResults() {
   }
 }
 
-useIntervalFn(() => { void loadResults() }, 60_000)
+useIntervalFn(refreshAll, 60_000)
 
 function setGroupRef(name: string, element: unknown) {
   if (element instanceof HTMLElement) groupRefs.set(name, element)
@@ -432,7 +440,7 @@ onMounted(() => {
   void appStore.fetchPublicSettings()
   document.documentElement.classList.toggle('dark', isDark.value)
   document.addEventListener('keydown', onKeydown)
-  void loadResults()
+  refreshAll()
 })
 
 onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))

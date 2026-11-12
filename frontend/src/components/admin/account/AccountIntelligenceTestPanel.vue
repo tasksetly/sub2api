@@ -6,23 +6,7 @@
         <label class="input-label" for="svg-test-model">{{ t('admin.accounts.selectTestModel') }}</label>
         <Select id="svg-test-model" v-model="modelId" :options="modelOptions" searchable creatable :disabled="submitting || running" :placeholder="t('admin.accounts.svgTest.modelPlaceholder')" />
       </div>
-      <div>
-        <label class="input-label" for="svg-test-template">{{ t('admin.accounts.svgTest.promptTemplate') }}</label>
-        <Select id="svg-test-template" v-model="templateId" :options="templateOptions" searchable clearable :loading="templatesLoading" :disabled="submitting || running || templateSaving" :placeholder="t('admin.accounts.svgTest.templatePlaceholder')" @update:model-value="applyPromptTemplate" />
-        <p class="mt-1 text-xs text-gray-500">{{ t('admin.accounts.svgTest.templateHint') }}</p>
-      </div>
-      <TextArea ref="promptInput" id="svg-test-prompt" v-model="prompt" :label="t('admin.accounts.svgTest.prompt')" :placeholder="t('admin.accounts.svgTest.promptPlaceholder')" :hint="t('admin.accounts.svgTest.promptHint')" :rows="5" required :disabled="submitting || running || templateSaving" />
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <Input id="svg-test-template-name" v-model="templateName" :label="t('admin.accounts.svgTest.templateName')" :placeholder="t('admin.accounts.svgTest.templateNamePlaceholder')" :disabled="templateSaving" />
-        <button type="button" class="btn btn-secondary shrink-0" :disabled="!canSaveTemplate" @click="savePromptTemplate">
-          {{ t(templateSaving ? 'common.saving' : 'admin.accounts.svgTest.saveTemplate') }}
-        </button>
-      </div>
-      <p v-if="templateError" class="text-sm text-red-600" role="alert">
-        {{ templateError }}
-        <button type="button" class="underline" :disabled="templatesLoading" @click="loadPromptTemplates">{{ t('common.refresh') }}</button>
-      </p>
-      <p v-if="templateSaved" class="text-sm text-green-600" role="status">{{ t('admin.accounts.svgTest.templateSaved') }}</p>
+      <IntelligenceTestPromptFields ref="promptInput" v-model="prompt" :disabled="submitting || running" @saving="templateSaving = $event" />
       <div>
         <label class="input-label" for="svg-test-effort">{{ t('admin.accounts.svgTest.effort') }}</label>
         <select id="svg-test-effort" v-model="effort" class="input" :disabled="submitting || running">
@@ -76,11 +60,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
-import Input from '@/components/common/Input.vue'
-import TextArea from '@/components/common/TextArea.vue'
+import IntelligenceTestPromptFields from '@/components/intelligenceTest/IntelligenceTestPromptFields.vue'
 import { adminAPI } from '@/api/admin'
 import type { IntelligenceTestResult } from '@/api/admin/intelligenceTest'
-import type { Account, ClaudeModel, ScheduledTestPromptTemplate } from '@/types'
+import type { Account, ClaudeModel } from '@/types'
 import { useClipboard } from '@/composables/useClipboard'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime } from '@/utils/format'
@@ -92,15 +75,8 @@ const { copyToClipboard } = useClipboard()
 const modelId = ref('')
 const prompt = ref('')
 const effort = ref('')
-const promptInput = ref<InstanceType<typeof TextArea> | null>(null)
-const promptTemplates = ref<ScheduledTestPromptTemplate[]>([])
-const templateId = ref('')
-const templateName = ref('')
-const templatesLoading = ref(false)
+const promptInput = ref<InstanceType<typeof IntelligenceTestPromptFields> | null>(null)
 const templateSaving = ref(false)
-const templateSaved = ref(false)
-const templateError = ref('')
-const templateOptions = computed<SelectOption[]>(() => promptTemplates.value.map(item => ({ value: String(item.id), label: item.name })))
 const validPrompt = computed(() => !!prompt.value.trim() && Array.from(prompt.value.trim()).length <= 20000)
 const results = ref<IntelligenceTestResult[]>([])
 const selectedId = ref<number | null>(null)
@@ -116,61 +92,11 @@ let timer: ReturnType<typeof setTimeout> | undefined
 const modelOptions = computed<SelectOption[]>(() => props.models
   .filter(item => !/gpt-image-|gemini-.*image|grok-imagine|grok-video/i.test(item.id))
   .map(item => ({ value: item.id, label: item.display_name })))
-const canSaveTemplate = computed(() => !templatesLoading.value && !templateSaving.value && !submitting.value && !running.value && validPrompt.value && !!templateName.value.trim() && Array.from(templateName.value.trim()).length <= 200)
 const canRun = computed(() => loaded.value && !loading.value && !templateSaving.value && !submitting.value && !running.value && !props.loadingModels && !!modelId.value.trim() && Array.from(modelId.value.trim()).length <= 200 && validPrompt.value)
 watch(modelOptions, models => { if (!modelId.value && models.length) modelId.value = String(models[0].value) }, { immediate: true })
-watch(prompt, value => {
-  templateSaved.value = false
-  if (promptTemplates.value.find(item => String(item.id) === templateId.value)?.prompt_text !== value) templateId.value = ''
-})
-
-async function loadPromptTemplates() {
-  if (templatesLoading.value || templateSaving.value) return
-  templatesLoading.value = true
-  templateError.value = ''
-  try {
-    const items = await adminAPI.scheduledTests.listPromptTemplates()
-    if (!controller.signal.aborted) promptTemplates.value = items
-  } catch (cause) {
-    if (!controller.signal.aborted) templateError.value = extractApiErrorMessage(cause, t('admin.accounts.svgTest.templatesLoadFailed'))
-  } finally {
-    templatesLoading.value = false
-  }
-}
-
-function applyPromptTemplate(value: SelectOption['value']) {
-  if (submitting.value || running.value || templateSaving.value) return
-  const item = promptTemplates.value.find(item => String(item.id) === String(value ?? ''))
-  if (item) {
-    prompt.value = item.prompt_text
-    promptInput.value?.focus()
-  }
-}
-
-async function savePromptTemplate() {
-  if (!canSaveTemplate.value) return
-  templateSaving.value = true
-  templateSaved.value = false
-  templateError.value = ''
-  try {
-    const created = await adminAPI.scheduledTests.createPromptTemplate({
-      name: templateName.value.trim(), prompt_text: prompt.value.trim(), expected_answer: ''
-    })
-    if (controller.signal.aborted) return
-    promptTemplates.value = [created, ...promptTemplates.value]
-    templateName.value = ''
-    if (prompt.value === created.prompt_text) templateId.value = String(created.id)
-    templateSaved.value = true
-  } catch (cause) {
-    if (!controller.signal.aborted) templateError.value = extractApiErrorMessage(cause, t('admin.accounts.svgTest.templateSaveFailed'))
-  } finally {
-    templateSaving.value = false
-  }
-}
 
 function reusePrompt(item: IntelligenceTestResult) {
   if (!item.prompt_text || submitting.value || running.value || templateSaving.value) return
-  templateId.value = ''
   prompt.value = item.prompt_text
   promptInput.value?.focus()
 }
@@ -229,7 +155,7 @@ async function run() {
   }
 }
 
-onMounted(() => { void load(); void loadPromptTemplates() })
+onMounted(() => { void load() })
 onBeforeUnmount(() => {
   controller.abort()
   if (timer) clearTimeout(timer)

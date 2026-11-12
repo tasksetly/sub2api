@@ -129,3 +129,42 @@ func TestCandyHistoryRetainsAllStatusesUpToMaximumDisplayLimit(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, svg)
 }
+
+func TestIntelligenceTestScheduleUpdatesPersistAndSurviveRunningJob(t *testing.T) {
+	ctx := context.Background()
+	repo := NewIntelligenceTestRepository(integrationDB)
+	oldNext := time.Now().Add(24 * time.Hour).Truncate(time.Microsecond)
+	config, err := repo.CreateConfig(ctx, &service.IntelligenceTestConfig{
+		Name: "candy-schedule", AnswerMode: "candy", ModelID: "test-model", ModelName: "test-model",
+		PromptText: "Candy puzzle", CronExpression: "0 0 * * *", KeepCount: 20, Enabled: true, NextRunAt: &oldNext,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, repo.DeleteConfig(ctx, config.ID)) })
+	newNext := time.Now().Add(time.Minute).Truncate(time.Microsecond)
+	config.CronExpression, config.NextRunAt = "* * * * *", &newNext
+	updated, err := repo.UpdateConfig(ctx, config)
+	require.NoError(t, err)
+	require.True(t, updated.NextRunAt.Equal(newNext))
+
+	finished := time.Now().Truncate(time.Microsecond)
+	require.NoError(t, repo.UpdateRun(ctx, config.ID, finished, oldNext, &oldNext))
+	updated, err = repo.GetConfig(ctx, config.ID)
+	require.NoError(t, err)
+	require.True(t, updated.NextRunAt.Equal(newNext), "an old run must not overwrite the edited schedule")
+	require.True(t, updated.LastRunAt.Equal(finished))
+	due, err := repo.ListDueConfigs(ctx, newNext)
+	require.NoError(t, err)
+	found := false
+	for _, item := range due {
+		if item.ID == config.ID {
+			found = true
+		}
+	}
+	require.True(t, found, "the edited candy schedule must become due")
+
+	next := newNext.Add(time.Minute)
+	require.NoError(t, repo.UpdateRun(ctx, config.ID, newNext, next, &newNext))
+	updated, err = repo.GetConfig(ctx, config.ID)
+	require.NoError(t, err)
+	require.True(t, updated.NextRunAt.Equal(next), "an unchanged schedule must advance after execution")
+}

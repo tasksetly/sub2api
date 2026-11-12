@@ -66,8 +66,8 @@ VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($11, ''), 'svg'), 'medium', $6, $7, 
 
 func (r *intelligenceTestRepository) UpdateConfig(ctx context.Context, c *service.IntelligenceTestConfig) (*service.IntelligenceTestConfig, error) {
 	result, err := r.db.ExecContext(ctx, `UPDATE intelligence_test_questions SET name=$2, model_id=$3, model_name=$4, reasoning_effort=$5, question_text=$6,
-api_key_id=$7, cron_expression=$8, keep_count=$9, enabled=$10, updated_at=NOW() WHERE id=$1`, c.ID, c.Name,
-		c.ModelID, c.ModelName, c.ReasoningEffort, c.PromptText, intelligenceTestNullInt64(c.APIKeyID), c.CronExpression, c.KeepCount, c.Enabled)
+api_key_id=$7, cron_expression=$8, keep_count=$9, enabled=$10, next_run_at=$11, updated_at=NOW() WHERE id=$1`, c.ID, c.Name,
+		c.ModelID, c.ModelName, c.ReasoningEffort, c.PromptText, intelligenceTestNullInt64(c.APIKeyID), c.CronExpression, c.KeepCount, c.Enabled, c.NextRunAt)
 	if err != nil { return nil, err }
 	count, err := result.RowsAffected()
 	if err != nil { return nil, err }
@@ -101,8 +101,11 @@ ORDER BY q.next_run_at NULLS FIRST, q.id`, now)
 	return items, rows.Err()
 }
 
-func (r *intelligenceTestRepository) UpdateRun(ctx context.Context, id int64, lastRun, nextRun time.Time) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE intelligence_test_questions SET last_run_at=$2, next_run_at=$3, updated_at=NOW() WHERE id=$1`, id, lastRun, nextRun)
+func (r *intelligenceTestRepository) UpdateRun(ctx context.Context, id int64, lastRun, nextRun time.Time, previousNextRun *time.Time) error {
+	// Preserve a schedule edited while inference was running.
+	_, err := r.db.ExecContext(ctx, `UPDATE intelligence_test_questions SET last_run_at=$2,
+next_run_at=CASE WHEN next_run_at IS NOT DISTINCT FROM $4::timestamptz THEN $3 ELSE next_run_at END,
+updated_at=NOW() WHERE id=$1`, id, lastRun, nextRun, previousNextRun)
 	return err
 }
 

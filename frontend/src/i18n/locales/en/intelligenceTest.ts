@@ -1,5 +1,15 @@
 export default {
   "intelligenceTest": {
+    "combinedDescription": "View candy reasoning results and SVG works across API key groups.",
+    "apiKey": "API key (binds its group)",
+    "selectKey": "Select an API key",
+    "selectModel": "Select a model",
+    "modelsHint": "Models load dynamically from the selected API key’s group.",
+    "modelsLoadFailed": "Unable to load models. Please retry.",
+    "noModels": "This API key has no models available for testing.",
+    "modelUnavailable": "The current model is no longer available for this key. Choose another model.",
+    "lastRun": "Last run",
+    "nextRun": "Next run",
     "title": "Model intelligence tests",
     "types": "Test type",
     "svg": "SVG test",

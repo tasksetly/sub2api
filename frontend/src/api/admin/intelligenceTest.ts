@@ -1,4 +1,5 @@
 import { apiClient } from '../client'
+import type { PlaygroundModel } from '../playground'
 
 export interface IntelligenceTestConfig {
   answer_mode?: 'svg' | 'candy'
@@ -81,6 +82,11 @@ export async function listAPIKeys() {
   return data ?? []
 }
 
+export async function listModels(apiKeyId: number, signal?: AbortSignal): Promise<PlaygroundModel[]> {
+  const { data } = await apiClient.get<{ data: PlaygroundModel[] }>(`/admin/intelligence-test/api-keys/${apiKeyId}/models`, { signal })
+  return data.data ?? []
+}
+
 export async function create(input: IntelligenceTestConfigInput) {
   const { data } = await apiClient.post<IntelligenceTestConfig>('/admin/intelligence-test/configs', input)
   return data
@@ -128,5 +134,5 @@ export async function listAccountResults(accountId: number, beforeId = 0, signal
   return data ?? []
 }
 
-export const intelligenceTestAPI = { runAccount, listAccountResults, listConfigs, listAPIKeys, create, update, remove, runNow, getRunStatus, listResults }
+export const intelligenceTestAPI = { runAccount, listAccountResults, listConfigs, listAPIKeys, listModels, create, update, remove, runNow, getRunStatus, listResults }
 export default intelligenceTestAPI
