@@ -113,7 +113,26 @@
           <AccountCapacityCell :account="row" />
         </template>
         <template #cell-status="{ row }">
-          <AccountStatusIndicator :account="row" />
+          <div class="flex items-center gap-2">
+            <AccountStatusIndicator :account="row" />
+            <button
+              type="button"
+              data-testid="group-account-status-toggle"
+              :disabled="togglingStatusIDs.has(row.id)"
+              :aria-label="row.status === 'active' ? t('common.inactive') : t('common.active')"
+              :title="row.status === 'active' ? t('common.inactive') : t('common.active')"
+              class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800"
+              :class="row.status === 'active' ? 'bg-primary-500' : 'bg-gray-200 dark:bg-dark-600'"
+              role="switch"
+              :aria-checked="row.status === 'active'"
+              @click="handleToggleStatus(row)"
+            >
+              <span
+                class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                :class="row.status === 'active' ? 'translate-x-4' : 'translate-x-0'"
+              />
+            </button>
+          </div>
         </template>
         <template #cell-schedulable="{ row }">
           <span
@@ -153,9 +172,21 @@
           <span :class="marginClass(estimatedMargin(row))" class="font-mono text-sm">{{ formatMargin(estimatedMargin(row)) }}</span>
         </template>
         <template #cell-actions="{ row }">
-          <button type="button" class="btn btn-sm btn-secondary" :disabled="removingAccountIDs.has(row.id)" :aria-label="t('admin.groups.groupAccountsRemove')" @click="removeAccount(row)">
-            <Icon name="trash" size="sm" />
-          </button>
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              class="btn btn-sm btn-secondary"
+              :disabled="editingAccountIDs.has(row.id)"
+              :aria-label="t('common.edit')"
+              :title="t('common.edit')"
+              @click="handleEditAccount(row)"
+            >
+              <Icon name="edit" size="sm" />
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" :disabled="removingAccountIDs.has(row.id)" :aria-label="t('admin.groups.groupAccountsRemove')" @click="removeAccount(row)">
+              <Icon name="trash" size="sm" />
+            </button>
+          </div>
         </template>
         <template #cell-upstream_billing_rate="{ row }">
           <UpstreamBillingRateCell
@@ -193,6 +224,15 @@
       </div>
     </div>
   </BaseDialog>
+
+  <EditAccountModal
+    :show="showEditModal"
+    :account="editingAccount"
+    :proxies="editProxies"
+    :groups="editGroups"
+    @close="closeEditModal"
+    @updated="handleAccountUpdated"
+  />
 </template>
 
 <script setup lang="ts">
@@ -202,7 +242,7 @@ import { useIntervalFn } from '@vueuse/core'
 import { RouterLink } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { Account, AdminGroup, UpstreamBillingProbeSnapshot } from '@/types'
+import type { Account, AdminGroup, Proxy, UpstreamBillingProbeSnapshot } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
@@ -213,6 +253,7 @@ import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
 import AccountGroupsCell from '@/components/account/AccountGroupsCell.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import UpstreamBillingRateCell from '@/components/account/UpstreamBillingRateCell.vue'
+import EditAccountModal from '@/components/account/EditAccountModal.vue'
 import { formatDateTime } from '@/utils/format'
 import { formatMultiplier } from '@/utils/formatters'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -244,6 +285,12 @@ const selectedCandidateIDs = ref<number[]>([])
 const lastAddResults = ref<GroupAccountMutationResult[]>([])
 const candidatePagination = reactive({ page: 1, pageSize: 20, total: 0 })
 const removingAccountIDs = reactive(new Set<number>())
+const togglingStatusIDs = reactive(new Set<number>())
+const editingAccountIDs = reactive(new Set<number>())
+const showEditModal = ref(false)
+const editingAccount = ref<Account | null>(null)
+const editProxies = ref<Proxy[]>([])
+const editGroups = ref<AdminGroup[]>([])
 
 const upstreamBillingProbeGloballyEnabled = ref<boolean | undefined>(undefined)
 const upstreamBillingNow = ref(Date.now())
@@ -369,6 +416,54 @@ const removeAccount = async (account: Account) => {
     removingAccountIDs.delete(account.id)
   }
 }
+
+const handleToggleStatus = async (account: Account) => {
+  if (togglingStatusIDs.has(account.id)) return
+  const status = account.status === 'active' ? 'inactive' : 'active'
+  togglingStatusIDs.add(account.id)
+  try {
+    await adminAPI.accounts.toggleStatus(account.id, status)
+    appStore.showSuccess(t('admin.accounts.accountUpdated'))
+    await loadAccounts()
+    emit('success')
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.failedToUpdate')))
+  } finally {
+    togglingStatusIDs.delete(account.id)
+  }
+}
+
+const closeEditModal = () => {
+  showEditModal.value = false
+  editingAccount.value = null
+}
+
+const handleEditAccount = async (account: Account) => {
+  if (editingAccountIDs.has(account.id)) return
+  editingAccountIDs.add(account.id)
+  try {
+    const [detail, groups, proxies] = await Promise.all([
+      adminAPI.accounts.getById(account.id),
+      adminAPI.groups.getAllIncludingInactive(),
+      adminAPI.proxies.getAll()
+    ])
+    if (!props.show || !props.group) return
+    editingAccount.value = detail
+    editGroups.value = groups
+    editProxies.value = proxies
+    showEditModal.value = true
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('admin.accounts.failedToLoad')))
+  } finally {
+    editingAccountIDs.delete(account.id)
+  }
+}
+
+const handleAccountUpdated = async () => {
+  closeEditModal()
+  await loadAccounts()
+  emit('success')
+}
 const handleCandidatePageChange = (page: number) => { candidatePagination.page = page; loadCandidates() }
 const handleCandidatePageSizeChange = (size: number) => { candidatePagination.pageSize = size; candidatePagination.page = 1; loadCandidates() }
 let candidateSearchTimeout: ReturnType<typeof setTimeout> | undefined
@@ -440,6 +535,7 @@ const handlePageSizeChange = (size: number) => {
 }
 
 const handleClose = () => {
+  closeEditModal()
   emit('close')
 }
 
@@ -460,6 +556,7 @@ watch(() => props.show, (val) => {
     loadUpstreamBillingProbeGlobalState()
   } else {
     pauseBillingClock()
+    closeEditModal()
   }
 })
 
