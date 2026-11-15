@@ -1054,6 +1054,7 @@ var ProviderSet = wire.NewSet(
 	NewAffiliateService,
 	ProvidePaymentConfigService,
 	ProvidePaymentService,
+	ProvideNotificationWebhookService,
 	ProvidePaymentOrderExpiryService,
 	ProvideBalanceNotifyService,
 	ProvideChannelMonitorService,
@@ -1089,6 +1090,13 @@ func ProvideBalanceNotifyService(emailService *EmailService, settingRepo Setting
 func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, notificationEmailService *NotificationEmailService) *PaymentService {
 	svc := NewPaymentService(entClient, registry, loadBalancer, redeemService, subscriptionSvc, configService, userRepo, groupRepo, affiliateService)
 	svc.SetNotificationEmailService(notificationEmailService)
+	return svc
+}
+
+// ProvideNotificationWebhookService starts the durable webhook delivery workers.
+func ProvideNotificationWebhookService(settings SettingRepository, repo NotificationWebhookRepository, encryptor SecretEncryptor, cfg *config.Config) *NotificationWebhookService {
+	svc := NewNotificationWebhookService(settings, repo, encryptor, cfg)
+	svc.Start()
 	return svc
 }
 

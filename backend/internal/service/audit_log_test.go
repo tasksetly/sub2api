@@ -151,6 +151,18 @@ func TestRedactAuditBody_Empty(t *testing.T) {
 	}
 }
 
+func TestRedactAuditBody_WebhookCredentials(t *testing.T) {
+	out := RedactAuditBody([]byte(`{"webhook_url":"https://example.com/token-path?key=query-token","secret":"signing-secret","enabled":true}`), "application/json")
+	for _, secret := range []string{"example.com", "token-path", "query-token", "signing-secret"} {
+		if strings.Contains(out, secret) {
+			t.Fatalf("webhook credential leaked into audit log: %s", out)
+		}
+	}
+	if !strings.Contains(out, `"enabled":true`) {
+		t.Fatalf("expected non-sensitive setting in audit log: %s", out)
+	}
+}
+
 func TestSessionBindingHash(t *testing.T) {
 	a := &SessionBinding{IP: "1.2.3.4", UserAgent: "Mozilla/5.0"}
 	b := &SessionBinding{IP: "1.2.3.4", UserAgent: "Mozilla/5.0"}

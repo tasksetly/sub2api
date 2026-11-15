@@ -8861,13 +8861,17 @@
           <BackupSettings />
         </div>
 
+        <div v-if="activeTab === 'webhooks'">
+          <NotificationWebhookSettings />
+        </div>
+
         <!-- Tab: Ticket Storage -->
         <div v-show="activeTab === 'tickets'">
           <TicketStorageSettings />
         </div>
 
         <!-- Save dock — sticky so long tabs never require scrolling to the end -->
-        <div v-show="activeTab !== 'backup' && activeTab !== 'tickets'" class="settings-save-dock">
+        <div v-show="activeTab !== 'backup' && activeTab !== 'tickets' && activeTab !== 'webhooks'" class="settings-save-dock">
           <button
             type="submit"
             :disabled="saving || loadFailed"
@@ -8998,6 +9002,7 @@ import ImageUpload from "@/components/common/ImageUpload.vue";
 import BackupSettings from "@/views/admin/BackupView.vue";
 import UsageRetentionSettings from "@/views/admin/settings/UsageRetentionSettings.vue";
 import TicketStorageSettings from "@/views/admin/settings/TicketStorageSettings.vue";
+import NotificationWebhookSettings from "@/views/admin/settings/NotificationWebhookSettings.vue";
 import GlobalIPBlacklistSettings from "@/views/admin/settings/GlobalIPBlacklistSettings.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
 import RechargeBonusTierEditor from "@/components/admin/settings/RechargeBonusTierEditor.vue";
@@ -9059,6 +9064,7 @@ type SettingsTab =
   | "payment"
   | "email"
   | "tickets"
+  | "webhooks"
   | "backup";
 const activeTab = ref<SettingsTab>("general");
 const settingsTabs = [
@@ -9071,6 +9077,7 @@ const settingsTabs = [
   { key: "payment" as SettingsTab, icon: "creditCard" as const },
   { key: "email" as SettingsTab, icon: "mail" as const },
   { key: "tickets" as SettingsTab, icon: "chat" as const },
+  { key: "webhooks" as SettingsTab, icon: "bolt" as const },
   { key: "backup" as SettingsTab, icon: "database" as const },
 ];
 

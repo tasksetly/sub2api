@@ -124,6 +124,7 @@ func provideCleanup(
 	intelligenceTest *service.IntelligenceTestService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
+	notificationWebhook *service.NotificationWebhookService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	channelMonitorV2Aggregator *service.ChannelMonitorV2Aggregator,
 	quotaFlusher *service.UserPlatformQuotaUsageFlusher,
@@ -383,6 +384,12 @@ func provideCleanup(
 			{"BackupService", func() error {
 				if backupSvc != nil {
 					backupSvc.Stop()
+				}
+				return nil
+			}},
+			{"NotificationWebhookService", func() error {
+				if notificationWebhook != nil {
+					notificationWebhook.Stop()
 				}
 				return nil
 			}},

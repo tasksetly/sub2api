@@ -93,6 +93,7 @@ var ProviderSet = wire.NewSet(
 	NewUsageCleanupRepository,
 	NewDashboardAggregationRepository,
 	NewSettingRepository,
+	NewNotificationWebhookRepository,
 	NewScopedAdminKeyRepository,
 	NewOpsRepository,
 	NewAuditLogRepository,

@@ -654,6 +654,10 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpA
 		adminSettings.PUT("/panel-rate-limit", h.Admin.Setting.UpdatePanelRateLimitSettings)
 		adminSettings.GET("/global-ip-blacklist", h.Admin.Setting.GetGlobalIPBlacklistSettings)
 		adminSettings.PUT("/global-ip-blacklist", h.Admin.Setting.UpdateGlobalIPBlacklistSettings)
+		adminSettings.GET("/notification-webhook", h.Admin.Setting.GetNotificationWebhookSettings)
+		adminSettings.PUT("/notification-webhook", h.Admin.Setting.UpdateNotificationWebhookSettings)
+		adminSettings.GET("/notification-webhook/deliveries", h.Admin.Setting.ListNotificationWebhookDeliveries)
+		adminSettings.POST("/notification-webhook/test", h.Admin.Setting.TestNotificationWebhook)
 		// 流超时处理配置
 		adminSettings.GET("/stream-timeout", h.Admin.Setting.GetStreamTimeoutSettings)
 		adminSettings.PUT("/stream-timeout", h.Admin.Setting.UpdateStreamTimeoutSettings)
