@@ -14,6 +14,7 @@ export default {
         confirm: 'These {count} rules will block all new matching requests, including other users sharing those exit IPs. Save?',
         loadFailed: 'Failed to load the site-wide IP blacklist. Refresh to retry.',
         saveFailed: 'Failed to save the site-wide IP blacklist',
+        conflict: 'The list changed after you loaded it, possibly due to a user deletion. Your changes were not saved and remain below. Copy any edits you want to keep, then refresh to load the latest list before editing and saving again.',
       },
       usageRetention: {
         title: "Usage record cleanup",

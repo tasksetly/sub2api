@@ -145,8 +145,9 @@ type SettingService struct {
 	panelRateLimitCache atomic.Value
 	panelRateLimitSF    singleflight.Group
 
-	globalIPBlacklistMu    sync.Mutex
-	globalIPBlacklistCache atomic.Pointer[cachedGlobalIPBlacklist]
+	globalIPBlacklistMuOnce sync.Once
+	globalIPBlacklistMu     *contextMutex
+	globalIPBlacklistCache  atomic.Pointer[cachedGlobalIPBlacklist]
 
 	// registrationEmailBlacklistCache 精确邮箱黑名单进程内缓存（*registrationEmailBlacklistIndex，60s TTL）。
 	// 公开的注册与发码接口每次请求都会读取，禁止在热路径上直接访问 DB。

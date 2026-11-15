@@ -14,6 +14,7 @@ export default {
         confirm: '启用后将按这 {count} 条规则拦截全部新请求，覆盖这些出口 IP 的其他用户也会受影响。确定保存？',
         loadFailed: '读取全站 IP 黑名单失败，请刷新重试',
         saveFailed: '保存全站 IP 黑名单失败',
+        conflict: '名单已被其他操作更新（例如删除用户自动封 IP），本次修改未保存。你的编辑仍保留在下方；请先复制需要保留的内容，再点击刷新获取最新名单后重新编辑保存。',
       },
       usageRetention: {
         title: "使用记录自动清理",

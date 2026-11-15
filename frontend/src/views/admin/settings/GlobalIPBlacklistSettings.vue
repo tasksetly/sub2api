@@ -10,6 +10,7 @@
     <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.settings.globalIPBlacklist.description') }}</p>
     <p v-if="loading" class="text-sm text-gray-500" role="status">{{ t('common.loading') }}</p>
     <p v-if="loadError" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ loadError }}</p>
+    <p v-if="conflict" role="alert" class="text-sm text-amber-700 dark:text-amber-400">{{ t('admin.settings.globalIPBlacklist.conflict') }}</p>
     <fieldset :disabled="!loaded || loading || saving" class="space-y-4">
       <label class="flex items-center justify-between gap-4 text-sm text-gray-900 dark:text-white">
         {{ t('admin.settings.globalIPBlacklist.enabled') }}
@@ -57,13 +58,15 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { getGlobalIPBlacklistSettings, updateGlobalIPBlacklistSettings } from '@/api/admin/settings'
 import { useAppStore } from '@/stores/app'
-import { extractApiErrorMessage } from '@/utils/apiError'
+import { extractApiErrorCode, extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const enabled = ref(false)
 const rulesText = ref('')
 const currentIP = ref('')
+const version = ref('')
+const conflict = ref(false)
 const maxRules = ref(5000)
 const loaded = ref(false)
 const loading = ref(false)
@@ -71,7 +74,7 @@ const saving = ref(false)
 const loadError = ref('')
 const confirmVisible = ref(false)
 const rules = computed(() => rulesText.value.split(/\r?\n/).map(rule => rule.trim()).filter(Boolean))
-const canSave = computed(() => loaded.value && !loading.value && !saving.value && rules.value.length <= maxRules.value)
+const canSave = computed(() => loaded.value && !loading.value && !saving.value && !conflict.value && rules.value.length <= maxRules.value)
 
 async function load() {
   loading.value = true
@@ -83,6 +86,8 @@ async function load() {
     rulesText.value = result.rules.join('\n')
     currentIP.value = result.current_ip
     maxRules.value = result.max_rules
+    version.value = result.version
+    conflict.value = false
     loaded.value = true
   } catch (error) {
     loadError.value = extractApiErrorMessage(error, t('admin.settings.globalIPBlacklist.loadFailed'))
@@ -105,13 +110,18 @@ async function save() {
   confirmVisible.value = false
   saving.value = true
   try {
-    const result = await updateGlobalIPBlacklistSettings({ enabled: enabled.value, rules: rules.value })
+    const result = await updateGlobalIPBlacklistSettings({ enabled: enabled.value, rules: rules.value, version: version.value })
     enabled.value = result.enabled
     rulesText.value = result.rules.join('\n')
     currentIP.value = result.current_ip
     maxRules.value = result.max_rules
+    version.value = result.version
     appStore.showSuccess(t('common.saved'))
   } catch (error) {
+    if (extractApiErrorCode(error) === 'IP_BLACKLIST_VERSION_CONFLICT') {
+      conflict.value = true
+      return
+    }
     appStore.showError(extractApiErrorMessage(error, t('admin.settings.globalIPBlacklist.saveFailed')))
   } finally {
     saving.value = false

@@ -25,11 +25,11 @@ func (r *settingRepository) WithGlobalIPBlacklistUpdate(ctx context.Context, fn 
 	if exec == nil {
 		return fmt.Errorf("global IP blacklist SQL executor is not configured")
 	}
-	release, err := lockRepositoryScopedKeys(txCtx, tx.Client(), exec, "settings:"+service.SettingKeyGlobalIPBlacklist)
-	if err != nil {
+	// PostgreSQL serializes writers across instances. Do not wait on the
+	// process-wide sync.Mutex registry here: that wait ignores cancellation.
+	if _, err := exec.ExecContext(txCtx, "SELECT pg_advisory_xact_lock($1)", advisoryLockHash("settings:"+service.SettingKeyGlobalIPBlacklist)); err != nil {
 		return err
 	}
-	defer release()
 	if err := fn(txCtx); err != nil {
 		return err
 	}

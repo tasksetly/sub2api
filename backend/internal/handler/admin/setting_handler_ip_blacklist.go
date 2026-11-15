@@ -16,6 +16,7 @@ type globalIPBlacklistResponse struct {
 }
 
 func (h *SettingHandler) GetGlobalIPBlacklistSettings(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	settings, err := h.settingService.GetGlobalIPBlacklistSettings(c.Request.Context())
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -32,6 +33,7 @@ func (h *SettingHandler) UpdateGlobalIPBlacklistSettings(c *gin.Context) {
 	var req struct {
 		Enabled *bool     `json:"enabled" binding:"required"`
 		Rules   *[]string `json:"rules" binding:"required"`
+		Version string    `json:"version" binding:"required,len=64,hexadecimal"`
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -40,7 +42,7 @@ func (h *SettingHandler) UpdateGlobalIPBlacklistSettings(c *gin.Context) {
 	}
 	currentIP := ip.GetTrustedClientIP(c)
 	settings, err := h.settingService.SetGlobalIPBlacklistSettings(c.Request.Context(), &service.GlobalIPBlacklistSettings{
-		Enabled: *req.Enabled, Rules: *req.Rules,
+		Enabled: *req.Enabled, Rules: *req.Rules, Version: req.Version,
 	}, currentIP)
 	if err != nil {
 		response.ErrorFrom(c, err)

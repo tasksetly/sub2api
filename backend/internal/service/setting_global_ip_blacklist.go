@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,15 +16,17 @@ import (
 )
 
 const (
-	SettingKeyGlobalIPBlacklist = "global_ip_blacklist"
-	GlobalIPBlacklistMaxRules   = 5000
-	globalIPBlacklistCacheTTL   = 5 * time.Second
-	globalIPBlacklistErrorTTL   = time.Second
+	SettingKeyGlobalIPBlacklist   = "global_ip_blacklist"
+	GlobalIPBlacklistMaxRules     = 5000
+	globalIPBlacklistCacheTTL     = 5 * time.Second
+	globalIPBlacklistErrorTTL     = time.Second
+	globalIPBlacklistWriteTimeout = 10 * time.Second
 )
 
 type GlobalIPBlacklistSettings struct {
 	Enabled bool     `json:"enabled"`
 	Rules   []string `json:"rules"`
+	Version string   `json:"version"`
 }
 
 type cachedGlobalIPBlacklist struct {
@@ -35,6 +38,27 @@ type cachedGlobalIPBlacklist struct {
 
 type globalIPBlacklistTransactionalRepository interface {
 	WithGlobalIPBlacklistUpdate(context.Context, func(context.Context) error) error
+}
+
+func (s *SettingService) globalIPBlacklistMutex() *contextMutex {
+	s.globalIPBlacklistMuOnce.Do(func() { s.globalIPBlacklistMu = newContextMutex() })
+	return s.globalIPBlacklistMu
+}
+
+// The token describes the exact stored snapshot, including legacy settings and
+// manual recovery edits, without requiring an additional database column.
+func globalIPBlacklistVersion(value string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(value)))
+}
+
+func encodeGlobalIPBlacklist(settings *GlobalIPBlacklistSettings) (string, error) {
+	// The version is derived from storage, never supplied by a client or stored
+	// recursively as part of its own hash.
+	data, err := json.Marshal(struct {
+		Enabled bool     `json:"enabled"`
+		Rules   []string `json:"rules"`
+	}{Enabled: settings.Enabled, Rules: settings.Rules})
+	return string(data), err
 }
 
 func normalizeGlobalIPBlacklist(input *GlobalIPBlacklistSettings) (*GlobalIPBlacklistSettings, error) {
@@ -82,7 +106,7 @@ func (s *SettingService) GetGlobalIPBlacklistSettings(ctx context.Context) (*Glo
 	}
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyGlobalIPBlacklist)
 	if errors.Is(err, ErrSettingNotFound) {
-		return &GlobalIPBlacklistSettings{Rules: []string{}}, nil
+		return &GlobalIPBlacklistSettings{Rules: []string{}, Version: globalIPBlacklistVersion("")}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -97,7 +121,12 @@ func (s *SettingService) GetGlobalIPBlacklistSettings(ctx context.Context) (*Glo
 	if settings.Enabled == nil || settings.Rules == nil {
 		return nil, fmt.Errorf("decode global IP blacklist: enabled and rules are required")
 	}
-	return normalizeGlobalIPBlacklist(&GlobalIPBlacklistSettings{Enabled: *settings.Enabled, Rules: *settings.Rules})
+	result, err := normalizeGlobalIPBlacklist(&GlobalIPBlacklistSettings{Enabled: *settings.Enabled, Rules: *settings.Rules})
+	if err != nil {
+		return nil, err
+	}
+	result.Version = globalIPBlacklistVersion(value)
+	return result, nil
 }
 
 func prepareGlobalIPBlacklist(input *GlobalIPBlacklistSettings, currentIP string) (*GlobalIPBlacklistSettings, *ip.CompiledIPRules, error) {
@@ -114,8 +143,12 @@ func prepareGlobalIPBlacklist(input *GlobalIPBlacklistSettings, currentIP string
 	return settings, rules, nil
 }
 
-// SetGlobalIPBlacklistSettings prevents locking the acting administrator out.
+// SetGlobalIPBlacklistSettings rejects stale snapshots and prevents locking the
+// acting administrator out.
 func (s *SettingService) SetGlobalIPBlacklistSettings(ctx context.Context, input *GlobalIPBlacklistSettings, currentIP string) (*GlobalIPBlacklistSettings, error) {
+	if input == nil || input.Version == "" {
+		return nil, infraerrors.BadRequest("IP_BLACKLIST_VERSION_REQUIRED", "load the current IP blacklist before saving")
+	}
 	settings, rules, err := prepareGlobalIPBlacklist(input, currentIP)
 	if err != nil {
 		return nil, err
@@ -123,16 +156,33 @@ func (s *SettingService) SetGlobalIPBlacklistSettings(ctx context.Context, input
 	if s == nil || s.settingRepo == nil {
 		return nil, ErrServiceUnavailable
 	}
-	data, err := json.Marshal(settings)
+	data, err := encodeGlobalIPBlacklist(settings)
 	if err != nil {
 		return nil, err
 	}
-	// Serialize database reads and writes with cache publication so an in-flight
-	// refresh can never replace a newly saved list with an older snapshot.
-	s.globalIPBlacklistMu.Lock()
-	defer s.globalIPBlacklistMu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, globalIPBlacklistWriteTimeout)
+	defer cancel()
+	// Writers and refreshes publish in order. Request readers never wait for
+	// this gate, and queued writers share the same bounded operation deadline.
+	mu := s.globalIPBlacklistMutex()
+	if err := mu.Lock(ctx); err != nil {
+		return nil, err
+	}
+	defer mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	write := func(opCtx context.Context) error {
-		return s.settingRepo.Set(opCtx, SettingKeyGlobalIPBlacklist, string(data))
+		current, err := s.GetGlobalIPBlacklistSettings(opCtx)
+		if err != nil {
+			return err
+		}
+		// Check under the same database lock used by automatic bans, so a save
+		// cannot erase additions made after the administrator loaded the page.
+		if input.Version != current.Version {
+			return infraerrors.Conflict("IP_BLACKLIST_VERSION_CONFLICT", "IP blacklist has changed; refresh before saving")
+		}
+		return s.settingRepo.Set(opCtx, SettingKeyGlobalIPBlacklist, data)
 	}
 	if repo, ok := s.settingRepo.(globalIPBlacklistTransactionalRepository); ok {
 		err = repo.WithGlobalIPBlacklistUpdate(ctx, write)
@@ -142,11 +192,12 @@ func (s *SettingService) SetGlobalIPBlacklistSettings(ctx context.Context, input
 	if err != nil {
 		return nil, err
 	}
+	settings.Version = globalIPBlacklistVersion(data)
 	s.globalIPBlacklistCache.Store(&cachedGlobalIPBlacklist{
 		settings: settings, rules: rules, expiresAt: time.Now().Add(globalIPBlacklistCacheTTL),
 	})
 	// The cache owns its snapshot; callers may freely edit the response.
-	return &GlobalIPBlacklistSettings{Enabled: settings.Enabled, Rules: append([]string{}, settings.Rules...)}, nil
+	return &GlobalIPBlacklistSettings{Enabled: settings.Enabled, Rules: append([]string{}, settings.Rules...), Version: settings.Version}, nil
 }
 
 // deleteUserAndBlockRegistrationIP commits the deletion and merged rule in the
@@ -164,8 +215,16 @@ func (s *SettingService) deleteUserAndBlockRegistrationIP(ctx context.Context, r
 		return infraerrors.BadRequest("REGISTRATION_IP_INVALID", "stored registration IP is invalid")
 	}
 	registrationIP = addr.Unmap().String()
-	s.globalIPBlacklistMu.Lock()
-	defer s.globalIPBlacklistMu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, globalIPBlacklistWriteTimeout)
+	defer cancel()
+	mu := s.globalIPBlacklistMutex()
+	if err := mu.Lock(ctx); err != nil {
+		return err
+	}
+	defer mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	var settings *GlobalIPBlacklistSettings
 	var rules *ip.CompiledIPRules
 	err = repo.WithGlobalIPBlacklistUpdate(ctx, func(opCtx context.Context) error {
@@ -181,14 +240,15 @@ func (s *SettingService) deleteUserAndBlockRegistrationIP(ctx context.Context, r
 		if err != nil {
 			return err
 		}
-		data, err := json.Marshal(settings)
+		data, err := encodeGlobalIPBlacklist(settings)
 		if err != nil {
 			return err
 		}
 		if err := deleteUser(opCtx); err != nil {
 			return err
 		}
-		return s.settingRepo.Set(opCtx, SettingKeyGlobalIPBlacklist, string(data))
+		settings.Version = globalIPBlacklistVersion(data)
+		return s.settingRepo.Set(opCtx, SettingKeyGlobalIPBlacklist, data)
 	})
 	if err != nil {
 		return err
@@ -207,8 +267,11 @@ func (s *SettingService) IsGlobalIPBlocked(ctx context.Context, clientIP string)
 		return false, ErrServiceUnavailable
 	}
 	cached := s.globalIPBlacklistCache.Load()
-	if cached == nil || !time.Now().Before(cached.expiresAt) {
-		s.globalIPBlacklistMu.Lock()
+	// A pending write or refresh must never stall the whole site. Serve the
+	// last known policy while the gate is busy; cold readers fail closed.
+	mu := s.globalIPBlacklistMutex()
+	if (cached == nil || !time.Now().Before(cached.expiresAt)) && mu.TryLock() {
+		defer mu.Unlock()
 		cached = s.globalIPBlacklistCache.Load()
 		if cached == nil || !time.Now().Before(cached.expiresAt) {
 			dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
@@ -227,12 +290,19 @@ func (s *SettingService) IsGlobalIPBlocked(ctx context.Context, clientIP string)
 				next.settings, next.rules = settings, ip.CompileIPRules(settings.Rules)
 			}
 			s.globalIPBlacklistCache.Store(next)
-			cached = next
 		}
-		s.globalIPBlacklistMu.Unlock()
+	}
+	// A writer may have published a new snapshot while this reader missed the
+	// gate. Prefer that snapshot over the one read at entry.
+	cached = s.globalIPBlacklistCache.Load()
+	if cached == nil {
+		return false, ErrServiceUnavailable
 	}
 	if cached.err != nil {
 		return false, cached.err
+	}
+	if cached.settings == nil {
+		return false, ErrServiceUnavailable
 	}
 	if !cached.settings.Enabled || len(cached.settings.Rules) == 0 {
 		return false, nil

@@ -101,6 +101,15 @@ func (m *contextMutex) Unlock() {
 	<-m.token
 }
 
+func (m *contextMutex) TryLock() bool {
+	select {
+	case m.token <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
 // OAuthRefreshResult 统一刷新结果
 type OAuthRefreshResult struct {
 	Refreshed      bool           // 实际执行了刷新

@@ -1370,6 +1370,7 @@ export interface PanelRateLimitSettings {
 export interface GlobalIPBlacklistSettings {
   enabled: boolean;
   rules: string[];
+  version: string;
 }
 
 export interface GlobalIPBlacklistResponse extends GlobalIPBlacklistSettings {
