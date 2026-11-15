@@ -40,6 +40,17 @@ export default {
     replyFailed: '发送回复失败',
     closeFailed: '关闭工单失败',
     updateFailed: '更新工单失败',
+    userActions: {
+      title: '用户信息与操作',
+      userId: '用户 ID',
+      limits: '调整调用限制',
+      balanceHistory: '余额变动记录',
+      balanceContext: '关联工单 #{id}',
+      usageTitle: '近 30 天用量',
+      usageDetails: '查看用量明细',
+      loadFailed: '加载用户信息失败，请点击刷新重试',
+      usageFailed: '加载用量统计失败，请点击刷新重试'
+    },
     status: {
       open: '待处理',
       in_progress: '处理中',

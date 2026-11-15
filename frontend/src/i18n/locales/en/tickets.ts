@@ -40,6 +40,17 @@ export default {
     replyFailed: 'Failed to send reply',
     closeFailed: 'Failed to close ticket',
     updateFailed: 'Failed to update ticket',
+    userActions: {
+      title: 'User information and actions',
+      userId: 'User ID',
+      limits: 'Adjust request limits',
+      balanceHistory: 'Balance history',
+      balanceContext: 'Related ticket #{id}',
+      usageTitle: 'Usage in the last 30 days',
+      usageDetails: 'View usage details',
+      loadFailed: 'Failed to load user information. Refresh to retry.',
+      usageFailed: 'Failed to load usage statistics. Refresh to retry.'
+    },
     status: {
       open: 'Open',
       in_progress: 'In Progress',

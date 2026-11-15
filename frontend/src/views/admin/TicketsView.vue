@@ -44,6 +44,8 @@
             </div>
           </header>
 
+          <TicketUserPanel :key="ticket.id" :user-id="ticket.user_id" :ticket-id="ticket.id" />
+
           <section class="min-h-64 py-2">
             <TicketConversation :messages="ticket.messages || []" />
           </section>
@@ -110,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -119,6 +121,7 @@ import Icon from '@/components/icons/Icon.vue'
 import TicketBadge from '@/components/tickets/TicketBadge.vue'
 import TicketComposer from '@/components/tickets/TicketComposer.vue'
 import TicketConversation from '@/components/tickets/TicketConversation.vue'
+import TicketUserPanel from '@/components/tickets/TicketUserPanel.vue'
 import { adminAPI } from '@/api/admin'
 import { useAppStore, useTicketNotificationStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -145,6 +148,7 @@ const priorityFilter = ref('')
 const detailStatus = ref<TicketStatus>('open')
 const detailPriority = ref<TicketPriority>('normal')
 const composerKey = ref(0)
+let detailRequestVersion = 0
 const statuses: TicketStatus[] = ['open', 'in_progress', 'waiting_user', 'closed']
 const priorities: TicketPriority[] = ['low', 'normal', 'high', 'urgent']
 
@@ -171,42 +175,61 @@ async function loadList() {
 
 async function loadDetail() {
   if (!ticketId.value) return
+  const id = ticketId.value
+  const version = ++detailRequestVersion
   loadingDetail.value = true
+  ticket.value = null
+  submitting.value = false
+  updating.value = false
+  composerKey.value++
   try {
-    ticket.value = await adminAPI.tickets.get(ticketId.value)
+    const result = await adminAPI.tickets.get(id)
+    if (version !== detailRequestVersion) return
+    ticket.value = result
     detailStatus.value = ticket.value.status
     detailPriority.value = ticket.value.priority
   } catch (error) {
+    if (version !== detailRequestVersion) return
     appStore.showError(extractApiErrorMessage(error, t('tickets.loadFailed')))
   } finally {
-    loadingDetail.value = false
+    if (version === detailRequestVersion) loadingDetail.value = false
   }
 }
 
 async function sendReply(payload: { content: string; images: File[] }) {
+  const id = ticketId.value
+  const version = detailRequestVersion
   submitting.value = true
   try {
-    ticket.value = await adminAPI.tickets.reply(ticketId.value, payload)
+    const result = await adminAPI.tickets.reply(id, payload)
+    if (version !== detailRequestVersion) return
+    ticket.value = result
     detailStatus.value = ticket.value.status
     composerKey.value++
     void ticketNotificationStore.fetchPendingTicketCount(true)
   } catch (error) {
+    if (version !== detailRequestVersion) return
     appStore.showError(extractApiErrorMessage(error, t('tickets.replyFailed')))
   } finally {
-    submitting.value = false
+    if (version === detailRequestVersion) submitting.value = false
   }
 }
 
 async function updateTicket() {
+  const id = ticketId.value
+  const version = detailRequestVersion
   updating.value = true
   try {
-    ticket.value = await adminAPI.tickets.update(ticketId.value, { status: detailStatus.value, priority: detailPriority.value })
+    const result = await adminAPI.tickets.update(id, { status: detailStatus.value, priority: detailPriority.value })
+    if (version !== detailRequestVersion) return
+    ticket.value = result
     appStore.showSuccess(t('common.saved'))
     void ticketNotificationStore.fetchPendingTicketCount(true)
   } catch (error) {
+    if (version !== detailRequestVersion) return
     appStore.showError(extractApiErrorMessage(error, t('tickets.updateFailed')))
   } finally {
-    updating.value = false
+    if (version === detailRequestVersion) updating.value = false
   }
 }
 
@@ -220,6 +243,15 @@ function changePage(value: number) {
   loadList()
 }
 
-watch(ticketId, (id) => id ? loadDetail() : loadList())
+watch(ticketId, (id) => {
+  if (id) {
+    void loadDetail()
+  } else {
+    detailRequestVersion++
+    ticket.value = null
+    void loadList()
+  }
+})
 onMounted(() => ticketId.value ? loadDetail() : loadList())
+onUnmounted(() => { detailRequestVersion++ })
 </script>

@@ -1,13 +1,13 @@
 <template>
   <BaseDialog
     :show="show"
-    :title="t('admin.users.bulkLimits.title')"
+    :title="title || t('admin.users.bulkLimits.title')"
     width="normal"
     @close="emit('close')"
   >
     <form id="bulk-edit-user-limits-form" class="space-y-5" @submit.prevent="handleSubmit">
       <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
-        {{ t('admin.users.bulkLimits.selectedCount', { count: selectedIds.length }) }}
+        {{ user ? user.email : t('admin.users.bulkLimits.selectedCount', { count: selectedIds.length }) }}
       </p>
 
       <div class="divide-y divide-gray-200 border-y border-gray-200 dark:divide-dark-700 dark:border-dark-700">
@@ -95,6 +95,7 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { BatchUpdateUserLimitsRequest } from '@/api/admin/users'
+import type { AdminUser } from '@/types'
 import { useAppStore } from '@/stores/app'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Toggle from '@/components/common/Toggle.vue'
@@ -102,6 +103,8 @@ import Toggle from '@/components/common/Toggle.vue'
 const props = defineProps<{
   show: boolean
   selectedIds: number[]
+  user?: AdminUser
+  title?: string
 }>()
 
 const emit = defineEmits<{
@@ -149,10 +152,10 @@ const canSubmit = computed(() =>
 )
 
 const reset = () => {
-  enableConcurrency.value = false
-  enableRPMLimit.value = false
-  concurrencyValue.value = ''
-  rpmLimitValue.value = ''
+  enableConcurrency.value = !!props.user
+  enableRPMLimit.value = !!props.user
+  concurrencyValue.value = props.user?.concurrency ?? ''
+  rpmLimitValue.value = props.user ? (props.user.rpm_limit ?? 0) : ''
   submitting.value = false
 }
 
