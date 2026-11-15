@@ -55,6 +55,7 @@
           <Icon name="refresh" size="sm" :class="testing ? 'animate-spin' : ''" />
           {{ testing ? t('admin.accounts.bulkActions.testing') : t('admin.accounts.bulkActions.test') }}
         </button>
+        <button @click="$emit('cctest')" class="btn btn-secondary btn-sm" :disabled="testing || selectedIds.length > 20" :title="selectedIds.length > 20 ? t('cctest.tooMany') : undefined">{{ t('cctest.title') }}</button>
         <button @click="$emit('probe-upstream-billing')" class="btn btn-secondary btn-sm">{{ t('admin.accounts.bulkActions.probeUpstreamBilling') }}</button>
         <button @click="$emit('toggle-schedulable', true)" class="btn btn-success btn-sm">{{ t('admin.accounts.bulkActions.enableScheduling') }}</button>
         <button @click="$emit('toggle-schedulable', false)" class="btn btn-warning btn-sm">{{ t('admin.accounts.bulkActions.disableScheduling') }}</button>
@@ -90,6 +91,7 @@ defineEmits([
   'reset-status',
   'refresh-token',
   'test',
+  'cctest',
   'probe-upstream-billing'
 ])
 

@@ -184,6 +184,7 @@
           :all-results-selected="allResultsSelected"
           @delete="handleBulkDelete"
           @test="handleBulkTest"
+          @cctest="cctestRouter.push({ path: '/admin/cctest', query: { accounts: selIds.join(',') } })"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
           @probe-upstream-billing="handleBulkProbeUpstreamBilling"
@@ -571,6 +572,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
@@ -623,6 +625,7 @@ import type { Account, AccountListItem, AccountPlatform, AccountSchedulerGroupSc
 import type { UpstreamProviderWithStats } from '@/types/upstreamProvider'
 
 const { t } = useI18n()
+const cctestRouter = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 

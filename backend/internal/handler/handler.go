@@ -51,6 +51,7 @@ type AdminHandlers struct {
 
 // Handlers contains all HTTP handlers
 type Handlers struct {
+	CCTest           *CCTestHandler
 	Auth             *AuthHandler
 	User             *UserHandler
 	MCPOAuth         *MCPOAuthHandler

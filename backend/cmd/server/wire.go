@@ -122,6 +122,7 @@ func provideCleanup(
 	openAIGateway *service.OpenAIGatewayService,
 	scheduledTestRunner *service.ScheduledTestRunnerService,
 	intelligenceTest *service.IntelligenceTestService,
+	cctest *service.CCTestService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	notificationWebhook *service.NotificationWebhookService,
@@ -372,6 +373,12 @@ func provideCleanup(
 			{"FingerprintRunnerService", func() error {
 				if fingerprintRunner != nil {
 					fingerprintRunner.Stop()
+				}
+				return nil
+			}},
+			{"CCTestService", func() error {
+				if cctest != nil {
+					cctest.Stop()
 				}
 				return nil
 			}},

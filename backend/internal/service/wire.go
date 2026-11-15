@@ -1045,6 +1045,7 @@ var ProviderSet = wire.NewSet(
 	ProvideFingerprintQuota,
 	ProvideFingerprintRunnerService,
 	ProvideIntelligenceTestService,
+	ProvideCCTestService,
 	NewGroupCapacityService,
 	NewChannelService,
 	wire.Bind(new(ChannelCacheInvalidator), new(*ChannelService)),
@@ -1170,4 +1171,11 @@ func ProvideClaudeResetCreditService(accounts AccountRepository, tokens *ClaudeT
 	s := NewClaudeResetCreditService(accounts, tokens, proxies, settings)
 	s.ConfigureRedemption(idem, locks)
 	return s
+}
+
+// ProvideCCTestService starts workers for durable official CCTest tasks.
+func ProvideCCTestService(repo CCTestRepository, settings SettingRepository, encryptor SecretEncryptor, accounts AccountRepository, keys APIKeyRepository, cfg *config.Config) *CCTestService {
+	svc := NewCCTestService(repo, settings, encryptor, accounts, keys, cfg)
+	svc.Start()
+	return svc
 }

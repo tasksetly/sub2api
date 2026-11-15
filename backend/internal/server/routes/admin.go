@@ -831,6 +831,14 @@ func registerFingerprintRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 }
 
 func registerIntelligenceTestRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	if h.CCTest != nil {
+		admin.GET("/cctest/settings", h.CCTest.Settings)
+		admin.PUT("/cctest/settings", h.CCTest.SaveSettings)
+		admin.GET("/cctest/runs", h.CCTest.ListAdmin)
+		admin.POST("/cctest/runs", h.CCTest.CreateAdmin)
+		admin.DELETE("/cctest/runs/:id", h.CCTest.CancelAdmin)
+	}
+
 	admin.POST("/accounts/:id/intelligence-tests", h.Admin.IntelligenceTest.RunAccount)
 	admin.GET("/accounts/:id/intelligence-tests", h.Admin.IntelligenceTest.ListAccountResults)
 	tests := admin.Group("/intelligence-test")
