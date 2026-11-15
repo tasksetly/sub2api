@@ -830,6 +830,7 @@ import UserAllowedGroupsModal from '@/components/admin/user/UserAllowedGroupsMod
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 const appStore = useAppStore()
 
@@ -1807,13 +1808,17 @@ const handleDelete = (user: AdminUser) => {
 const confirmDelete = async () => {
   if (!deletingUser.value) return
   try {
-    await adminAPI.users.delete(deletingUser.value.id)
-    appStore.showSuccess(t('common.success'))
+    const result = await adminAPI.users.delete(deletingUser.value.id)
+    appStore.showSuccess(result?.registration_ip_blacklisted
+      ? t('admin.users.deletedWithIPBan', { ip: result.registration_ip })
+      : t('admin.users.deletedWithoutIP'))
     showDeleteDialog.value = false
     deletingUser.value = null
     loadUsers()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.users.failedToDelete'))
+    appStore.showError(extractApiErrorMessage(error, t('admin.users.failedToDelete'), {
+      IP_BLACKLIST_SELF_BLOCK: t('admin.users.deleteSelfIPBlocked'),
+    }))
     console.error('Error deleting user:', error)
   }
 }
@@ -1823,10 +1828,12 @@ const confirmBulkDelete = async () => {
   bulkDeleteIds.value = []
   bulkDeleting.value = true
   const deletedIds: number[] = []
+  let missingRegistrationIP = 0
   for (const id of ids) {
     try {
-      await adminAPI.users.delete(id)
+      const result = await adminAPI.users.delete(id)
       deletedIds.push(id)
+      if (!result?.registration_ip_blacklisted) missingRegistrationIP++
     } catch (error) {
       console.error('Error deleting user:', error)
     }
@@ -1834,6 +1841,9 @@ const confirmBulkDelete = async () => {
   removeSelectedIds(deletedIds)
   if (deletedIds.length > 0) {
     appStore.showSuccess(t('admin.users.bulkDelete.success', { count: deletedIds.length }))
+    if (missingRegistrationIP > 0) {
+      appStore.showSuccess(t('admin.users.bulkDelete.missingIP', { count: missingRegistrationIP }))
+    }
     pagination.page = 1
   }
   const failed = ids.length - deletedIds.length

@@ -1,5 +1,20 @@
 export default {
     settings: {
+      globalIPBlacklist: {
+        title: '全站 IP 黑名单',
+        description: '禁止指定 IP 或网段访问本站，包括页面、注册、登录、工单和模型 API。删除用户会自动加入其已记录的注册 IP 并启用名单。此项单独保存；关闭开关或删除规则后保存即可解除封禁。',
+        enabled: '启用全站 IP 黑名单',
+        currentIP: '本次请求识别的 IP：',
+        proxyHint: '保存时禁止封禁当前 IP 或包含它的网段。使用反向代理时，请先配置 server.trusted_proxies 并确认上方为真实客户端 IP；全站封禁仅信任该代理链，不采用兼容模式下未经验证的转发头。',
+        rules: '封禁的 IP / CIDR（每行一条）',
+        placeholder: '203.0.113.10\n198.51.100.0/24\n2001:db8::/32',
+        rulesHint: '支持 IPv4、IPv6 和 CIDR，最多 {max} 条；保存时会规范化地址并去重。',
+        effectHint: '保存后当前服务节点立即生效，其他节点通常 5 秒内同步。命中返回 403，管理员和健康检查也不豁免。数据库暂时不可用时保留最近名单；尚未加载过名单时返回 503。',
+        tooMany: '最多允许 {max} 条规则',
+        confirm: '启用后将按这 {count} 条规则拦截全部新请求，覆盖这些出口 IP 的其他用户也会受影响。确定保存？',
+        loadFailed: '读取全站 IP 黑名单失败，请刷新重试',
+        saveFailed: '保存全站 IP 黑名单失败',
+      },
       usageRetention: {
         title: "使用记录自动清理",
         enabled: "启用自动清理",

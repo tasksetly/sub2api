@@ -46,6 +46,7 @@
 
         <!-- Tab: Security — Admin API Key -->
         <div v-show="activeTab === 'security'" class="space-y-6">
+          <GlobalIPBlacklistSettings />
           <AdminAccessKeysSettings />
           <!-- 已有全权密钥只提供轮换和删除入口。 -->
           <details v-if="adminApiKeyExists" class="card">
@@ -8997,6 +8998,7 @@ import ImageUpload from "@/components/common/ImageUpload.vue";
 import BackupSettings from "@/views/admin/BackupView.vue";
 import UsageRetentionSettings from "@/views/admin/settings/UsageRetentionSettings.vue";
 import TicketStorageSettings from "@/views/admin/settings/TicketStorageSettings.vue";
+import GlobalIPBlacklistSettings from "@/views/admin/settings/GlobalIPBlacklistSettings.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
 import RechargeBonusTierEditor from "@/components/admin/settings/RechargeBonusTierEditor.vue";
 import {

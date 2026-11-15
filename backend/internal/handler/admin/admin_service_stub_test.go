@@ -194,8 +194,8 @@ func (s *stubAdminService) UpdateUser(ctx context.Context, id int64, input *serv
 	return &user, nil
 }
 
-func (s *stubAdminService) DeleteUser(ctx context.Context, id int64) error {
-	return nil
+func (s *stubAdminService) DeleteUser(ctx context.Context, id int64, currentIP string) (*service.DeleteUserResult, error) {
+	return &service.DeleteUserResult{Message: "User deleted successfully"}, nil
 }
 
 func (s *stubAdminService) UpdateUserBalance(ctx context.Context, userID int64, balance float64, operation string, notes string) (*service.User, error) {

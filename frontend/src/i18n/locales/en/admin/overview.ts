@@ -508,8 +508,9 @@ export default {
       bulkDelete: {
         action: 'Delete selected ({count})',
         title: 'Delete selected users',
-        confirm: 'Delete the {count} selected users? This action cannot be undone. Administrator accounts cannot be deleted.',
+        confirm: 'Delete these {count} users and add their recorded signup IPs to the site-wide blacklist? This enables all saved rules and affects users sharing those addresses. Accounts without a recorded signup IP are only deleted. This cannot be undone. Administrator accounts cannot be deleted.',
         success: 'Deleted {count} users',
+        missingIP: '{count} deleted users had no recorded signup IP, so no IP ban was added for them.',
         failed: 'Failed to delete {count} users. They remain selected for retry.'
       },
       bulkLimits: {
@@ -674,7 +675,10 @@ export default {
       concurrencyAdjustedSuccess: 'Concurrency adjusted successfully',
       failedToSave: 'Failed to save user',
       failedToAdjust: 'Adjustment failed',
-      deleteConfirm: "Are you sure you want to delete '{email}'? This action cannot be undone.",
+      deleteConfirm: "Delete '{email}' and add their recorded signup IP to the site-wide blacklist? This enables all saved rules and affects users sharing that address. Without a recorded signup IP, only the account is deleted. This cannot be undone.",
+      deletedWithIPBan: 'User deleted. Signup IP {ip} was added to the site-wide blacklist.',
+      deletedWithoutIP: 'User deleted. No signup IP was recorded, so no IP ban was added.',
+      deleteSelfIPBlocked: 'Deletion was cancelled because it would block the current administrator IP. Check the signup IP, saved rules, and trusted proxies.',
       setAllowedGroups: 'Set Allowed Groups',
       allowedGroupsHint:
         'Select which standard groups this user can use. Subscription groups are managed separately.',

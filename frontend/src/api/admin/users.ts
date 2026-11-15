@@ -159,8 +159,14 @@ export async function update(id: number, updates: UpdateUserRequest): Promise<Ad
  * @param id - User ID
  * @returns Success confirmation
  */
-export async function deleteUser(id: number): Promise<{ message: string }> {
-  const { data } = await apiClient.delete<{ message: string }>(`/admin/users/${id}`)
+export interface DeleteUserResult {
+  message: string
+  registration_ip?: string
+  registration_ip_blacklisted: boolean
+}
+
+export async function deleteUser(id: number): Promise<DeleteUserResult> {
+  const { data } = await apiClient.delete<DeleteUserResult>(`/admin/users/${id}`)
   return data
 }
 

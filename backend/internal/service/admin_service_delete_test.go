@@ -18,6 +18,8 @@ type userRepoStub struct {
 	getErr               error
 	createErr            error
 	deleteErr            error
+	registrationIP       string
+	registrationIPErr    error
 	exists               bool
 	existsErr            error
 	aliasExists          bool
@@ -34,6 +36,10 @@ type userRepoStub struct {
 	domainCountErr       error
 	domainLimitErr       error
 	domainLimitedCreates int
+}
+
+func (s *userRepoStub) GetRegistrationIP(context.Context, int64) (string, error) {
+	return s.registrationIP, s.registrationIPErr
 }
 
 func (s *userRepoStub) CountUsersByEmailDomain(_ context.Context, domain string) (int, error) {
@@ -594,8 +600,9 @@ func TestAdminService_DeleteUser_Success(t *testing.T) {
 	repo := &userRepoStub{user: &User{ID: 7, Role: RoleUser}}
 	svc := &adminServiceImpl{userRepo: repo}
 
-	err := svc.DeleteUser(context.Background(), 7)
+	result, err := svc.DeleteUser(context.Background(), 7, "192.0.2.1")
 	require.NoError(t, err)
+	require.False(t, result.RegistrationIPBlacklisted, "Historical users without signup IPs must not produce a fictitious ban")
 	require.Equal(t, []int64{7}, repo.deletedIDs)
 }
 
@@ -615,7 +622,7 @@ func TestAdminService_DeleteUser_DeletesOwnedAPIKeys(t *testing.T) {
 		authCacheInvalidator: invalidator,
 	}
 
-	err := svc.DeleteUser(context.Background(), 7)
+	_, err := svc.DeleteUser(context.Background(), 7, "192.0.2.1")
 	require.NoError(t, err)
 	require.Equal(t, []int64{7}, repo.deletedIDs)
 	require.Equal(t, []int64{7}, apiKeyRepo.listByUserIDCalls)
@@ -628,7 +635,7 @@ func TestAdminService_DeleteUser_NotFound(t *testing.T) {
 	repo := &userRepoStub{getErr: ErrUserNotFound}
 	svc := &adminServiceImpl{userRepo: repo}
 
-	err := svc.DeleteUser(context.Background(), 404)
+	_, err := svc.DeleteUser(context.Background(), 404, "192.0.2.1")
 	require.ErrorIs(t, err, ErrUserNotFound)
 	require.Empty(t, repo.deletedIDs)
 }
@@ -637,7 +644,7 @@ func TestAdminService_DeleteUser_AdminGuard(t *testing.T) {
 	repo := &userRepoStub{user: &User{ID: 1, Role: RoleAdmin}}
 	svc := &adminServiceImpl{userRepo: repo}
 
-	err := svc.DeleteUser(context.Background(), 1)
+	_, err := svc.DeleteUser(context.Background(), 1, "192.0.2.1")
 	require.Error(t, err)
 	require.ErrorContains(t, err, "cannot delete admin user")
 	require.Empty(t, repo.deletedIDs)
@@ -651,9 +658,46 @@ func TestAdminService_DeleteUser_DeleteError(t *testing.T) {
 	}
 	svc := &adminServiceImpl{userRepo: repo}
 
-	err := svc.DeleteUser(context.Background(), 9)
+	_, err := svc.DeleteUser(context.Background(), 9, "192.0.2.1")
 	require.ErrorIs(t, err, deleteErr)
 	require.Equal(t, []int64{9}, repo.deletedIDs)
+}
+
+func TestAdminService_DeleteUser_BlocksRegistrationIP(t *testing.T) {
+	repo := &userRepoStub{user: &User{ID: 7, Role: RoleUser}, registrationIP: "203.0.113.10"}
+	settingsRepo := &globalIPBlacklistTxSettingRepo{panelRateLimitSettingRepo: &panelRateLimitSettingRepo{}}
+	settings := newPanelRateLimitTestService(settingsRepo)
+	svc := &adminServiceImpl{userRepo: repo, settingService: settings}
+	result, err := svc.DeleteUser(context.Background(), 7, "192.0.2.1")
+	require.NoError(t, err)
+	require.True(t, result.RegistrationIPBlacklisted)
+	require.Equal(t, "203.0.113.10", result.RegistrationIP)
+	require.Equal(t, []int64{7}, repo.deletedIDs)
+	blocked, err := settings.IsGlobalIPBlocked(context.Background(), "203.0.113.10")
+	require.NoError(t, err)
+	require.True(t, blocked)
+}
+
+func TestAdminService_DeleteUser_IPBanFailureKeepsUser(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		clientIP  string
+		lookupErr error
+	}{
+		{"self block", "203.0.113.10", nil},
+		{"invalid stored IP", "example.com", nil},
+		{"IP lookup fails", "", errors.New("read failed")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &userRepoStub{user: &User{ID: 7, Role: RoleUser}, registrationIP: tc.clientIP, registrationIPErr: tc.lookupErr}
+			settingsRepo := &globalIPBlacklistTxSettingRepo{panelRateLimitSettingRepo: &panelRateLimitSettingRepo{}}
+			svc := &adminServiceImpl{userRepo: repo, settingService: newPanelRateLimitTestService(settingsRepo)}
+			_, err := svc.DeleteUser(context.Background(), 7, "203.0.113.10")
+			require.Error(t, err)
+			require.Empty(t, repo.deletedIDs)
+			require.Empty(t, settingsRepo.values)
+		})
+	}
 }
 
 func TestAdminService_DeleteGroup_Success_WithCacheInvalidation(t *testing.T) {

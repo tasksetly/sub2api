@@ -264,6 +264,26 @@ describe('admin UsersView', () => {
     wrapper.unmount()
   })
 
+  it.each([true, false])('reports whether deleted users had signup IPs: %s', async (blacklisted) => {
+    listUsers.mockResolvedValue({
+      items: [createAdminUser({ id: 42 })], total: 1, page: 1, page_size: 20, pages: 1
+    })
+    deleteUser.mockResolvedValue({ message: 'Deleted', registration_ip_blacklisted: blacklisted })
+    const wrapper = mountBulkDeleteView()
+    await flushPromises()
+    await wrapper.get('[data-test="select-42"]').trigger('click')
+    await wrapper.get('[data-test="bulk-delete-users"]').trigger('click')
+    await wrapper.get('[data-test="confirm-delete"]').trigger('click')
+    await flushPromises()
+    expect(showSuccess).toHaveBeenCalledWith('admin.users.bulkDelete.success:1')
+    if (blacklisted) {
+      expect(showSuccess).not.toHaveBeenCalledWith('admin.users.bulkDelete.missingIP:1')
+    } else {
+      expect(showSuccess).toHaveBeenCalledWith('admin.users.bulkDelete.missingIP:1')
+    }
+    wrapper.unmount()
+  })
+
   it('deletes the confirmed selection while preserving users selected during deletion', async () => {
     listUsers.mockResolvedValue({
       items: [createAdminUser({ id: 42 }), createAdminUser({ id: 43 })],

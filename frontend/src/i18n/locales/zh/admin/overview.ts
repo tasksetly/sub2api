@@ -508,8 +508,9 @@ export default {
       bulkDelete: {
         action: '批量删除（{count}）',
         title: '删除已选用户',
-        confirm: '确定删除已选的 {count} 个用户吗？此操作无法撤销。管理员账号无法删除。',
+        confirm: '确定删除已选的 {count} 个用户，并将已记录的注册 IP 加入全站黑名单吗？这会启用名单中全部规则，共享出口的用户也会受影响。没有注册 IP 记录的账号仅删除用户。此操作无法撤销，管理员账号无法删除。',
         success: '已删除 {count} 个用户',
+        missingIP: '其中 {count} 个用户没有注册 IP 记录，未自动封禁 IP。',
         failed: '{count} 个用户删除失败，已保留选中，可重试。'
       },
       bulkLimits: {
@@ -633,7 +634,10 @@ export default {
       failedToDelete: '删除用户失败',
       failedToToggle: '更新用户状态失败',
       failedToLoadApiKeys: '加载用户 API 密钥失败',
-      deleteConfirm: "确定要删除用户 '{email}' 吗？此操作无法撤销。",
+      deleteConfirm: "确定删除用户 '{email}'，并将已记录的注册 IP 加入全站黑名单吗？这会启用名单中全部规则，共享出口的用户也会受影响。没有注册 IP 记录时仅删除用户。此操作无法撤销。",
+      deletedWithIPBan: '用户已删除，注册 IP {ip} 已加入全站黑名单。',
+      deletedWithoutIP: '用户已删除；没有注册 IP 记录，未自动封禁 IP。',
+      deleteSelfIPBlocked: '该操作会封禁当前管理员 IP，已取消删除。请检查注册 IP、名单规则及可信代理配置。',
       roles: {
         admin: '管理员',
         user: '用户'

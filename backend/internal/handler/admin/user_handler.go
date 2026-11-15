@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/handler/quotaview"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/adminaccess"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -391,13 +392,13 @@ func (h *UserHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	err = h.adminService.DeleteUser(c.Request.Context(), userID)
+	result, err := h.adminService.DeleteUser(c.Request.Context(), userID, ip.GetTrustedClientIP(c))
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	response.Success(c, gin.H{"message": "User deleted successfully"})
+	response.Success(c, result)
 }
 
 // UpdateBalance handles updating user balance

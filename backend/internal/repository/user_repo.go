@@ -165,6 +165,9 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 	if err := ensureEmailAuthIdentityWithClient(txCtx, txClient, created.ID, created.Email, "user_repo_create"); err != nil {
 		return err
 	}
+	if err := r.recordRegistrationIP(txCtx, txClient, created.ID); err != nil {
+		return err
+	}
 
 	if ownedTx != nil {
 		if err := ownedTx.Commit(); err != nil {

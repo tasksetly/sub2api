@@ -47,7 +47,7 @@ func NewSettingRepository(client *ent.Client) service.SettingRepository {
 }
 
 func (r *settingRepository) Get(ctx context.Context, key string) (*service.Setting, error) {
-	m, err := r.client.Setting.Query().Where(setting.KeyEQ(key)).Only(ctx)
+	m, err := clientFromContext(ctx, r.client).Setting.Query().Where(setting.KeyEQ(key)).Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return nil, service.ErrSettingNotFound
@@ -72,7 +72,7 @@ func (r *settingRepository) GetValue(ctx context.Context, key string) (string, e
 
 func (r *settingRepository) Set(ctx context.Context, key, value string) error {
 	now := time.Now()
-	return r.client.Setting.
+	return clientFromContext(ctx, r.client).Setting.
 		Create().
 		SetKey(key).
 		SetValue(value).

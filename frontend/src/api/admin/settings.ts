@@ -1367,6 +1367,26 @@ export interface PanelRateLimitSettings {
   public_ip_rpm: number;
 }
 
+export interface GlobalIPBlacklistSettings {
+  enabled: boolean;
+  rules: string[];
+}
+
+export interface GlobalIPBlacklistResponse extends GlobalIPBlacklistSettings {
+  current_ip: string;
+  max_rules: number;
+}
+
+export async function getGlobalIPBlacklistSettings(): Promise<GlobalIPBlacklistResponse> {
+  const { data } = await apiClient.get<GlobalIPBlacklistResponse>("/admin/settings/global-ip-blacklist");
+  return data;
+}
+
+export async function updateGlobalIPBlacklistSettings(settings: GlobalIPBlacklistSettings): Promise<GlobalIPBlacklistResponse> {
+  const { data } = await apiClient.put<GlobalIPBlacklistResponse>("/admin/settings/global-ip-blacklist", settings);
+  return data;
+}
+
 /** Exact registration email blacklist (matched by inbox identity). */
 export interface RegistrationEmailBlacklist {
   emails: string[];
@@ -1644,6 +1664,8 @@ export const settingsAPI = {
   updateRegistrationEmailBlacklist,
   getPanelRateLimitSettings,
   updatePanelRateLimitSettings,
+  getGlobalIPBlacklistSettings,
+  updateGlobalIPBlacklistSettings,
   getStreamTimeoutSettings,
   updateStreamTimeoutSettings,
   getRectifierSettings,

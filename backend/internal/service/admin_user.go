@@ -356,38 +356,53 @@ func sameInt64Set(a, b []int64) bool {
 	return true
 }
 
-func (s *adminServiceImpl) DeleteUser(ctx context.Context, id int64) error {
+func (s *adminServiceImpl) DeleteUser(ctx context.Context, id int64, currentIP string) (*DeleteUserResult, error) {
 	// Protect admin users: cannot delete admin accounts
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if user.Role == "admin" {
-		return infraerrors.BadRequest("ADMIN_DELETE_FORBIDDEN", "cannot delete admin user; change the role to user first")
+		return nil, infraerrors.BadRequest("ADMIN_DELETE_FORBIDDEN", "cannot delete admin user; change the role to user first")
+	}
+	result := &DeleteUserResult{Message: "User deleted successfully"}
+	if repo, ok := s.userRepo.(userRegistrationIPReader); ok {
+		result.RegistrationIP, err = repo.GetRegistrationIP(ctx, id)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	apiKeys, err := s.listUserAPIKeysForDeletion(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if s.entClient != nil {
+	if result.RegistrationIP != "" {
+		err := s.settingService.deleteUserAndBlockRegistrationIP(ctx, result.RegistrationIP, currentIP, func(opCtx context.Context) error {
+			return s.deleteUserWithAPIKeys(opCtx, id, apiKeys)
+		})
+		if err != nil {
+			return nil, err
+		}
+		result.RegistrationIPBlacklisted = true
+	} else if s.entClient != nil {
 		tx, err := s.entClient.Tx(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer func() { _ = tx.Rollback() }()
 
 		opCtx := dbent.NewTxContext(ctx, tx)
 		if err := s.deleteUserWithAPIKeys(opCtx, id, apiKeys); err != nil {
-			return err
+			return nil, err
 		}
 		if err := tx.Commit(); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		if err := s.deleteUserWithAPIKeys(ctx, id, apiKeys); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -399,7 +414,7 @@ func (s *adminServiceImpl) DeleteUser(ctx context.Context, id int64) error {
 		}
 		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, id)
 	}
-	return nil
+	return result, nil
 }
 
 func (s *adminServiceImpl) listUserAPIKeysForDeletion(ctx context.Context, userID int64) ([]APIKey, error) {

@@ -1,5 +1,20 @@
 export default {
     settings: {
+      globalIPBlacklist: {
+        title: 'Site-wide IP blacklist',
+        description: 'Block IP addresses or networks from pages, registration, login, tickets, and model APIs. Deleting a user adds their recorded signup IP and enables this list. Save this section separately. Disable the switch or remove rules and save to unblock.',
+        enabled: 'Enable site-wide IP blacklist',
+        currentIP: 'IP identified for this request:',
+        proxyHint: 'Saving cannot block your current IP or its network. Behind a reverse proxy, configure server.trusted_proxies and verify the address above first. Site-wide blocking trusts only that proxy chain, ignoring unverified compatibility forwarding headers.',
+        rules: 'Blocked IP / CIDR (one per line)',
+        placeholder: '203.0.113.10\n198.51.100.0/24\n2001:db8::/32',
+        rulesHint: 'Supports IPv4, IPv6, and CIDR, up to {max} rules. Addresses are normalized and deduplicated on save.',
+        effectHint: 'Applies immediately on this server; other nodes normally refresh within 5 seconds. Matches return 403, including administrators and health checks. Database failures retain the last known policy; requests return 503 until a policy has been loaded.',
+        tooMany: 'At most {max} rules are allowed',
+        confirm: 'These {count} rules will block all new matching requests, including other users sharing those exit IPs. Save?',
+        loadFailed: 'Failed to load the site-wide IP blacklist. Refresh to retry.',
+        saveFailed: 'Failed to save the site-wide IP blacklist',
+      },
       usageRetention: {
         title: "Usage record cleanup",
         enabled: "Enable automatic cleanup",
