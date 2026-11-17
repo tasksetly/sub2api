@@ -422,7 +422,7 @@ export default {
     },
 
     affiliates: {
-      invitesDescription: '查看全站邀请关系和被邀请用户累计返现',
+      invitesDescription: '查看邀请关系、被邀请用户充值情况和返现',
       rebatesDescription: '查看每一笔返现入账，包括充值订单、兑换码和管理员充值产生的返现',
       transfersDescription: '查看返现额度转入余额与线下提现的流水',
       errors: {
@@ -449,6 +449,8 @@ export default {
         affCode: '邀请码',
         order: '订单',
         totalRebate: '累计返现',
+        rechargeCount: '成功充值笔数',
+        rechargeTotal: '累计充值金额',
         orderAmount: '充值金额',
         payAmount: '支付金额',
         rebateAmount: '返现金额',
@@ -494,6 +496,8 @@ export default {
         affCode: '邀请码',
         rebateRate: '返现比例',
         invitedCount: '邀请人数',
+        rechargedInviteeCount: '充值人数',
+        rechargeConversionRate: '充值转化率',
         rebatedInviteeCount: '已产生返现人数',
         availableQuota: '可提余额',
         historyQuota: '历史返现'

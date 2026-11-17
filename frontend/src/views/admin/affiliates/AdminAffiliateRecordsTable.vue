@@ -85,6 +85,9 @@
           <template #cell-total_rebate="{ row }">
             <AmountText :value="row.total_rebate" />
           </template>
+          <template #cell-recharge_amount="{ row }">
+            <AmountText :value="row.recharge_amount" />
+          </template>
           <template #cell-order_amount="{ row }">
             <NullableAmountText :value="row.order_amount" />
           </template>
@@ -168,6 +171,8 @@
           <OverviewStat :label="t('admin.affiliates.overview.affCode')" :value="selectedOverview.aff_code || '-'" mono />
           <OverviewStat :label="t('admin.affiliates.overview.rebateRate')" :value="formatPercent(selectedOverview.rebate_rate_percent)" />
           <OverviewStat :label="t('admin.affiliates.overview.invitedCount')" :value="String(selectedOverview.invited_count)" />
+          <OverviewStat :label="t('admin.affiliates.overview.rechargedInviteeCount')" :value="String(selectedOverview.recharged_invitee_count)" />
+          <OverviewStat :label="t('admin.affiliates.overview.rechargeConversionRate')" :value="formatPercent(selectedOverview.recharge_conversion_rate)" />
           <OverviewStat :label="t('admin.affiliates.overview.rebatedInviteeCount')" :value="String(selectedOverview.rebated_invitee_count)" />
           <OverviewStat :label="t('admin.affiliates.overview.availableQuota')" :value="'￥' + formatAmount(selectedOverview.available_quota)" />
           <OverviewStat :label="t('admin.affiliates.overview.historyQuota')" :value="'￥' + formatAmount(selectedOverview.history_quota)" />
@@ -222,6 +227,8 @@ const columns = computed<Column[]>(() => {
       { key: 'inviter', label: t('admin.affiliates.records.inviter'), sortable: true },
       { key: 'invitee', label: t('admin.affiliates.records.invitee'), sortable: true },
       { key: 'aff_code', label: t('admin.affiliates.records.affCode'), sortable: true },
+      { key: 'recharge_count', label: t('admin.affiliates.records.rechargeCount'), sortable: true },
+      { key: 'recharge_amount', label: t('admin.affiliates.records.rechargeTotal'), sortable: true },
       { key: 'total_rebate', label: t('admin.affiliates.records.totalRebate'), sortable: true },
       { key: 'created_at', label: t('admin.affiliates.records.invitedAt'), sortable: true },
     ]

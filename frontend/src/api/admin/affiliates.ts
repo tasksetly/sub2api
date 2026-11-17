@@ -45,6 +45,8 @@ export interface AffiliateInviteRecord {
   invitee_username: string
   aff_code: string
   total_rebate: number
+  recharge_count: number
+  recharge_amount: number
   created_at: string
 }
 
@@ -101,6 +103,8 @@ export interface AffiliateUserOverview {
   rebate_rate_percent: number
   invited_count: number
   rebated_invitee_count: number
+  recharged_invitee_count: number
+  recharge_conversion_rate: number
   available_quota: number
   history_quota: number
 }

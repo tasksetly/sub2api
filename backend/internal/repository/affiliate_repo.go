@@ -33,6 +33,8 @@ SELECT ua.user_id,
        (ua.aff_rebate_rate_percent IS NOT NULL) AS has_custom_rate,
        ua.aff_count,
        COALESCE(rebated.rebated_invitee_count, 0),
+       COALESCE(recharged.recharged_invitee_count, 0),
+       CASE WHEN ua.aff_count > 0 THEN COALESCE(recharged.recharged_invitee_count, 0)::double precision * 100 / ua.aff_count ELSE 0 END,
        (ua.aff_quota + COALESCE(matured.matured_frozen_quota, 0))::double precision,
        ua.aff_history_quota::double precision
 FROM user_affiliates ua
@@ -43,6 +45,13 @@ LEFT JOIN (
     WHERE action = 'accrue' AND source_user_id IS NOT NULL
     GROUP BY user_id
 ) rebated ON rebated.user_id = ua.user_id
+LEFT JOIN (
+    SELECT invitees.inviter_id, COUNT(DISTINCT po.user_id)::integer AS recharged_invitee_count
+    FROM user_affiliates invitees
+    JOIN payment_orders po ON po.user_id = invitees.user_id
+    WHERE po.order_type = 'balance' AND po.status = 'COMPLETED'
+    GROUP BY invitees.inviter_id
+) recharged ON recharged.inviter_id = ua.user_id
 LEFT JOIN (
     SELECT user_id, COALESCE(SUM(amount), 0)::double precision AS matured_frozen_quota
     FROM user_affiliate_ledger
@@ -608,11 +617,13 @@ JOIN user_affiliates inviter_aff ON inviter_aff.user_id = ua.inviter_id
 	}
 
 	orderBy := buildAffiliateRecordOrderBy(filter, map[string]string{
-		"inviter":      "inviter.email",
-		"invitee":      "invitee.email",
-		"aff_code":     "inviter_aff.aff_code",
-		"total_rebate": "total_rebate",
-		"created_at":   "ua.created_at",
+		"inviter":        "inviter.email",
+		"invitee":        "invitee.email",
+		"aff_code":       "inviter_aff.aff_code",
+		"recharge_count": "recharge_count",
+		"recharge_amount": "recharge_amount",
+		"total_rebate":   "total_rebate",
+		"created_at":     "ua.created_at",
 	}, "ua.created_at")
 	args = append(args, filter.PageSize, (filter.Page-1)*filter.PageSize)
 	rows, err := client.QueryContext(ctx, `
@@ -624,6 +635,8 @@ SELECT ua.inviter_id,
        COALESCE(invitee.username, ''),
        COALESCE(inviter_aff.aff_code, ''),
        COALESCE(SUM(ual.amount), 0)::double precision AS total_rebate,
+       COALESCE(recharges.recharge_count, 0)::integer,
+       COALESCE(recharges.recharge_amount, 0)::double precision,
        ua.created_at
 FROM user_affiliates ua
 JOIN users invitee ON invitee.id = ua.user_id
@@ -633,8 +646,16 @@ LEFT JOIN user_affiliate_ledger ual
        ON ual.user_id = ua.inviter_id
       AND ual.source_user_id = ua.user_id
       AND ual.action = 'accrue'
+LEFT JOIN LATERAL (
+    SELECT COUNT(*)::integer AS recharge_count,
+           COALESCE(SUM(po.amount), 0)::double precision AS recharge_amount
+    FROM payment_orders po
+    WHERE po.user_id = ua.user_id
+      AND po.order_type = 'balance'
+      AND po.status = 'COMPLETED'
+) recharges ON TRUE
 `+where+`
-GROUP BY ua.inviter_id, inviter.email, inviter.username, ua.user_id, invitee.email, invitee.username, inviter_aff.aff_code, ua.created_at
+GROUP BY ua.inviter_id, inviter.email, inviter.username, ua.user_id, invitee.email, invitee.username, inviter_aff.aff_code, ua.created_at, recharges.recharge_count, recharges.recharge_amount
 `+orderBy+`
 LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args)), args...)
 	if err != nil {
@@ -654,6 +675,8 @@ LIMIT $`+fmt.Sprint(len(args)-1)+` OFFSET $`+fmt.Sprint(len(args)), args...)
 			&item.InviteeUsername,
 			&item.AffCode,
 			&item.TotalRebate,
+			&item.RechargeCount,
+			&item.RechargeAmount,
 			&item.CreatedAt,
 		); err != nil {
 			return nil, 0, err
@@ -891,6 +914,8 @@ func (r *affiliateRepository) GetAffiliateUserOverview(ctx context.Context, user
 		&hasCustomRate,
 		&overview.InvitedCount,
 		&overview.RebatedInviteeCount,
+		&overview.RechargedInviteeCount,
+		&overview.RechargeConversionRate,
 		&overview.AvailableQuota,
 		&overview.HistoryQuota,
 	); err != nil {

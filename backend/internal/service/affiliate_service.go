@@ -161,6 +161,8 @@ type AffiliateInviteRecord struct {
 	InviteeUsername string    `json:"invitee_username"`
 	AffCode         string    `json:"aff_code"`
 	TotalRebate     float64   `json:"total_rebate"`
+	RechargeCount   int       `json:"recharge_count"`
+	RechargeAmount  float64   `json:"recharge_amount"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 
@@ -220,17 +222,19 @@ type AffiliateWithdrawResult struct {
 }
 
 type AffiliateUserOverview struct {
-	USDTExchangeRate    float64 `json:"usdt_exchange_rate"`
-	UserID              int64   `json:"user_id"`
-	Email               string  `json:"email"`
-	Username            string  `json:"username"`
-	AffCode             string  `json:"aff_code"`
-	RebateRatePercent   float64 `json:"rebate_rate_percent"`
-	RebateRateCustom    bool    `json:"-"`
-	InvitedCount        int     `json:"invited_count"`
-	RebatedInviteeCount int     `json:"rebated_invitee_count"`
-	AvailableQuota      float64 `json:"available_quota"`
-	HistoryQuota        float64 `json:"history_quota"`
+	USDTExchangeRate       float64 `json:"usdt_exchange_rate"`
+	UserID                 int64   `json:"user_id"`
+	Email                  string  `json:"email"`
+	Username               string  `json:"username"`
+	AffCode                string  `json:"aff_code"`
+	RebateRatePercent      float64 `json:"rebate_rate_percent"`
+	RebateRateCustom       bool    `json:"-"`
+	InvitedCount           int     `json:"invited_count"`
+	RebatedInviteeCount    int     `json:"rebated_invitee_count"`
+	RechargedInviteeCount  int     `json:"recharged_invitee_count"`
+	RechargeConversionRate float64 `json:"recharge_conversion_rate"`
+	AvailableQuota         float64 `json:"available_quota"`
+	HistoryQuota           float64 `json:"history_quota"`
 }
 
 type AffiliateService struct {

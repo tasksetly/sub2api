@@ -422,7 +422,7 @@ export default {
     },
 
     affiliates: {
-      invitesDescription: 'View site-wide inviter and invitee relationships',
+      invitesDescription: 'View invite relationships, invitee top-ups, and cashback',
       rebatesDescription: 'View every affiliate cashback accrual from recharge orders, redeem codes, and admin recharges',
       transfersDescription: 'View affiliate quota transfers into balance and offline withdrawals',
       errors: {
@@ -449,6 +449,8 @@ export default {
         affCode: 'Invite Code',
         order: 'Order',
         totalRebate: 'Total Cashback',
+        rechargeCount: 'Successful Top-Ups',
+        rechargeTotal: 'Total Top-Up Amount',
         orderAmount: 'Top-up Amount',
         payAmount: 'Paid Amount',
         rebateAmount: 'Cashback Amount',
@@ -494,6 +496,8 @@ export default {
         affCode: 'Invite Code',
         rebateRate: 'Cashback Rate',
         invitedCount: 'Invited Users',
+        rechargedInviteeCount: 'Users Who Topped Up',
+        rechargeConversionRate: 'Top-Up Conversion',
         rebatedInviteeCount: 'Rebated Invitees',
         availableQuota: 'Available Quota',
         historyQuota: 'Historical Cashback'
