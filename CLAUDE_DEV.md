@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-17 | 管理员邀请充值转化统计 | 邀请明细展示每位被邀请用户已完成余额充值笔数与累计金额；用户概览展示充值人数及相对邀请人数的转化率，仅统计 COMPLETED 余额订单；未运行构建或测试 | `backend/internal/repository/affiliate_repo.go`<br>`backend/internal/service/affiliate_service.go`<br>`frontend/src/views/admin/affiliates/AdminAffiliateRecordsTable.vue` | 37c7b184e |
 | 2026-11-15 | Docker 前端构建内存修复 | 将主 Dockerfile 前端构建阶段的 Node.js 堆上限提高至 4 GB，避免 `vue-tsc` 在默认约 2 GB 上限下耗尽内存 | `Dockerfile` | 089480d2b |
 | 2026-11-15 | CCTest Claude 黑盒检测 | 集成 cctest.ai 官方异步检测 API；管理员批量选择最多 20 个 Claude 账号固定检测，用户可选择自己的 API Key 经常规网关按本人余额/套餐结算；CCTest 密钥加密、限时单模型回调凭证、任务配额/租约/重试保护、结果脱敏与 90 天保留、评分详情与导出；差异、Go 格式/语法、Vue/TypeScript、国际化键及引用静态检查通过，未编译、构建、运行测试或迁移 | `backend/internal/service/cctest.go`<br>`backend/internal/repository/cctest_repo.go`<br>`backend/internal/handler/cctest_handler.go`<br>`backend/migrations/267_cctest.sql`<br>`frontend/src/views/CCTestView.vue`<br>`docs/cctest.md` | 06fe3d5cf |
 | 2026-11-15 | 充值完成 Webhook 通知 | 系统设置新增通用 POST JSON 通知、开关、加密地址与签名密钥、测试通知及发送记录；迁移 266 在余额订单完成时原子入队，后台租约投递、失败重试最多 5 次，按事件 ID 去重；公网 HTTPS 与 DNS 防护、配置版本冲突校验，固定加密密钥保障重启恢复；已补回归用例，通过差异、前端脚本语法、国际化、引用路径和接线静态检查，未编译、构建、运行测试、执行迁移或真实通知 | `backend/internal/service/notification_webhook*.go`<br>`backend/internal/repository/notification_webhook_repo.go`<br>`backend/migrations/266_notification_webhooks.sql`<br>`frontend/src/views/admin/settings/NotificationWebhookSettings.vue`<br>`docs/notification-webhooks.md` | df97e455e |
