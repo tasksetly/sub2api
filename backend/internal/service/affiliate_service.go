@@ -118,6 +118,7 @@ type AffiliateRepository interface {
 	BatchSetUserRebateRate(ctx context.Context, userIDs []int64, ratePercent *float64) error
 	ListUsersWithCustomSettings(ctx context.Context, filter AffiliateAdminFilter) ([]AffiliateAdminEntry, int64, error)
 	ListAffiliateInviteRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateInviteRecord, int64, error)
+	GetAffiliateInviteSummary(ctx context.Context, filter AffiliateRecordFilter) (*AffiliateInviteSummary, error)
 	ListAffiliateRebateRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateRebateRecord, int64, error)
 	ListAffiliateTransferRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateTransferRecord, int64, error)
 	GetAffiliateUserOverview(ctx context.Context, userID int64) (*AffiliateUserOverview, error)
@@ -150,6 +151,14 @@ type AffiliateRecordFilter struct {
 	EndAt    *time.Time
 	SortBy   string
 	SortDesc bool
+}
+
+type AffiliateInviteSummary struct {
+	InvitedCount          int64   `json:"invited_count"`
+	RechargedInviteeCount int64   `json:"recharged_invitee_count"`
+	RechargeCount         int64   `json:"recharge_count"`
+	RechargeAmount        float64 `json:"recharge_amount"`
+	TotalRebate           float64 `json:"total_rebate"`
 }
 
 type AffiliateInviteRecord struct {
@@ -645,6 +654,13 @@ func (s *AffiliateService) AdminListInviteRecords(ctx context.Context, filter Af
 		return nil, 0, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
 	}
 	return s.repo.ListAffiliateInviteRecords(ctx, normalizeAffiliateRecordFilter(filter))
+}
+
+func (s *AffiliateService) AdminGetInviteSummary(ctx context.Context, filter AffiliateRecordFilter) (*AffiliateInviteSummary, error) {
+	if s == nil || s.repo == nil {
+		return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
+	}
+	return s.repo.GetAffiliateInviteSummary(ctx, normalizeAffiliateRecordFilter(filter))
 }
 
 func (s *AffiliateService) AdminListRebateRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateRebateRecord, int64, error) {

@@ -466,6 +466,11 @@ export default {
         transferredAt: '提取时间',
         outflowType: '类型'
       },
+      inviteSummary: {
+        title: '邀请返现汇总',
+        scope: '汇总所有符合筛选的邀请。日期筛选按邀请时间，充值和返现按这些邀请的累计金额统计。',
+        failed: '加载邀请返现汇总失败'
+      },
       outflowTypes: {
         transfer: '转入余额',
         withdraw: '线下提现'

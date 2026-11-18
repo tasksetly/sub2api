@@ -36,6 +36,14 @@ export interface ListAffiliateRecordsParams {
   timezone?: string
 }
 
+export interface AffiliateInviteSummary {
+  invited_count: number
+  recharged_invitee_count: number
+  recharge_count: number
+  recharge_amount: number
+  total_rebate: number
+}
+
 export interface AffiliateInviteRecord {
   inviter_id: number
   inviter_email: string
@@ -206,6 +214,14 @@ export async function listInviteRecords(
   return data
 }
 
+export async function getInviteSummary(params: ListAffiliateRecordsParams): Promise<AffiliateInviteSummary> {
+  const { search, start_at, end_at, timezone } = recordParams(params)
+  const { data } = await apiClient.get<AffiliateInviteSummary>('/admin/affiliates/invites/summary', {
+    params: { search, start_at, end_at, timezone },
+  })
+  return data
+}
+
 export async function listRebateRecords(
   params: ListAffiliateRecordsParams = {},
 ): Promise<PaginatedResponse<AffiliateRebateRecord>> {
@@ -274,6 +290,7 @@ export const affiliatesAPI = {
   clearUserSettings,
   batchSetRate,
   listInviteRecords,
+  getInviteSummary,
   listRebateRecords,
   listTransferRecords,
   getUserOverview,

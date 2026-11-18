@@ -466,6 +466,11 @@ export default {
         transferredAt: 'Transferred At',
         outflowType: 'Type'
       },
+      inviteSummary: {
+        title: 'Invitation Cashback Summary',
+        scope: 'Covers all matching invitations. The date filter applies to invitation dates. Top-ups and cashback are lifetime totals for those invitations.',
+        failed: 'Failed to load the invitation cashback summary'
+      },
       outflowTypes: {
         transfer: 'To Balance',
         withdraw: 'Offline Withdrawal'

@@ -257,6 +257,17 @@ func (h *AffiliateHandler) ListInviteRecords(c *gin.Context) {
 	response.Paginated(c, items, total, filter.Page, filter.PageSize)
 }
 
+// GetInviteSummary returns totals across all matching invitations.
+func (h *AffiliateHandler) GetInviteSummary(c *gin.Context) {
+	filter := parseAffiliateRecordFilter(c, 1, 20)
+	summary, err := h.affiliateService.AdminGetInviteSummary(c.Request.Context(), filter)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, summary)
+}
+
 // ListRebateRecords returns every affiliate rebate accrual, with order details
 // when the rebate came from a payment order.
 // GET /api/v1/admin/affiliates/rebates

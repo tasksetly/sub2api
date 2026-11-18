@@ -3,15 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminAffiliateRecordsTable from '../AdminAffiliateRecordsTable.vue'
 
-const { listInviteRecords, listRebateRecords, listTransferRecords, getUserOverview } = vi.hoisted(() => ({
+const { listInviteRecords, listRebateRecords, listTransferRecords, getUserOverview, getInviteSummary } = vi.hoisted(() => ({
   listInviteRecords: vi.fn(),
   listRebateRecords: vi.fn(),
   listTransferRecords: vi.fn(),
   getUserOverview: vi.fn(),
+  getInviteSummary: vi.fn(),
 }))
 
 vi.mock('@/api/admin/affiliates', () => {
-  const affiliatesAPI = { listInviteRecords, listRebateRecords, listTransferRecords, getUserOverview }
+  const affiliatesAPI = { listInviteRecords, listRebateRecords, listTransferRecords, getUserOverview, getInviteSummary }
   return { affiliatesAPI, default: affiliatesAPI }
 })
 
@@ -80,6 +81,20 @@ describe('AdminAffiliateRecordsTable', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    getInviteSummary.mockResolvedValue({ invited_count: 0, recharged_invitee_count: 0, recharge_count: 0, recharge_amount: 0, total_rebate: 0 })
+  })
+
+  it('shows server totals independently of the current page and refreshes them on a date change', async () => {
+    listInviteRecords.mockResolvedValue(page([]))
+    getInviteSummary.mockResolvedValue({ invited_count: 80, recharged_invitee_count: 20, recharge_count: 30, recharge_amount: 500, total_rebate: 50 })
+    const wrapper = mountTable('invites')
+    await flushPromises()
+    expect(wrapper.findAll('dd').map((item) => item.text())).toEqual(['80', '20', '25%', '30', '￥500.00', '￥50.00'])
+
+    await wrapper.get('input[title="admin.affiliates.records.startAt"]').setValue('2026-11-01')
+    await flushPromises()
+    expect(getInviteSummary).toHaveBeenLastCalledWith(expect.objectContaining({ start_at: '2026-11-01' }))
+    wrapper.unmount()
   })
 
   it('renders non-order rebate accruals with empty order fields', async () => {

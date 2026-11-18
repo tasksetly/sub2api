@@ -182,6 +182,10 @@ func (r *paymentFulfillmentAffiliateRepoStub) ListAffiliateInviteRecords(context
 	panic("unexpected ListAffiliateInviteRecords call")
 }
 
+func (r *paymentFulfillmentAffiliateRepoStub) GetAffiliateInviteSummary(context.Context, AffiliateRecordFilter) (*AffiliateInviteSummary, error) {
+	panic("unexpected GetAffiliateInviteSummary call")
+}
+
 func (r *paymentFulfillmentAffiliateRepoStub) ListAffiliateRebateRecords(context.Context, AffiliateRecordFilter) ([]AffiliateRebateRecord, int64, error) {
 	panic("unexpected ListAffiliateRebateRecords call")
 }

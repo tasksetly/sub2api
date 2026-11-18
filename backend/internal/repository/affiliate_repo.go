@@ -598,32 +598,76 @@ LIMIT $2`, inviterID, limit)
 	return invitees, nil
 }
 
-func (r *affiliateRepository) ListAffiliateInviteRecords(ctx context.Context, filter service.AffiliateRecordFilter) ([]service.AffiliateInviteRecord, int64, error) {
-	client := clientFromContext(ctx, r.client)
-	where, args := buildAffiliateRecordWhere(filter, "ua.created_at", []string{
-		"inviter.email", "inviter.username", "invitee.email", "invitee.username",
-		"ua.inviter_id::text", "ua.user_id::text", "inviter_aff.aff_code",
-	})
-
-	total, err := queryAffiliateRecordCount(ctx, client, `
-SELECT COUNT(*)
+const affiliateInviteFrom = `
 FROM user_affiliates ua
 JOIN users invitee ON invitee.id = ua.user_id
 JOIN users inviter ON inviter.id = ua.inviter_id
 JOIN user_affiliates inviter_aff ON inviter_aff.user_id = ua.inviter_id
-`+where, args...)
+`
+
+func buildAffiliateInviteWhere(filter service.AffiliateRecordFilter) (string, []any) {
+	return buildAffiliateRecordWhere(filter, "ua.created_at", []string{
+		"inviter.email", "inviter.username", "invitee.email", "invitee.username",
+		"ua.inviter_id::text", "ua.user_id::text", "inviter_aff.aff_code",
+	})
+}
+
+func (r *affiliateRepository) GetAffiliateInviteSummary(ctx context.Context, filter service.AffiliateRecordFilter) (*service.AffiliateInviteSummary, error) {
+	client := clientFromContext(ctx, r.client)
+	where, args := buildAffiliateInviteWhere(filter)
+	rows, err := client.QueryContext(ctx, `
+WITH invites AS (
+    SELECT ua.user_id, ua.inviter_id
+`+affiliateInviteFrom+where+`
+), recharges AS (
+    SELECT COUNT(DISTINCT po.user_id) AS invitees, COUNT(*) AS orders,
+           COALESCE(SUM(po.amount), 0)::double precision AS amount
+    FROM invites i
+    JOIN payment_orders po ON po.user_id = i.user_id
+    WHERE po.order_type = 'balance' AND po.status = 'COMPLETED'
+), rebates AS (
+    SELECT COALESCE(SUM(ual.amount), 0)::double precision AS amount
+    FROM invites i
+    JOIN user_affiliate_ledger ual ON ual.user_id = i.inviter_id
+         AND ual.source_user_id = i.user_id AND ual.action = 'accrue'
+)
+SELECT (SELECT COUNT(*) FROM invites), recharges.invitees, recharges.orders,
+       recharges.amount, rebates.amount
+FROM recharges CROSS JOIN rebates`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, sql.ErrNoRows
+	}
+	var summary service.AffiliateInviteSummary
+	if err := rows.Scan(&summary.InvitedCount, &summary.RechargedInviteeCount,
+		&summary.RechargeCount, &summary.RechargeAmount, &summary.TotalRebate); err != nil {
+		return nil, err
+	}
+	return &summary, rows.Err()
+}
+
+func (r *affiliateRepository) ListAffiliateInviteRecords(ctx context.Context, filter service.AffiliateRecordFilter) ([]service.AffiliateInviteRecord, int64, error) {
+	client := clientFromContext(ctx, r.client)
+	where, args := buildAffiliateInviteWhere(filter)
+	total, err := queryAffiliateRecordCount(ctx, client, `SELECT COUNT(*)`+affiliateInviteFrom+where, args...)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	orderBy := buildAffiliateRecordOrderBy(filter, map[string]string{
-		"inviter":        "inviter.email",
-		"invitee":        "invitee.email",
-		"aff_code":       "inviter_aff.aff_code",
-		"recharge_count": "recharge_count",
+		"inviter":         "inviter.email",
+		"invitee":         "invitee.email",
+		"aff_code":        "inviter_aff.aff_code",
+		"recharge_count":  "recharge_count",
 		"recharge_amount": "recharge_amount",
-		"total_rebate":   "total_rebate",
-		"created_at":     "ua.created_at",
+		"total_rebate":    "total_rebate",
+		"created_at":      "ua.created_at",
 	}, "ua.created_at")
 	args = append(args, filter.PageSize, (filter.Page-1)*filter.PageSize)
 	rows, err := client.QueryContext(ctx, `
@@ -638,10 +682,7 @@ SELECT ua.inviter_id,
        COALESCE(recharges.recharge_count, 0)::integer,
        COALESCE(recharges.recharge_amount, 0)::double precision,
        ua.created_at
-FROM user_affiliates ua
-JOIN users invitee ON invitee.id = ua.user_id
-JOIN users inviter ON inviter.id = ua.inviter_id
-JOIN user_affiliates inviter_aff ON inviter_aff.user_id = ua.inviter_id
+`+affiliateInviteFrom+`
 LEFT JOIN user_affiliate_ledger ual
        ON ual.user_id = ua.inviter_id
       AND ual.source_user_id = ua.user_id

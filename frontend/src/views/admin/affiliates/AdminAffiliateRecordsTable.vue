@@ -9,7 +9,7 @@
           </div>
           <input v-model="filters.start_at" type="date" class="input w-full sm:w-44" :title="t('admin.affiliates.records.startAt')" @change="reloadFromFirstPage" />
           <input v-model="filters.end_at" type="date" class="input w-full sm:w-44" :title="t('admin.affiliates.records.endAt')" @change="reloadFromFirstPage" />
-          <button class="btn btn-secondary px-2 md:px-3" :disabled="loading" :title="t('common.refresh')" @click="loadRecords">
+          <button class="btn btn-secondary px-2 md:px-3" :disabled="loading || summaryLoading" :title="t('common.refresh')" @click="refreshRecords">
             <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
           </button>
           <button
@@ -22,6 +22,17 @@
             {{ t('admin.affiliates.withdraw.button') }}
           </button>
         </div>
+        <section v-if="props.type === 'invites'" class="mt-4 border-y border-gray-200 py-4 dark:border-dark-700" :aria-busy="summaryLoading">
+          <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.affiliates.inviteSummary.title') }}</h2>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.affiliates.inviteSummary.scope') }}</p>
+          <dl class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <div v-for="metric in summaryMetrics" :key="metric.label" class="min-w-0">
+              <dt class="text-xs text-gray-600 dark:text-gray-400">{{ metric.label }}</dt>
+              <dd class="mt-1 break-words text-lg font-semibold tabular-nums text-gray-900 dark:text-white">{{ metric.value ?? '–' }}</dd>
+            </div>
+          </dl>
+          <p v-if="summaryFailed" role="status" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ t('admin.affiliates.inviteSummary.failed') }}</p>
+        </section>
       </template>
 
       <template #table>
@@ -183,7 +194,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, reactive, ref, type PropType } from 'vue'
+import { computed, defineComponent, h, onMounted, onUnmounted, reactive, ref, type PropType } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -196,10 +207,10 @@ import AffiliateOfflineWithdrawDialog from './AffiliateOfflineWithdrawDialog.vue
 import AffiliatePayoutReceipt from '@/components/affiliate/AffiliatePayoutReceipt.vue'
 import type { Column } from '@/components/common/types'
 import { useAppStore } from '@/stores/app'
-import { affiliatesAPI, type AffiliateInviteRecord, type AffiliateRebateRecord, type AffiliateTransferRecord, type AffiliateUserOverview, type ListAffiliateRecordsParams } from '@/api/admin/affiliates'
+import { affiliatesAPI, type AffiliateInviteRecord, type AffiliateInviteSummary, type AffiliateRebateRecord, type AffiliateTransferRecord, type AffiliateUserOverview, type ListAffiliateRecordsParams } from '@/api/admin/affiliates'
 import type { PaginatedResponse } from '@/types'
 import { extractI18nErrorMessage } from '@/utils/apiError'
-import { formatDateTime as formatDisplayDateTime } from '@/utils/format'
+import { formatDateTime as formatDisplayDateTime, formatNumberLocaleString } from '@/utils/format'
 
 type RecordType = 'invites' | 'rebates' | 'transfers'
 type AffiliateRecord = AffiliateInviteRecord | AffiliateRebateRecord | AffiliateTransferRecord
@@ -212,6 +223,11 @@ const { t } = useI18n()
 const appStore = useAppStore()
 const loading = ref(false)
 const records = ref<AffiliateRecord[]>([])
+const inviteSummary = ref<AffiliateInviteSummary | null>(null)
+const summaryLoading = ref(false)
+const summaryFailed = ref(false)
+let summaryRequest = 0
+let recordsRequest = 0
 const filters = reactive({ search: '', start_at: '', end_at: '' })
 const pagination = reactive({ page: 1, page_size: 20, total: 0 })
 const overviewDialog = ref(false)
@@ -220,6 +236,18 @@ const selectedOverview = ref<AffiliateUserOverview | null>(null)
 const withdrawDialog = ref(false)
 const selectedReceipt = ref<AffiliateTransferRecord | null>(null)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+const summaryMetrics = computed(() => {
+  const summary = inviteSummary.value
+  return [
+    { label: t('admin.affiliates.overview.invitedCount'), value: summary && formatNumberLocaleString(summary.invited_count) },
+    { label: t('admin.affiliates.overview.rechargedInviteeCount'), value: summary && formatNumberLocaleString(summary.recharged_invitee_count) },
+    { label: t('admin.affiliates.overview.rechargeConversionRate'), value: summary?.invited_count ? formatPercent(summary.recharged_invitee_count * 100 / summary.invited_count) : null },
+    { label: t('admin.affiliates.records.rechargeCount'), value: summary && formatNumberLocaleString(summary.recharge_count) },
+    { label: t('admin.affiliates.records.rechargeTotal'), value: summary && `￥${formatAmount(summary.recharge_amount)}` },
+    { label: t('admin.affiliates.records.totalRebate'), value: summary && `￥${formatAmount(summary.total_rebate)}` },
+  ]
+})
 
 const columns = computed<Column[]>(() => {
   if (props.type === 'invites') {
@@ -312,16 +340,42 @@ async function fetchRecords(params: ListAffiliateRecordsParams): Promise<Paginat
 }
 
 async function loadRecords() {
+  const request = ++recordsRequest
   loading.value = true
   try {
     const res = await fetchRecords(buildParams())
+    if (request !== recordsRequest) return
     records.value = res.items || []
     pagination.total = res.total || 0
   } catch (error) {
-    appStore.showError(extractI18nErrorMessage(error, t, 'admin.affiliates.errors', t('common.error')))
+    if (request === recordsRequest) appStore.showError(extractI18nErrorMessage(error, t, 'admin.affiliates.errors', t('common.error')))
   } finally {
-    loading.value = false
+    if (request === recordsRequest) loading.value = false
   }
+}
+
+async function loadInviteSummary() {
+  const request = ++summaryRequest
+  inviteSummary.value = null
+  summaryLoading.value = true
+  summaryFailed.value = false
+  try {
+    const summary = await affiliatesAPI.getInviteSummary(buildParams())
+    if (request === summaryRequest) inviteSummary.value = summary
+  } catch {
+    if (request === summaryRequest) summaryFailed.value = true
+  } finally {
+    if (request === summaryRequest) summaryLoading.value = false
+  }
+}
+
+function refreshRecords() {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  void loadRecords()
+  if (props.type === 'invites') void loadInviteSummary()
 }
 
 function debounceLoad() {
@@ -331,7 +385,7 @@ function debounceLoad() {
 
 function reloadFromFirstPage() {
   pagination.page = 1
-  void loadRecords()
+  refreshRecords()
 }
 
 function handlePageChange(page: number) {
@@ -461,7 +515,10 @@ const OverviewStat = defineComponent({
   },
 })
 
-onMounted(() => {
-  void loadRecords()
+onMounted(refreshRecords)
+onUnmounted(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  summaryRequest++
+  recordsRequest++
 })
 </script>

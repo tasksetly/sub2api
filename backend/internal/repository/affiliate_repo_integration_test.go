@@ -801,6 +801,61 @@ func TestAffiliateRepository_ListAffiliateRebateRecords_IncludesNonOrderAccruals
 	require.InDelta(t, 2.0, record.RebateAmount, 1e-9)
 }
 
+func TestAffiliateRepository_InviteSummaryAcrossPages(t *testing.T) {
+	tx := testEntTx(t)
+	ctx := dbent.NewTxContext(context.Background(), tx)
+	client := tx.Client()
+	repo := NewAffiliateRepository(client, integrationDB)
+	inviter := mustCreateAffiliateWithdrawUser(t, client, "summary-inviter")
+	paid := mustCreateAffiliateWithdrawUser(t, client, "summary-paid")
+	unpaid := mustCreateAffiliateWithdrawUser(t, client, "summary-unpaid")
+	_, err := repo.EnsureUserAffiliate(ctx, inviter.ID)
+	require.NoError(t, err)
+	for _, id := range []int64{paid.ID, unpaid.ID} {
+		_, err := repo.EnsureUserAffiliate(ctx, id)
+		require.NoError(t, err)
+		bound, err := repo.BindInviter(ctx, id, inviter.ID)
+		require.NoError(t, err)
+		require.True(t, bound)
+	}
+	for index, order := range []struct {
+		amount float64
+		kind   string
+		status string
+	}{
+		{10, "balance", "COMPLETED"},
+		{20, "balance", "COMPLETED"},
+		{50, "subscription", "COMPLETED"},
+		{60, "balance", "PENDING"},
+	} {
+		ref := fmt.Sprintf("summary-%d-%d", paid.ID, index)
+		_, err := client.PaymentOrder.Create().SetUserID(paid.ID).SetUserEmail(paid.Email).
+			SetUserName("paid").SetAmount(order.amount).SetPayAmount(order.amount).
+			SetRechargeCode(ref).SetOutTradeNo(ref).SetPaymentType("alipay").SetPaymentTradeNo(ref).
+			SetOrderType(order.kind).SetStatus(order.status).SetExpiresAt(time.Now().Add(time.Hour)).
+			SetClientIP("127.0.0.1").SetSrcHost("example.com").Save(ctx)
+		require.NoError(t, err)
+	}
+	for _, amount := range []float64{2, 3} {
+		applied, err := repo.AccrueQuota(ctx, inviter.ID, paid.ID, amount, 0, nil)
+		require.NoError(t, err)
+		require.True(t, applied)
+	}
+
+	filter := service.AffiliateRecordFilter{Search: inviter.Email, Page: 2, PageSize: 1}
+	summary, err := repo.GetAffiliateInviteSummary(ctx, filter)
+	require.NoError(t, err)
+	require.Equal(t, &service.AffiliateInviteSummary{
+		InvitedCount: 2, RechargedInviteeCount: 1, RechargeCount: 2, RechargeAmount: 30, TotalRebate: 5,
+	}, summary)
+
+	future := time.Now().Add(time.Hour)
+	filter.StartAt = &future
+	summary, err = repo.GetAffiliateInviteSummary(ctx, filter)
+	require.NoError(t, err)
+	require.Equal(t, &service.AffiliateInviteSummary{}, summary)
+}
+
 func TestAffiliateRepository_USDTPayoutReceiptAndReplay(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)
