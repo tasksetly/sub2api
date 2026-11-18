@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-18 | 仪表盘缓存命中率 | 单独展示所选时段的缓存命中率、缓存读取量及含缓存的输入总量；支持切换全部或单个 API 密钥，联动 Token 趋势和模型分布；差异、语法及国际化静态检查通过，已补用例，未构建或运行测试 | `frontend/src/views/user/DashboardView.vue`<br>`frontend/src/components/user/dashboard/UserDashboardCharts.vue` | ea0f6443c |
 | 2026-11-18 | API 密钥批量删除 | 支持勾选当前页密钥后二次确认删除，复用单条删除接口及权限检查；部分失败时保留失败项，删除末页后回到最后可用页；已补回归用例，通过差异、语法及国际化静态检查，未编译、构建或运行测试 | `frontend/src/views/user/KeysView.vue`<br>`frontend/src/api/keys.ts` | 9f2719f8a |
 | 2026-11-18 | 暂时撤回 CCTest 检测 | 移除管理端和用户端入口、API、回调及后台任务；保留原迁移及历史数据，不删除表 | `backend/internal/server/routes/{admin,user,gateway}.go`<br>`frontend/src/router/index.ts`<br>`backend/migrations/267_cctest.sql`（保留） | 7c6e11c59 |
 | 2026-11-18 | 上游创建账号可选平台 | 复用本地账号平台目录，默认跟随各上游分组（NewAPI 保持 OpenAI 默认）；手动选择只覆盖本批本地账号，不改上游 Key 分组；已补回归用例，通过差异、格式、语法及国际化静态检查，未运行构建或测试 | `frontend/src/components/admin/upstream/UpstreamProvisionDialog.vue`<br>`backend/internal/handler/admin/upstream_provider_handler.go`<br>`backend/internal/service/upstream_provider_service.go` | 5e68b9e30 |
