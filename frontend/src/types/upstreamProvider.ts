@@ -1,3 +1,5 @@
+import type { AccountPlatform } from '@/types'
+
 /**
  * 上游 sub2api 供应商管理类型。
  *
@@ -192,6 +194,8 @@ export interface UpdateUpstreamProviderRequest {
 export interface ProvisionAccountsRequest {
   /** 勾选的上游分组（remote_group_id） */
   remote_group_ids: number[]
+  /** 可选：统一覆盖本次创建的本地账号平台，省略时跟随各上游分组 */
+  platform?: AccountPlatform
   /** 可选：把新账号绑定到哪些本地分组 */
   local_group_ids?: number[]
   concurrency?: number

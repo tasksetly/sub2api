@@ -52,6 +52,18 @@
 
       <form v-else class="space-y-4" @submit.prevent="handleSubmit">
         <div>
+          <label for="upstream-provision-platform" class="input-label">
+            {{ t('admin.upstreamProviders.provisionAccountPlatform') }}
+          </label>
+          <Select
+            id="upstream-provision-platform"
+            v-model="form.platform"
+            :aria-label="t('admin.upstreamProviders.provisionAccountPlatform')"
+            :options="accountPlatformOptions"
+            :disabled="submitting"
+          />
+        </div>
+        <div>
           <label class="input-label">{{ t('admin.upstreamProviders.provisionSelectGroups') }}</label>
           <div v-if="groupsLoading" class="text-sm text-gray-500 dark:text-gray-400">
             {{ t('common.loading') }}
@@ -230,7 +242,7 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AdminGroup, GroupPlatform } from '@/types'
-import { GROUP_PLATFORM_OPTIONS } from '@/constants/platforms'
+import { CONCRETE_PLATFORM_OPTIONS, GROUP_PLATFORM_OPTIONS } from '@/constants/platforms'
 import type {
   UpstreamProvider,
   UpstreamProviderWithStats,
@@ -239,6 +251,7 @@ import type {
   ProvisionAccountsRequest
 } from '@/types/upstreamProvider'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import Select from '@/components/common/Select.vue'
 
 interface Props {
   show: boolean
@@ -267,10 +280,16 @@ const selectedLocal = ref<Set<number>>(new Set())
 const platformFilter = ref<string>('all')
 const localPlatformFilters = ref<Set<GroupPlatform>>(new Set())
 const form = ref({
+  platform: '',
   concurrency: undefined as number | undefined,
   priority: undefined as number | undefined,
   key_name_prefix: ''
 })
+
+const accountPlatformOptions = computed(() => [
+  { value: '', label: t('admin.upstreamProviders.provisionFollowUpstreamPlatform') },
+  ...CONCRETE_PLATFORM_OPTIONS
+])
 
 // 提取所有唯一的平台
 const platforms = computed(() => {
@@ -310,7 +329,7 @@ watch(
     selectedLocal.value = new Set()
     platformFilter.value = 'all'
     localPlatformFilters.value = new Set()
-    form.value = { concurrency: undefined, priority: undefined, key_name_prefix: '' }
+    form.value = { platform: '', concurrency: undefined, priority: undefined, key_name_prefix: '' }
   }
 )
 
@@ -364,6 +383,9 @@ function handleSubmit() {
   if (selected.value.size === 0) return
   const payload: ProvisionAccountsRequest = {
     remote_group_ids: Array.from(selected.value)
+  }
+  if (form.value.platform) {
+    payload.platform = form.value.platform
   }
   if (selectedLocal.value.size > 0) {
     payload.local_group_ids = Array.from(selectedLocal.value)

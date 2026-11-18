@@ -177,6 +177,8 @@ export default {
       provisionHintNewAPI:
         'With a dashboard PAT (nap_...), a relay API key is created for each selected group and saved to the local account. With an existing relay key (sk-...), that key is reused.',
       provisionSelectGroups: 'Select groups',
+      provisionAccountPlatform: 'Account platform',
+      provisionFollowUpstreamPlatform: 'Follow upstream group (default)',
       provisionPlatformAll: 'All platforms',
       provisionLocalGroups: 'Bind to local groups',
       provisionLocalGroupsHelp:

@@ -66,6 +66,7 @@ type UpdateUpstreamProviderRequest struct {
 // ProvisionAccountsRequest 勾选上游分组后创建 Key 与本地账号。
 type ProvisionAccountsRequest struct {
 	RemoteGroupIDs []int64 `json:"remote_group_ids" binding:"required,min=1"`
+	Platform       string  `json:"platform" binding:"omitempty,concrete_platform"`
 	LocalGroupIDs  []int64 `json:"local_group_ids"`
 	Concurrency    int     `json:"concurrency" binding:"omitempty,min=1"`
 	Priority       int     `json:"priority" binding:"omitempty,min=0"`
@@ -310,6 +311,7 @@ func (h *UpstreamProviderHandler) ProvisionAccounts(c *gin.Context) {
 	results, err := h.svc.ProvisionAccounts(c.Request.Context(), service.ProvisionAccountInput{
 		ProviderID:     id,
 		RemoteGroupIDs: req.RemoteGroupIDs,
+		Platform:       req.Platform,
 		LocalGroupIDs:  req.LocalGroupIDs,
 		Concurrency:    req.Concurrency,
 		Priority:       req.Priority,

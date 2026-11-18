@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 
+import Select from '@/components/common/Select.vue'
+import { CONCRETE_PLATFORM_OPTIONS } from '@/constants/platforms'
 import UpstreamProvisionDialog from '../UpstreamProvisionDialog.vue'
 import type { UpstreamGroup } from '@/types/upstreamProvider'
 
@@ -49,7 +51,7 @@ function mountDialog(props: Record<string, unknown>) {
       ...props
     },
     global: {
-      stubs: { BaseDialog: BaseDialogStub }
+      stubs: { BaseDialog: BaseDialogStub, Select: true }
     }
   })
 }
@@ -76,7 +78,7 @@ describe('UpstreamProvisionDialog preset groups', () => {
 
     const emitted = wrapper.emitted('submit')
     expect(emitted).toHaveLength(1)
-    expect(emitted![0][0]).toMatchObject({ remote_group_ids: [7] })
+    expect(emitted![0][0]).toEqual({ remote_group_ids: [7] })
   })
 
   it('drops a preset group that the upstream no longer exposes', async () => {
@@ -105,5 +107,34 @@ describe('UpstreamProvisionDialog preset groups', () => {
       item.text().includes('admin.upstreamProviders.provisionSubmit')
     )
     expect(submit!.attributes('disabled')).toBeDefined()
+  })
+})
+
+describe('UpstreamProvisionDialog account platform', () => {
+  it('submits the selected account platform for the batch and resets it on reopen', async () => {
+    const wrapper = mountDialog({
+      groups: [makeGroup(7, 'first'), makeGroup(9, 'second')],
+      presetRemoteGroupIDs: [7, 9]
+    })
+    await wrapper.setProps({ show: true })
+
+    const platform = wrapper.getComponent(Select)
+    expect(platform.props('options')).toEqual([
+      { value: '', label: 'admin.upstreamProviders.provisionFollowUpstreamPlatform' },
+      ...CONCRETE_PLATFORM_OPTIONS
+    ])
+    expect(platform.props('modelValue')).toBe('')
+    platform.vm.$emit('update:modelValue', 'gemini')
+    await wrapper.get('form').trigger('submit')
+
+    await wrapper.setProps({ show: false })
+    await wrapper.setProps({ show: true })
+    expect(wrapper.getComponent(Select).props('modelValue')).toBe('')
+    await wrapper.get('form').trigger('submit')
+
+    expect(wrapper.emitted('submit')).toEqual([
+      [{ remote_group_ids: [7, 9], platform: 'gemini' }],
+      [{ remote_group_ids: [7, 9] }]
+    ])
   })
 })

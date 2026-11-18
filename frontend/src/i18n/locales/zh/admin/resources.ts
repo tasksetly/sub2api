@@ -174,6 +174,8 @@ export default {
       provisionHint: '勾选分组后，会在上游创建 API Key 并落地成本地账号。',
       provisionHintNewAPI: '使用 Dashboard PAT（nap_...）时，会为每个勾选分组创建 relay API key 并保存到本地账号；使用已有 relay key（sk-...）时直接复用。',
       provisionSelectGroups: '选择分组',
+      provisionAccountPlatform: '账号平台',
+      provisionFollowUpstreamPlatform: '跟随上游分组（默认）',
       provisionPlatformAll: '全部平台',
       provisionLocalGroups: '绑定到本地分组',
       provisionLocalGroupsHelp: '不选则新账号不绑定任何分组，需你核对倍率后再手动绑定',

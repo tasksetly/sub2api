@@ -759,6 +759,8 @@ type ProvisionAccountInput struct {
 	ProviderID int64
 	// RemoteGroupIDs 是管理员在前端勾选的上游分组
 	RemoteGroupIDs []int64
+	// Platform 可选：统一覆盖本地账号平台，不改变 Key 绑定的上游分组。
+	Platform string
 	// LocalGroupIDs 可选：把新账号绑定到哪些本地分组
 	LocalGroupIDs []int64
 	// Concurrency/Priority 留空则用平台默认
@@ -858,8 +860,7 @@ func (s *UpstreamProviderService) ProvisionAccounts(
 
 // createLocalAccount 用上游签发的 Key 建本地账号。
 //
-// platform 取上游分组的 platform：这决定了本地按哪套协议转发。
-// 上游 sub2api 暴露的是 Anthropic 兼容接口，所以分组没声明平台时兜底 anthropic。
+// 本地转发平台优先使用显式选项，留空则沿用上游分组和供应商的默认规则。
 // 自动同步账号倍率：将上游分组倍率（经充值比例修正）设置到账号上。
 // 自动同步支持的模型：从上游获取模型列表并设置到 model_mapping。
 func (s *UpstreamProviderService) createLocalAccount(
@@ -870,12 +871,14 @@ func (s *UpstreamProviderService) createLocalAccount(
 	accountName string,
 	input ProvisionAccountInput,
 ) (*Account, error) {
-	platform := strings.TrimSpace(group.Platform)
+	platform := input.Platform
 	if platform == "" {
-		platform = PlatformAnthropic
-	}
-	if provider.ProviderType == UpstreamProviderTypeNewAPI {
-		platform = PlatformOpenAI
+		platform = strings.TrimSpace(group.Platform)
+		if provider.ProviderType == UpstreamProviderTypeNewAPI {
+			platform = PlatformOpenAI
+		} else if platform == "" {
+			platform = PlatformAnthropic
+		}
 	}
 
 	concurrency := input.Concurrency
@@ -889,7 +892,7 @@ func (s *UpstreamProviderService) createLocalAccount(
 	correctedRate := group.ComparableRate() * NormalizeRateCorrection(provider.RateCorrection)
 
 	baseURL := strings.TrimRight(provider.BaseURL, "/")
-	if provider.ProviderType == UpstreamProviderTypeNewAPI && !strings.HasSuffix(baseURL, "/v1") {
+	if provider.ProviderType == UpstreamProviderTypeNewAPI && platform == PlatformOpenAI && !strings.HasSuffix(baseURL, "/v1") {
 		baseURL += "/v1"
 	}
 	credentials := map[string]any{
@@ -908,6 +911,14 @@ func (s *UpstreamProviderService) createLocalAccount(
 				"description":      "上游不可用 - 临时不可调度 3 分钟",
 			},
 		},
+	}
+	if profile := LookupProviderProfile(platform); profile != nil && profile.Routing == ProviderRoutingByModel {
+		// Adaptive routing must not send a relay key to the provider's official hosts.
+		baseURLs := make(map[string]any)
+		for protocol := range profile.Endpoints("").BaseURLs {
+			baseURLs[protocol] = baseURL
+		}
+		credentials["api_base_urls"] = baseURLs
 	}
 
 	// 自动同步模型：从上游获取支持的模型列表并设置到 model_mapping
