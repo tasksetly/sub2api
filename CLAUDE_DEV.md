@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-18 | 上游创建账号可选平台 | 复用本地账号平台目录，默认跟随各上游分组（NewAPI 保持 OpenAI 默认）；手动选择只覆盖本批本地账号，不改上游 Key 分组；已补回归用例，通过差异、格式、语法及国际化静态检查，未运行构建或测试 | `frontend/src/components/admin/upstream/UpstreamProvisionDialog.vue`<br>`backend/internal/handler/admin/upstream_provider_handler.go`<br>`backend/internal/service/upstream_provider_service.go` | 5e68b9e30 |
 | 2026-11-17 | 管理员邀请充值转化统计 | 邀请明细展示每位被邀请用户已完成余额充值笔数与累计金额；用户概览展示充值人数及相对邀请人数的转化率，仅统计 COMPLETED 余额订单；未运行构建或测试 | `backend/internal/repository/affiliate_repo.go`<br>`backend/internal/service/affiliate_service.go`<br>`frontend/src/views/admin/affiliates/AdminAffiliateRecordsTable.vue` | 37c7b184e |
 | 2026-11-15 | Docker 前端构建内存修复 | 将主 Dockerfile 前端构建阶段的 Node.js 堆上限提高至 4 GB，避免 `vue-tsc` 在默认约 2 GB 上限下耗尽内存 | `Dockerfile` | 089480d2b |
 | 2026-11-15 | CCTest Claude 黑盒检测 | 集成 cctest.ai 官方异步检测 API；管理员批量选择最多 20 个 Claude 账号固定检测，用户可选择自己的 API Key 经常规网关按本人余额/套餐结算；CCTest 密钥加密、限时单模型回调凭证、任务配额/租约/重试保护、结果脱敏与 90 天保留、评分详情与导出；差异、Go 格式/语法、Vue/TypeScript、国际化键及引用静态检查通过，未编译、构建、运行测试或迁移 | `backend/internal/service/cctest.go`<br>`backend/internal/repository/cctest_repo.go`<br>`backend/internal/handler/cctest_handler.go`<br>`backend/migrations/267_cctest.sql`<br>`frontend/src/views/CCTestView.vue`<br>`docs/cctest.md` | 06fe3d5cf |
