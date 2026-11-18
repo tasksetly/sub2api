@@ -162,10 +162,6 @@ export default defineConfig(({ mode }) => {
           target: backendUrl,
           changeOrigin: true
         },
-        '/cctest/relay': {
-          target: backendUrl,
-          changeOrigin: true
-        },
         '/setup': {
           target: backendUrl,
           changeOrigin: true

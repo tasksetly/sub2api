@@ -238,18 +238,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/cctest',
-    name: 'CCTest',
-    component: () => import('@/views/CCTestView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: false, title: 'CCTest', titleKey: 'cctest.title', descriptionKey: 'cctest.description' }
-  },
-  {
-    path: '/admin/cctest',
-    name: 'AdminCCTest',
-    component: () => import('@/views/admin/CCTestAdminView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'CCTest', titleKey: 'cctest.title', descriptionKey: 'cctest.description' }
-  },
-  {
     path: '/playground',
     name: 'Playground',
     component: () => import('@/views/user/PlaygroundView.vue'),

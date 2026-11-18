@@ -10,7 +10,6 @@ import admin from './admin'
 import misc from './misc'
 import tickets from './tickets'
 import intelligenceTest from './intelligenceTest'
-import cctest from './cctest'
 
 export default {
   adminAccessKeys,
@@ -25,5 +24,4 @@ export default {
   ...misc,
   ...tickets,
   ...intelligenceTest,
-  ...cctest,
 }

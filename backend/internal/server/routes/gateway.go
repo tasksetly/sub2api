@@ -178,21 +178,6 @@ func RegisterGatewayRoutes(
 		}
 	}
 
-	// CCTest callbacks use a scoped temporary credential, then the same paid gateway
-	// chain as /v1/messages for user tests. Admin tests terminate in Relay.
-	if h.CCTest != nil {
-		relay := r.Group("/cctest/relay/v1")
-		relay.Use(apiErrorDetails, bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, h.CCTest.Relay)
-		relay.Use(gin.HandlerFunc(apiKeyAuth), groupModelAllowlist, groupModelMapping, compositeTarget, requireGroupAnthropic)
-		relay.POST("/messages", func(c *gin.Context) {
-			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
-				h.OpenAIGateway.Messages(c)
-				return
-			}
-			h.Gateway.Messages(c)
-		})
-	}
-
 	// API网关（Claude API兼容）
 	gateway := r.Group("/v1")
 	gateway.Use(apiErrorDetails)

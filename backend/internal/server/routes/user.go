@@ -25,12 +25,6 @@ func RegisterUserRoutes(
 	// 用户管理面变更类操作入审计（含 TOTP 启用/禁用、step-up 验证、密码修改等安全事件）
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
-		if h.CCTest != nil {
-			authenticated.GET("/cctest/availability", h.CCTest.Availability)
-			authenticated.GET("/cctest/runs", h.CCTest.ListUser)
-			authenticated.POST("/cctest/runs", h.CCTest.CreateUser)
-			authenticated.DELETE("/cctest/runs/:id", h.CCTest.CancelUser)
-		}
 		// 用户接口
 		user := authenticated.Group("/user")
 		{

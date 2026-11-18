@@ -189,11 +189,6 @@ func TestOllamaCloudUsageSessionRouteOmitsAuditBody(t *testing.T) {
 	require.NotContains(t, logs[0].RequestBody, "audit-canary")
 }
 
-func TestCCTestServiceKeyIsOmittedFromAuditBody(t *testing.T) {
-	route := "PUT /api/v1/admin/cctest/settings"
-	require.Contains(t, auditBodyOmittedRoutes, route)
-}
-
 // MCP OAuth 是机器凭证：只读工具同样可以批量读取邮箱等数据，必须全部入审计并带上 grant。
 func TestAuditRecordsEveryMCPOAuthReadWithGrant(t *testing.T) {
 	gin.SetMode(gin.TestMode)

@@ -78,7 +78,6 @@ var ProviderSet = wire.NewSet(
 	NewFingerprintPlanRepository,     // 指纹校对计划仓储
 	NewFingerprintResultRepository,   // 指纹校对结果仓储
 	NewIntelligenceTestRepository,
-	NewCCTestRepository,
 	NewProxyRepository,
 	NewUpstreamProviderRepository, // 上游 sub2api 供应商仓储
 	NewRedeemCodeRepository,
