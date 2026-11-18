@@ -35,6 +35,20 @@ export async function list(
   return data
 }
 
+/** Fetch the names and IDs needed by a key selector. */
+export async function listOptions(): Promise<Pick<ApiKey, 'id' | 'name'>[]> {
+  const options = new Map<number, Pick<ApiKey, 'id' | 'name'>>()
+  const firstPage = await list(1, 100)
+  const add = (items: ApiKey[]) => items.forEach(({ id, name }) => options.set(id, { id, name }))
+  add(firstPage.items)
+  for (let page = 2; page <= firstPage.pages && options.size > 0; page++) {
+    const response = await list(page, 100)
+    if (response.items.length === 0) break
+    add(response.items)
+  }
+  return [...options.values()]
+}
+
 /**
  * Get API key by ID
  * @param id - API key ID
@@ -169,6 +183,7 @@ export async function toggleStatus(id: number, status: 'active' | 'inactive'): P
 
 export const keysAPI = {
   list,
+  listOptions,
   getById,
   create,
   update,
