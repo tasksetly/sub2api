@@ -34,11 +34,21 @@
             </span>
             <button
               class="btn btn-primary btn-sm"
-              :disabled="loading"
+              :disabled="loading || deletingBulk"
               data-test="bulk-edit-keys"
               @click="showBulkEditModal = true"
             >
               {{ t('keys.bulkEdit.title') }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-danger btn-sm"
+              :disabled="loading || deletingBulk"
+              data-test="bulk-delete-keys"
+              @click="pendingBulkDeleteIds = selectedApiKeys.map((key) => key.id)"
+            >
+              <Icon name="trash" size="sm" />
+              {{ t(deletingBulk ? 'keys.bulkDelete.deleting' : 'keys.bulkDelete.title') }}
             </button>
             <button class="btn btn-secondary btn-sm" @click="selectedIds = []">
               {{ t('keys.bulkEdit.clearSelection') }}
@@ -452,6 +462,7 @@
               <!-- Delete Button -->
               <button
                 @click="confirmDelete(row)"
+                :disabled="deletingBulk"
                 class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
               >
                 <Icon name="trash" size="sm" />
@@ -1051,6 +1062,16 @@
       @updated="handleBulkUpdated"
     />
 
+    <ConfirmDialog
+      :show="pendingBulkDeleteIds.length > 0"
+      :title="t('keys.bulkDelete.title')"
+      :message="t('keys.bulkDelete.confirm', { count: pendingBulkDeleteIds.length })"
+      :confirm-text="t('common.delete')"
+      :danger="true"
+      @confirm="handleBulkDelete"
+      @cancel="pendingBulkDeleteIds = []"
+    />
+
     <!-- Delete Confirmation Dialog -->
     <ConfirmDialog
       :show="showDeleteDialog"
@@ -1387,6 +1408,8 @@ const columns = computed<Column[]>(() =>
 const apiKeys = ref<ApiKey[]>([])
 const selectedIds = ref<number[]>([])
 const showBulkEditModal = ref(false)
+const pendingBulkDeleteIds = ref<number[]>([])
+const deletingBulk = ref(false)
 const selectedApiKeys = computed(() => apiKeys.value.filter((key) => selectedIds.value.includes(key.id)))
 
 const handleSelectionChange = (ids: Array<string | number>) => {
@@ -1613,7 +1636,7 @@ const isAbortError = (error: unknown) => {
   return name === 'AbortError' || code === 'ERR_CANCELED'
 }
 
-const loadApiKeys = async () => {
+const loadApiKeys = async (): Promise<void> => {
   abortController?.abort()
   const controller = new AbortController()
   abortController = controller
@@ -1639,6 +1662,12 @@ const loadApiKeys = async () => {
       signal
     })
     if (signal.aborted) return
+    const lastPage = Math.max(1, response.pages)
+    if (response.items.length === 0 && pagination.value.page > lastPage) {
+      pagination.value.page = lastPage
+      await loadApiKeys()
+      return
+    }
     apiKeys.value = response.items
     handleSelectionChange(selectedIds.value)
     pagination.value.total = response.total
@@ -1975,6 +2004,34 @@ const handleDelete = async () => {
     // 优先使用后端返回的错误消息，提供更具体的错误信息给用户
     const errorMsg = error?.message || t('keys.failedToDelete')
     appStore.showError(errorMsg)
+  }
+}
+
+const handleBulkDelete = async () => {
+  const ids = pendingBulkDeleteIds.value
+  if (deletingBulk.value || ids.length === 0) return
+
+  pendingBulkDeleteIds.value = []
+  deletingBulk.value = true
+  try {
+    const { succeededIds, failures } = await keysAPI.bulkDelete(ids)
+    if (failures.length > 0) {
+      appStore.showError(t('keys.bulkDelete.failure', {
+        success: succeededIds.length,
+        failed: failures.length
+      }))
+    } else {
+      appStore.showSuccess(t('keys.bulkDelete.success', { count: succeededIds.length }))
+    }
+
+    if (succeededIds.length > 0) {
+      const deletedIds = new Set(succeededIds)
+      apiKeys.value = apiKeys.value.filter((key) => !deletedIds.has(key.id))
+      handleSelectionChange(selectedIds.value)
+      await loadApiKeys()
+    }
+  } finally {
+    deletingBulk.value = false
   }
 }
 

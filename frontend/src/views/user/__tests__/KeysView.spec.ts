@@ -64,6 +64,7 @@ vi.mock('@/api', () => ({
     create: vi.fn(),
     update: updateKey,
     delete: vi.fn(),
+    bulkDelete: vi.fn(),
     toggleStatus: vi.fn(),
   },
   authAPI: {
@@ -276,6 +277,7 @@ describe('user KeysView column settings', () => {
     listKeys.mockReset()
     updateKey.mockReset()
     vi.mocked(keysAPI.create).mockReset()
+    vi.mocked(keysAPI.bulkDelete).mockReset()
     getPublicSettings.mockReset()
     getDashboardApiKeysUsage.mockReset()
     getAvailableGroups.mockReset()
@@ -414,6 +416,64 @@ describe('user KeysView column settings', () => {
     await wrapper.get('button[title="Refresh"]').trigger('click')
     await flushPromises()
     expect(table.props('selectedKeys')).toEqual([])
+    wrapper.unmount()
+  })
+
+  it('requires confirmation and keeps only failed keys selected after bulk deletion', async () => {
+    const second = { ...createApiKey(), id: 2 }
+    listKeys.mockResolvedValueOnce({ items: [createApiKey(), second], total: 2, pages: 1 })
+    listKeys.mockResolvedValueOnce({ items: [second], total: 1, pages: 1 })
+    const bulkDelete = vi.mocked(keysAPI.bulkDelete)
+    bulkDelete.mockResolvedValue({ succeededIds: [1], failures: [{ id: 2, error: new Error('Failed') }] })
+
+    const wrapper = await mountView()
+    const table = wrapper.findComponent({ name: 'DataTable' })
+    table.vm.$emit('update:selectedKeys', [1, 2, 99])
+    await nextTick()
+    const deleteButton = wrapper.get('[data-test="bulk-delete-keys"]')
+    await deleteButton.trigger('click')
+    const dialog = wrapper.findAllComponents({ name: 'ConfirmDialog' })
+      .find((item) => item.props('title') === 'keys.bulkDelete.title')!
+    expect(dialog.props('show')).toBe(true)
+    expect(bulkDelete).not.toHaveBeenCalled()
+    dialog.vm.$emit('cancel')
+    await nextTick()
+    expect(dialog.props('show')).toBe(false)
+    expect(bulkDelete).not.toHaveBeenCalled()
+
+    await deleteButton.trigger('click')
+    dialog.vm.$emit('confirm')
+    dialog.vm.$emit('confirm')
+    await flushPromises()
+    expect(bulkDelete).toHaveBeenCalledTimes(1)
+    expect(bulkDelete).toHaveBeenCalledWith([1, 2])
+    expect(listKeys).toHaveBeenCalledTimes(2)
+    expect(table.props('selectedKeys')).toEqual([2])
+    expect(showError).toHaveBeenCalledWith('keys.bulkDelete.failure')
+    wrapper.unmount()
+  })
+
+  it('returns to the last available page after deleting the final page', async () => {
+    const first = createApiKey()
+    const second = { ...first, id: 2 }
+    listKeys.mockResolvedValueOnce({ items: [first], total: 21, pages: 2 })
+    listKeys.mockResolvedValueOnce({ items: [second], total: 21, pages: 2 })
+    listKeys.mockResolvedValueOnce({ items: [], total: 20, pages: 1 })
+    listKeys.mockResolvedValueOnce({ items: [first], total: 20, pages: 1 })
+    vi.mocked(keysAPI.bulkDelete).mockResolvedValue({ succeededIds: [2], failures: [] })
+
+    const wrapper = await mountView()
+    await wrapper.get('[data-test="page-2"]').trigger('click')
+    await flushPromises()
+    wrapper.findComponent({ name: 'DataTable' }).vm.$emit('update:selectedKeys', [2])
+    await nextTick()
+    await wrapper.get('[data-test="bulk-delete-keys"]').trigger('click')
+    wrapper.findAllComponents({ name: 'ConfirmDialog' })
+      .find((item) => item.props('title') === 'keys.bulkDelete.title')!.vm.$emit('confirm')
+    await flushPromises()
+    expect(listKeys.mock.calls.map(([page]) => page)).toEqual([1, 2, 2, 1])
+    expect(wrapper.findComponent({ name: 'Pagination' }).props('page')).toBe(1)
+    expect(showSuccess).toHaveBeenCalledWith('keys.bulkDelete.success')
     wrapper.unmount()
   })
 

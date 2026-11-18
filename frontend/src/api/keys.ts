@@ -111,21 +111,23 @@ export async function update(id: number, updates: UpdateApiKeyRequest): Promise<
   return data
 }
 
-export interface BulkUpdateApiKeysResult {
+export interface BulkApiKeysResult {
   succeededIds: number[]
   failures: Array<{ id: number; error: unknown }>
 }
 
+export type BulkUpdateApiKeysResult = BulkApiKeysResult
+
 /** Reuse per-key validation and permissions, with at most five requests in flight. */
-export async function bulkUpdate(
+async function runBulkOperation(
   ids: number[],
-  updates: UpdateApiKeyRequest
-): Promise<BulkUpdateApiKeysResult> {
+  operation: (id: number) => Promise<unknown>
+): Promise<BulkApiKeysResult> {
   const uniqueIds = [...new Set(ids)]
-  const result: BulkUpdateApiKeysResult = { succeededIds: [], failures: [] }
+  const result: BulkApiKeysResult = { succeededIds: [], failures: [] }
   for (let offset = 0; offset < uniqueIds.length; offset += 5) {
     const batch = uniqueIds.slice(offset, offset + 5)
-    const responses = await Promise.allSettled(batch.map((id) => update(id, updates)))
+    const responses = await Promise.allSettled(batch.map(operation))
     responses.forEach((response, index) => {
       if (response.status === 'fulfilled') {
         result.succeededIds.push(batch[index])
@@ -137,6 +139,10 @@ export async function bulkUpdate(
   return result
 }
 
+export function bulkUpdate(ids: number[], updates: UpdateApiKeyRequest): Promise<BulkUpdateApiKeysResult> {
+  return runBulkOperation(ids, (id) => update(id, updates))
+}
+
 /**
  * Delete API key
  * @param id - API key ID
@@ -145,6 +151,10 @@ export async function bulkUpdate(
 export async function deleteKey(id: number): Promise<{ message: string }> {
   const { data } = await apiClient.delete<{ message: string }>(`/keys/${id}`)
   return data
+}
+
+export function bulkDelete(ids: number[]): Promise<BulkApiKeysResult> {
+  return runBulkOperation(ids, deleteKey)
 }
 
 /**
@@ -163,6 +173,7 @@ export const keysAPI = {
   create,
   update,
   bulkUpdate,
+  bulkDelete,
   delete: deleteKey,
   toggleStatus
 }

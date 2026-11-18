@@ -1,9 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
-import { bulkUpdate } from '../keys'
+import { bulkDelete, bulkUpdate } from '../keys'
 
-const { put } = vi.hoisted(() => ({ put: vi.fn() }))
-vi.mock('../client', () => ({ apiClient: { put } }))
+const { put, deleteRequest } = vi.hoisted(() => ({ put: vi.fn(), deleteRequest: vi.fn() }))
+vi.mock('../client', () => ({ apiClient: { put, delete: deleteRequest } }))
+
+describe('API key bulk deletion', () => {
+  it('uses the per-key delete endpoint once per key and reports failures', async () => {
+    const failure = new Error('Forbidden')
+    deleteRequest.mockResolvedValueOnce({ data: { message: 'Deleted' } })
+    deleteRequest.mockRejectedValueOnce(failure)
+
+    expect(await bulkDelete([1, 2, 1])).toEqual({
+      succeededIds: [1], failures: [{ id: 2, error: failure }]
+    })
+    expect(deleteRequest.mock.calls).toEqual([['/keys/1'], ['/keys/2']])
+  })
+})
 
 describe('API key bulk updates', () => {
   beforeEach(() => {

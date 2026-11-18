@@ -98,6 +98,13 @@ export default {
       partialFailure: 'Updated {success} keys; {failed} failed',
       failureHint: 'These keys could not be updated. Adjust the settings and retry. Only failed keys will be retried.'
     },
+    bulkDelete: {
+      title: 'Bulk Delete',
+      deleting: 'Deleting…',
+      confirm: 'Delete the {count} selected API keys? This action cannot be undone.',
+      success: 'Deleted {count} API keys',
+      failure: 'Deleted {success} API keys; {failed} failed. You can retry the failed keys.'
+    },
     deleteKey: 'Delete API Key',
     deleteConfirmMessage: "Are you sure you want to delete '{name}'? This action cannot be undone.",
     id: 'ID',
