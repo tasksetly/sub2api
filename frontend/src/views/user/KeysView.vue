@@ -607,14 +607,14 @@
               >
                 <template #after-name>
                   <CandyHistoryStrip
-                    v-if="!showEditModal && typeof option.value === 'number' && candyHistoryByGroup.has(option.value)"
+                    v-if="typeof option.value === 'number' && candyHistoryByGroup.has(option.value)"
                     compact
                     :items="candyHistoryByGroup.get(option.value) ?? []"
                   />
                 </template>
               </GroupOptionItem>
             </template>
-            <template v-if="!showEditModal && candyHistoryByGroup.size" #option-action="{ option }">
+            <template v-if="candyHistoryByGroup.size" #option-action="{ option }">
               <RouterLink
                 v-if="typeof option.value === 'number' && candyHistoryByGroup.has(option.value)"
                 :to="{ name: 'IntelligenceTestResults', query: { candy_group_id: String(option.value) } }"
@@ -1200,7 +1200,7 @@
       <div
         v-if="groupSelectorKeyId !== null && dropdownPosition"
         ref="dropdownRef"
-        class="animate-in fade-in slide-in-from-top-2 fixed z-[100000020] w-max max-w-[calc(100vw-16px)] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 duration-200 sm:min-w-[380px] dark:bg-dark-800 dark:ring-white/10"
+        class="animate-in fade-in slide-in-from-top-2 fixed z-[100000020] w-[380px] max-w-[calc(100vw-16px)] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/5 duration-200 dark:bg-dark-800 dark:ring-white/10"
         style="pointer-events: auto !important;"
         :style="{
           top: dropdownPosition.top !== undefined ? dropdownPosition.top + 'px' : undefined,
@@ -1225,37 +1225,57 @@
         </div>
         <!-- Group list -->
         <div class="max-h-80 overflow-y-auto p-1.5">
-          <button
+          <div
             v-for="option in filteredGroupOptions"
-            :key="option.value ?? 'null'"
-            @click="changeGroup(selectedKeyForGroup!, option.value)"
+            :key="option.value"
             :class="[
-              'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors',
+              'flex rounded-lg transition-colors',
               'border-b border-gray-100 last:border-0 dark:border-dark-700',
-              selectedKeyForGroup?.group_id === option.value ||
-              (!selectedKeyForGroup?.group_id && option.value === null)
+              selectedKeyForGroup?.group_id === option.value
                 ? 'bg-primary-50 dark:bg-primary-900/20'
                 : 'hover:bg-gray-100 dark:hover:bg-dark-700'
             ]"
-            :title="option.description || undefined"
           >
-            <GroupOptionItem
-              :name="option.label"
-              :platform="option.platform"
-              :subscription-type="option.subscriptionType"
-              :rate-multiplier="option.rate"
-              :user-rate-multiplier="option.userRate"
-              :peak-rate-enabled="option.peakRateEnabled"
-              :peak-start="option.peakStart"
-              :peak-end="option.peakEnd"
-              :peak-rate-multiplier="option.peakRateMultiplier"
-              :description="option.description"
-              :selected="
-                selectedKeyForGroup?.group_id === option.value ||
-                (!selectedKeyForGroup?.group_id && option.value === null)
-              "
-            />
-          </button>
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 items-center px-3 py-2.5 text-sm"
+              :title="option.description || undefined"
+              @click="changeGroup(selectedKeyForGroup!, option.value)"
+            >
+              <GroupOptionItem
+                :name="option.label"
+                :platform="option.platform"
+                :subscription-type="option.subscriptionType"
+                :rate-multiplier="option.rate"
+                :user-rate-multiplier="option.userRate"
+                :peak-rate-enabled="option.peakRateEnabled"
+                :peak-start="option.peakStart"
+                :peak-end="option.peakEnd"
+                :peak-rate-multiplier="option.peakRateMultiplier"
+                :description="option.description"
+                :selected="selectedKeyForGroup?.group_id === option.value"
+              >
+                <template #after-name>
+                  <CandyHistoryStrip
+                    v-if="candyHistoryByGroup.has(option.value)"
+                    compact
+                    :items="candyHistoryByGroup.get(option.value) ?? []"
+                  />
+                </template>
+              </GroupOptionItem>
+            </button>
+            <RouterLink
+              v-if="candyHistoryByGroup.has(option.value)"
+              :to="{ name: 'IntelligenceTestResults', query: { candy_group_id: String(option.value) } }"
+              target="_blank"
+              rel="noopener"
+              :aria-label="`${t('intelligenceTest.candy')} · ${option.label}`"
+              :title="`${t('intelligenceTest.candy')} · ${option.label}`"
+              class="mr-2 mt-2 inline-flex shrink-0 items-center self-start rounded p-1.5 text-primary-700 hover:bg-primary-50 focus-visible:outline focus-visible:outline-2 dark:text-primary-300 dark:hover:bg-primary-900/30"
+            >
+              <Icon name="externalLink" size="xs" class="shrink-0" aria-hidden="true" />
+            </RouterLink>
+          </div>
           <!-- Empty state when search has no results -->
           <div v-if="filteredGroupOptions.length === 0" class="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
             {{ t('keys.noGroupFound') }}
@@ -1474,10 +1494,12 @@ const filterStatus = ref('')
 const filterGroupId = ref<string | number>('')
 
 const showCreateModal = ref(false)
+const showEditModal = ref(false)
+const groupSelectorKeyId = ref<number | null>(null)
 const candyHistoryByGroup = ref(new Map<number, IntelligenceTestItem[]>())
 const CANDY_PREVIEW_LIMIT = 50
 
-watch(showCreateModal, async (open, _, onCleanup) => {
+watch(() => showCreateModal.value || showEditModal.value || groupSelectorKeyId.value !== null, async (open, _, onCleanup) => {
   if (!open) return
   const controller = new AbortController()
   onCleanup(() => controller.abort())
@@ -1502,7 +1524,6 @@ watch(showCreateModal, async (open, _, onCleanup) => {
     // Test history is optional metadata for the group picker.
   }
 })
-const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const showResetQuotaDialog = ref(false)
 const showResetRateLimitDialog = ref(false)
@@ -1513,7 +1534,6 @@ const showColumnDropdown = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
-const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
 const columnDropdownRef = ref<HTMLElement | null>(null)

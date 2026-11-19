@@ -178,6 +178,7 @@ const DataTableStub = {
           <slot name="cell-id" :value="row.id" :row="row" />
         </div>
         <slot name="cell-name" :value="row.name" :row="row" />
+        <slot name="cell-group" :row="row" />
         <slot name="cell-actions" :row="row" />
         <div data-test="current-concurrency">
           <slot name="cell-current_concurrency" :value="row.current_concurrency" :row="row" />
@@ -720,6 +721,30 @@ describe('user KeysView column settings', () => {
       expect(wrapper.get('[data-group="4"]').findComponent({ name: 'CandyHistoryStrip' }).exists()).toBe(false)
       expect(wrapper.get('[data-group="4"]').find('a').exists()).toBe(false)
       wrapper.unmount()
+    })
+
+    it.each(['common.edit', 'keys.clickToChangeGroup'])('shows candy history when changing an existing key via %s', async (entry) => {
+      const run = { id: 31, group_id: 3, answer_mode: 'candy', status: 'validated' }
+      getIntelligenceTest.mockResolvedValue({ items: [run] })
+      const wrapper = await mountView()
+      try {
+        const trigger = entry === 'common.edit'
+          ? getButtonByText(wrapper, entry)
+          : wrapper.get(`button[title="${entry}"]`)
+        await trigger.trigger('click')
+        await flushPromises()
+
+        expect(getIntelligenceTest).toHaveBeenCalledWith({ answer_mode: 'candy' }, { signal: expect.any(AbortSignal) })
+        const strips = wrapper.findAllComponents({ name: 'CandyHistoryStrip' })
+        expect(strips).toHaveLength(1)
+        expect(strips[0].props('items')).toEqual([run])
+        const link = wrapper.get('[title="intelligenceTest.candy · Shared group 3"]')
+        expect(link.element.closest('button')).toBeNull()
+        await link.trigger('click')
+        expect(updateKey).not.toHaveBeenCalled()
+      } finally {
+        wrapper.unmount()
+      }
     })
 
     it('shows the empty state when no groups are available', async () => {
