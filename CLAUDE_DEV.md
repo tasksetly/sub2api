@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-19 | 智商测试同页切换与分组提示词 | 用户页通过同一页面的切换项查看糖果和 SVG 测试。SVG 分组的提示词默认收起，支持悬停或点击展开。优先展示历史快照，旧记录可显示明确标注的同分组当前配置。已补回归用例，静态检查通过，未运行构建或测试 | `frontend/src/views/IntelligenceTestView.vue`<br>`frontend/src/components/intelligenceTest/SVGGroupPrompts.vue`<br>`backend/internal/service/intelligence_test_service.go` | 931bf8c73 |
 | 2026-11-19 | 创建 API Key 时查看分组糖果检测 | 创建弹窗的分组选项复用糖果检测彩色历史条，最多展示最近 12 次，链接定位到该分组完整历史；已补回归用例，通过差异、语法和国际化静态检查，未构建或运行测试 | `frontend/src/views/user/KeysView.vue`<br>`frontend/src/components/intelligenceTest/CandyHistoryStrip.vue` | 1618e5146 |
 | 2026-11-18 | 管理员邀请返现汇总 | 邀请列表顶部汇总所有符合筛选的邀请，展示邀请人数、充值人数与转化率、成功充值笔数与金额、累计返现。日期按邀请时间筛选。已补回归用例，通过差异、格式、语法及国际化静态检查，未构建或运行测试 | `backend/internal/repository/affiliate_repo.go`<br>`frontend/src/views/admin/affiliates/AdminAffiliateRecordsTable.vue` | 57d9c3916 |
 | 2026-11-18 | 仪表盘缓存命中率 | 单独展示所选时段的缓存命中率、缓存读取量及含缓存的输入总量；支持切换全部或单个 API 密钥，联动 Token 趋势和模型分布；差异、语法及国际化静态检查通过，已补用例，未构建或运行测试 | `frontend/src/views/user/DashboardView.vue`<br>`frontend/src/components/user/dashboard/UserDashboardCharts.vue` | ea0f6443c |
