@@ -1642,7 +1642,9 @@ const createProviderOptions = computed(() => KEY_GROUP_PROVIDERS.map((value) => 
 
 const formGroupOptions = computed(() => showEditModal.value
   ? groupOptions.value
-  : groupOptions.value.filter((group) => getKeyGroupProvider(group.platform) === createProvider.value)
+  : groupOptions.value
+      .filter((group) => getKeyGroupProvider(group.platform) === createProvider.value)
+      .sort((a, b) => a.rate - b.rate)
 )
 
 const selectCreateProvider = (provider: KeyGroupProvider) => {
