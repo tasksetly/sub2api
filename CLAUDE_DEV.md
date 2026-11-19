@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-19 | 已有 API Key 换组时查看糖果检测 | 列表快捷换组和编辑弹窗均显示对应分组最近 50 条检测色条及历史链接 | `frontend/src/views/user/KeysView.vue` | 6e13fff5b |
 | 2026-11-19 | 降低分组糖果检测色条密度 | 创建 API Key 时，每个分组的色条最多展示最近 50 条糖果检测记录 | `frontend/src/views/user/KeysView.vue` | f1b0d3c42 |
 | 2026-11-19 | 创建 API Key 按分组倍率排序 | 同一平台类别内按分组基础倍率从小到大排列，相同倍率沿用原顺序 | `frontend/src/views/user/KeysView.vue` | 6cb97522c |
 | 2026-11-19 | 分组糖果检测色条自适应 | 创建 API Key 时，分组选项内的色条加高并随可用宽度伸缩，每组最多显示最近 100 条可用记录，间距随记录数和宽度调整。Vue、TypeScript 语法与差异检查通过 | `frontend/src/views/user/KeysView.vue`<br>`frontend/src/components/intelligenceTest/CandyHistoryStrip.vue` | 49d0d91f7 |
