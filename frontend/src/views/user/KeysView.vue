@@ -608,7 +608,6 @@
                 <template #after-name>
                   <CandyHistoryStrip
                     v-if="!showEditModal && typeof option.value === 'number' && candyHistoryByGroup.has(option.value)"
-                    class="min-w-8 !max-w-16"
                     compact
                     :items="candyHistoryByGroup.get(option.value) ?? []"
                   />
@@ -1476,7 +1475,7 @@ const filterGroupId = ref<string | number>('')
 
 const showCreateModal = ref(false)
 const candyHistoryByGroup = ref(new Map<number, IntelligenceTestItem[]>())
-const CANDY_PREVIEW_LIMIT = 12
+const CANDY_PREVIEW_LIMIT = 100
 
 watch(showCreateModal, async (open, _, onCleanup) => {
   if (!open) return
