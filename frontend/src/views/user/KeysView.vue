@@ -1475,7 +1475,7 @@ const filterGroupId = ref<string | number>('')
 
 const showCreateModal = ref(false)
 const candyHistoryByGroup = ref(new Map<number, IntelligenceTestItem[]>())
-const CANDY_PREVIEW_LIMIT = 100
+const CANDY_PREVIEW_LIMIT = 50
 
 watch(showCreateModal, async (open, _, onCleanup) => {
   if (!open) return

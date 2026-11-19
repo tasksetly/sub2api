@@ -704,7 +704,7 @@ describe('user KeysView column settings', () => {
     })
 
     it('shows a capped candy history and source link only on matching group options', async () => {
-      const runs = Array.from({ length: 101 }, (_, index) => ({
+      const runs = Array.from({ length: 51 }, (_, index) => ({
         id: index + 10, group_id: '3', answer_mode: 'candy', status: 'validated'
       }))
       getIntelligenceTest.mockResolvedValue({ items: [...runs, { id: 111, group_id: 4, answer_mode: 'svg' }] })
