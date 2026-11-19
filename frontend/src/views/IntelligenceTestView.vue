@@ -28,25 +28,13 @@
         </button>
       </section>
 
-      <div class="mb-5 grid w-full grid-cols-2 gap-2 sm:flex" role="group" :aria-label="t('intelligenceTest.types')">
-        <button
-          v-for="mode in (['candy', 'svg'] as const)"
-          :key="mode"
-          type="button"
-          class="filter-tab"
-          :class="{ active: activeMode === mode }"
-          :aria-pressed="activeMode === mode"
-          :aria-controls="`test-results-${mode}`"
-          :data-test="`test-mode-${mode}`"
-          @click="activeMode = mode"
-        >{{ t(`intelligenceTest.${mode}`) }}</button>
-      </div>
-
-      <section v-show="activeMode === 'candy'" id="test-results-candy" :aria-label="t('intelligenceTest.candy')">
+      <section id="test-results-candy" class="mb-10" aria-labelledby="candy-heading">
+        <h2 id="candy-heading" class="mb-4 text-lg font-semibold">{{ t('intelligenceTest.candy') }}</h2>
         <CandyTestResults :response="candyResponse" :loading="candyLoading && !candyHasLoaded" :error="candyError" :initial-group-id="asQueryString(route.query.candy_group_id)" @refresh="loadCandyResults" />
       </section>
 
-      <section v-show="activeMode === 'svg'" id="test-results-svg" :aria-label="t('intelligenceTest.svg')">
+      <section id="test-results-svg" aria-labelledby="svg-heading">
+      <h2 id="svg-heading" class="mb-4 text-lg font-semibold">{{ t('intelligenceTest.svg') }}</h2>
       <div class="toolbar" role="toolbar" :aria-label="copy.filters">
         <div class="filter-tabs" role="tablist" :aria-label="copy.groups">
           <button
@@ -221,8 +209,6 @@ const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
-const activeMode = ref<'candy' | 'svg'>('candy')
-
 const candyResponse = ref<IntelligenceTestResponse>({})
 const candyLoading = ref(false)
 const candyHasLoaded = ref(false)

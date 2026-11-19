@@ -6,13 +6,17 @@
       :title="description || undefined"
     >
       <!-- Row 1: platform badge (name bold) -->
-      <GroupBadge
-        :name="name"
-        :platform="platform"
-        :subscription-type="subscriptionType"
-        :show-rate="false"
-        class="groupOptionItemBadge"
-      />
+      <div class="flex w-full min-w-0 items-center gap-2">
+        <GroupBadge
+          :name="name"
+          :platform="platform"
+          :subscription-type="subscriptionType"
+          :show-rate="false"
+          class="groupOptionItemBadge min-w-0"
+          :title="name"
+        />
+        <slot name="after-name" />
+      </div>
       <!-- Row 2: description with top spacing -->
       <span
         v-if="description"

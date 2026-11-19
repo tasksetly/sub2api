@@ -258,7 +258,10 @@ const mountView = async () => {
         BulkEditKeysModal: true,
         EndpointPopover: true,
         GroupBadge: true,
-        GroupOptionItem: true,
+        GroupOptionItem: {
+          name: 'GroupOptionItem',
+          template: '<div><slot name="after-name" /></div>',
+        },
         CandyHistoryStrip: true,
         RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
         Teleport: true,
@@ -709,7 +712,7 @@ describe('user KeysView column settings', () => {
       await flushPromises()
       await chooseProvider(wrapper, 'domestic')
       const tested = wrapper.get('[data-group="3"]')
-      const strip = tested.findComponent({ name: 'CandyHistoryStrip' })
+      const strip = tested.findComponent({ name: 'GroupOptionItem' }).findComponent({ name: 'CandyHistoryStrip' })
       expect(strip.props('items').map((item: { id: number }) => item.id)).toEqual(runs.slice(1).reverse().map(item => item.id))
       expect(tested.findComponent({ name: 'RouterLink' }).props('to')).toEqual({
         name: 'IntelligenceTestResults', query: { candy_group_id: '3' }

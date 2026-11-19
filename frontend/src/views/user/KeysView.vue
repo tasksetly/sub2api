@@ -592,27 +592,28 @@
               <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
             </template>
             <template #option="{ option, selected }">
-              <div class="min-w-0 flex-1">
-                <GroupOptionItem
-                  :name="(option as unknown as GroupOption).label"
-                  :platform="(option as unknown as GroupOption).platform"
-                  :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                  :rate-multiplier="(option as unknown as GroupOption).rate"
-                  :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                  :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                  :peak-start="(option as unknown as GroupOption).peakStart"
-                  :peak-end="(option as unknown as GroupOption).peakEnd"
-                  :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                  :description="(option as unknown as GroupOption).description"
-                  :selected="selected"
-                />
-                <CandyHistoryStrip
-                  v-if="!showEditModal && typeof option.value === 'number' && candyHistoryByGroup.has(option.value)"
-                  class="mt-1.5"
-                  compact
-                  :items="candyHistoryByGroup.get(option.value) ?? []"
-                />
-              </div>
+              <GroupOptionItem
+                :name="(option as unknown as GroupOption).label"
+                :platform="(option as unknown as GroupOption).platform"
+                :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                :rate-multiplier="(option as unknown as GroupOption).rate"
+                :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
+                :peak-start="(option as unknown as GroupOption).peakStart"
+                :peak-end="(option as unknown as GroupOption).peakEnd"
+                :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
+                :description="(option as unknown as GroupOption).description"
+                :selected="selected"
+              >
+                <template #after-name>
+                  <CandyHistoryStrip
+                    v-if="!showEditModal && typeof option.value === 'number' && candyHistoryByGroup.has(option.value)"
+                    class="min-w-8 !max-w-16"
+                    compact
+                    :items="candyHistoryByGroup.get(option.value) ?? []"
+                  />
+                </template>
+              </GroupOptionItem>
             </template>
             <template v-if="!showEditModal && candyHistoryByGroup.size" #option-action="{ option }">
               <RouterLink
@@ -621,10 +622,10 @@
                 target="_blank"
                 rel="noopener"
                 :aria-label="`${t('intelligenceTest.candy')} · ${option.label}`"
-                class="mr-2 inline-flex max-w-[45%] shrink-0 items-center gap-1 self-center rounded px-1.5 py-1 text-xs font-medium text-primary-700 hover:underline focus-visible:outline focus-visible:outline-2 dark:text-primary-300"
+                :title="`${t('intelligenceTest.candy')} · ${option.label}`"
+                class="mr-2 mt-2 inline-flex shrink-0 items-center self-start rounded p-1.5 text-primary-700 hover:bg-primary-50 focus-visible:outline focus-visible:outline-2 dark:text-primary-300 dark:hover:bg-primary-900/30"
                 @keydown.enter.stop
               >
-                <span class="min-w-0 break-words">{{ t('intelligenceTest.candy') }}</span>
                 <Icon name="externalLink" size="xs" class="shrink-0" aria-hidden="true" />
               </RouterLink>
             </template>

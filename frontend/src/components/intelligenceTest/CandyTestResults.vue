@@ -39,22 +39,24 @@
         <p class="font-medium">{{ t('intelligenceTest.empty') }}</p>
         <p class="mt-2 text-sm text-gray-500">{{ t('intelligenceTest.emptyHint') }}</p>
       </div>
-      <section v-for="group in visibleGroups" :key="group.key" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 class="font-semibold">{{ group.name }}</h2>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('intelligenceTest.total') }} {{ group.items.length }} · {{ t('intelligenceTest.passRate') }} {{ summary(group.items).rate }}</p>
+      <ul v-else class="divide-y divide-gray-200 dark:divide-dark-700">
+        <li v-for="group in visibleGroups" :key="group.key" class="min-w-0 py-4 first:pt-0 last:pb-0">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="break-words font-semibold">{{ group.name }}</h3>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('intelligenceTest.total') }} {{ group.items.length }} · {{ t('intelligenceTest.passRate') }} {{ summary(group.items).rate }}</p>
+            </div>
+            <button v-if="group.items[0]" type="button" class="text-sm underline underline-offset-4" @click="selected = group.items[0]">
+              {{ t('intelligenceTest.latest') }}: {{ statusLabel(group.items[0].status) }}
+            </button>
+            <span v-else class="text-sm text-gray-400">{{ t('intelligenceTest.noData') }}</span>
           </div>
-          <button v-if="group.items[0]" type="button" class="text-sm underline underline-offset-4" @click="selected = group.items[0]">
-            {{ t('intelligenceTest.latest') }}: {{ statusLabel(group.items[0].status) }}
-          </button>
-          <span v-else class="text-sm text-gray-400">{{ t('intelligenceTest.noData') }}</span>
-        </div>
-        <CandyHistoryStrip :items="group.items" @select="selected = $event" />
-        <div v-if="group.items.length" class="mt-2 flex justify-between text-xs text-gray-400">
-          <time>{{ formatDate(group.items[group.items.length - 1]) }}</time><time>{{ formatDate(group.items[0]) }}</time>
-        </div>
-      </section>
+          <CandyHistoryStrip :items="group.items" @select="selected = $event" />
+          <div v-if="group.items.length" class="mt-2 flex flex-wrap justify-between gap-x-2 text-xs text-gray-400">
+            <time>{{ formatDate(group.items[group.items.length - 1]) }}</time><time>{{ formatDate(group.items[0]) }}</time>
+          </div>
+        </li>
+      </ul>
     </template>
 
     <BaseDialog :show="!!selected" :title="t('intelligenceTest.detail')" width="wide" @close="selected = null">

@@ -37,10 +37,9 @@ describe('Intelligence results loading', () => {
       expect(getIntelligenceTest).toHaveBeenCalledWith(expect.objectContaining({ answer_mode: 'candy' }))
       expect(getIntelligenceTest).toHaveBeenCalledWith(expect.objectContaining({ answer_mode: 'svg' }))
       expect(wrapper.get('#test-results-candy').isVisible()).toBe(true)
-      expect(wrapper.get('#test-results-svg').isVisible()).toBe(false)
-      await wrapper.get('[data-test="test-mode-svg"]').trigger('click')
       expect(wrapper.get('#test-results-svg').isVisible()).toBe(true)
-      expect(wrapper.get('#test-results-candy').isVisible()).toBe(false)
+      expect(wrapper.html().indexOf('test-results-candy')).toBeLessThan(wrapper.html().indexOf('test-results-svg'))
+      expect(wrapper.find('[data-test^="test-mode-"]').exists()).toBe(false)
     } finally {
       wrapper.unmount()
       vi.useRealTimers()
@@ -59,12 +58,10 @@ describe('Intelligence results loading', () => {
     })
     try {
       await flushPromises()
-      await wrapper.get(`[data-test="test-mode-${failedMode}"]`).trigger('click')
       expect(wrapper.text()).toContain(`${failedMode} unavailable`)
       expect(wrapper.find('[data-testid="candy-summary"]').exists()).toBe(failedMode !== 'candy')
       expect(wrapper.find('.state-panel--error').exists()).toBe(failedMode === 'svg')
       const otherMode = failedMode === 'svg' ? 'candy' : 'svg'
-      await wrapper.get(`[data-test="test-mode-${otherMode}"]`).trigger('click')
       expect(wrapper.get(`#test-results-${otherMode}`).isVisible()).toBe(true)
     } finally {
       wrapper.unmount()
@@ -86,7 +83,6 @@ describe('Intelligence results loading', () => {
     })
     try {
       await flushPromises()
-      await wrapper.get('[data-test="test-mode-svg"]').trigger('click')
       const [first, second] = wrapper.findAll('.group-section')
       const firstButton = first.get('button[aria-controls]')
       const secondButton = second.get('button[aria-controls]')
