@@ -18,6 +18,8 @@ export interface IntelligenceTestConfig {
 export interface IntelligenceTestItem {
   answer_mode?: 'svg' | 'candy'
   response_text?: string
+  prompt_text?: string
+  prompt_is_current?: boolean
   id?: string | number
   group?: string
   group_name?: string

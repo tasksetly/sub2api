@@ -153,3 +153,32 @@ func TestCandyPublicHistoryIsolatedFromSVGAndPrivateMetadata(t *testing.T) {
 	_, err = svc.Public(context.Background(), 0, "unsupported")
 	require.Error(t, err)
 }
+
+func TestSVGPublicHistoryUsesPromptSnapshotOrMatchingCurrentConfig(t *testing.T) {
+	groupID, previousGroupID := int64(7), int64(8)
+	repo := &candyPublicRepo{
+		configs: []*IntelligenceTestConfig{
+			{ID: 1, AnswerMode: "svg", Enabled: true, GroupID: &groupID, PromptText: "Current group prompt"},
+		},
+		results: map[int64][]*IntelligenceTestResult{
+			1: {
+				{ID: 11, AnswerMode: "svg", GroupID: &groupID, GroupName: "Same name", PromptText: "Saved prompt"},
+				{ID: 12, AnswerMode: "svg", GroupID: &groupID, GroupName: "Same name"},
+				{ID: 13, AnswerMode: "svg", GroupID: &previousGroupID, GroupName: "Same name"},
+			},
+		},
+	}
+	svc := &IntelligenceTestService{repo: repo}
+	response, err := svc.Public(context.Background(), 0, "svg")
+	require.NoError(t, err)
+	require.Len(t, response.Groups, 2)
+	byID := make(map[int64]*IntelligenceTestPublicResult)
+	for _, item := range response.Items {
+		byID[item.ID] = item
+	}
+	require.Equal(t, "Saved prompt", byID[11].PromptText)
+	require.False(t, byID[11].PromptIsCurrent)
+	require.Equal(t, "Current group prompt", byID[12].PromptText)
+	require.True(t, byID[12].PromptIsCurrent)
+	require.Empty(t, byID[13].PromptText)
+}

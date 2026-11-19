@@ -126,6 +126,8 @@ type IntelligenceTestPublicConfig struct {
 }
 
 type IntelligenceTestPublicResult struct {
+	PromptText      string `json:"prompt_text,omitempty"`
+	PromptIsCurrent bool   `json:"prompt_is_current,omitempty"`
 	ResponseText string `json:"response_text,omitempty"`
 	AnswerMode string `json:"answer_mode"`
 	ID         int64     `json:"id"`
@@ -584,14 +586,22 @@ func (s *IntelligenceTestService) Public(ctx context.Context, configID int64, an
 			if item.AnswerMode != answerMode { continue }
 			rateMultiplier := item.RateMultiplier
 			if rateMultiplier <= 0 { rateMultiplier = 1 }
-			response.Items = append(response.Items, &IntelligenceTestPublicResult{
+			result := &IntelligenceTestPublicResult{
 				ID: item.ID, AnswerMode: item.AnswerMode, ResponseText: item.ResponseText,
 				GroupID: item.GroupID,
 				GroupName: item.GroupName, ModelID: item.ModelID, ModelName: item.ModelName, ReasoningEffort: item.ReasoningEffort, Status: item.Status,
 				RateMultiplier: rateMultiplier,
 				Check: item.Check, SVGContent: item.SVGContent, LatencyMs: item.LatencyMs,
 				StartedAt: item.StartedAt, FinishedAt: item.FinishedAt, CreatedAt: item.CreatedAt,
-			})
+			}
+			if answerMode == "svg" {
+				result.PromptText = item.PromptText
+				if result.PromptText == "" && item.GroupID != nil && c.GroupID != nil && *item.GroupID == *c.GroupID {
+					result.PromptText = c.PromptText
+					result.PromptIsCurrent = result.PromptText != ""
+				}
+			}
+			response.Items = append(response.Items, result)
 		}
 	}
 	response.KeepCount = keepCount
@@ -600,8 +610,12 @@ func (s *IntelligenceTestService) Public(ctx context.Context, configID int64, an
 	seen := make(map[string]struct{})
 	for _, item := range response.Items {
 		if item.GroupName != "" && answerMode != "candy" {
-			if _, ok := seen[item.GroupName]; !ok {
-				seen[item.GroupName] = struct{}{}
+			key := "name:" + item.GroupName
+			if item.GroupID != nil {
+				key = "id:" + strconv.FormatInt(*item.GroupID, 10)
+			}
+			if _, ok := seen[key]; !ok {
+				seen[key] = struct{}{}
 				response.Groups = append(response.Groups, IntelligenceTestPublicGroup{
 					ID: item.GroupID, Name: item.GroupName, RateMultiplier: item.RateMultiplier,
 				})

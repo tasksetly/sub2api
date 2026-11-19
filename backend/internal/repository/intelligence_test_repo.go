@@ -160,7 +160,7 @@ func (r *intelligenceTestRepository) ListSVGResults(ctx context.Context, configI
 func (r *intelligenceTestRepository) listResults(ctx context.Context, configID int64, limit int, svgOnly bool) ([]*service.IntelligenceTestResult, error) {
 	if limit <= 0 { limit = 20 }
 	if limit > 100 { limit = 100 }
-	query := `SELECT r.id, r.question_id, r.api_key_id, r.group_id, r.group_name, r.model_id, r.model_name, r.reasoning_effort, r.status, r.check_ok, r.svg_content, r.error_message, r.latency_ms, r.started_at, r.finished_at, r.created_at, COALESCE(g.rate_multiplier, 1), r.answer_mode, r.response_text
+	query := `SELECT r.id, r.question_id, r.api_key_id, r.group_id, r.group_name, r.model_id, r.model_name, r.reasoning_effort, r.status, r.check_ok, r.svg_content, r.error_message, r.latency_ms, r.started_at, r.finished_at, r.created_at, COALESCE(g.rate_multiplier, 1), r.answer_mode, r.response_text, r.prompt_text
 FROM intelligence_test_results r LEFT JOIN groups g ON g.id = r.group_id WHERE r.question_id=$1`
 	if svgOnly { query += ` AND r.answer_mode = 'svg' AND check_ok = TRUE AND svg_content <> ''` }
 	query += ` ORDER BY r.created_at DESC, r.id DESC LIMIT $2`
@@ -172,7 +172,7 @@ FROM intelligence_test_results r LEFT JOIN groups g ON g.id = r.group_id WHERE r
 		item := &service.IntelligenceTestResult{}
 		var apiKeyID, groupID sql.NullInt64
 		if err := rows.Scan(&item.ID, &item.ConfigID, &apiKeyID, &groupID, &item.GroupName, &item.ModelID, &item.ModelName, &item.ReasoningEffort, &item.Status,
-			&item.Check, &item.SVGContent, &item.ErrorMessage, &item.LatencyMs, &item.StartedAt, &item.FinishedAt, &item.CreatedAt, &item.RateMultiplier, &item.AnswerMode, &item.ResponseText); err != nil { return nil, err }
+			&item.Check, &item.SVGContent, &item.ErrorMessage, &item.LatencyMs, &item.StartedAt, &item.FinishedAt, &item.CreatedAt, &item.RateMultiplier, &item.AnswerMode, &item.ResponseText, &item.PromptText); err != nil { return nil, err }
 		if apiKeyID.Valid { item.APIKeyID = apiKeyID.Int64 }
 		if groupID.Valid { item.GroupID = &groupID.Int64 }
 		items = append(items, item)

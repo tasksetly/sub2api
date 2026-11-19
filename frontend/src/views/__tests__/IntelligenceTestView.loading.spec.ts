@@ -36,10 +36,11 @@ describe('Intelligence results loading', () => {
 
       expect(getIntelligenceTest).toHaveBeenCalledWith(expect.objectContaining({ answer_mode: 'candy' }))
       expect(getIntelligenceTest).toHaveBeenCalledWith(expect.objectContaining({ answer_mode: 'svg' }))
-      expect(wrapper.find('[data-testid="candy-summary"]').exists()).toBe(true)
-      expect(wrapper.find('.prompt-panel').exists()).toBe(true)
-      expect(wrapper.find('button[aria-pressed]').exists()).toBe(false)
-      expect(wrapper.html().indexOf('candy-summary')).toBeLessThan(wrapper.html().indexOf('prompt-panel'))
+      expect(wrapper.get('#test-results-candy').isVisible()).toBe(true)
+      expect(wrapper.get('#test-results-svg').isVisible()).toBe(false)
+      await wrapper.get('[data-test="test-mode-svg"]').trigger('click')
+      expect(wrapper.get('#test-results-svg').isVisible()).toBe(true)
+      expect(wrapper.get('#test-results-candy').isVisible()).toBe(false)
     } finally {
       wrapper.unmount()
       vi.useRealTimers()
@@ -58,14 +59,53 @@ describe('Intelligence results loading', () => {
     })
     try {
       await flushPromises()
+      await wrapper.get(`[data-test="test-mode-${failedMode}"]`).trigger('click')
       expect(wrapper.text()).toContain(`${failedMode} unavailable`)
       expect(wrapper.find('[data-testid="candy-summary"]').exists()).toBe(failedMode !== 'candy')
       expect(wrapper.find('.state-panel--error').exists()).toBe(failedMode === 'svg')
-      expect(wrapper.find('.prompt-panel').exists()).toBe(true)
+      const otherMode = failedMode === 'svg' ? 'candy' : 'svg'
+      await wrapper.get(`[data-test="test-mode-${otherMode}"]`).trigger('click')
+      expect(wrapper.get(`#test-results-${otherMode}`).isVisible()).toBe(true)
     } finally {
       wrapper.unmount()
       vi.clearAllMocks()
     }
   })
 
+  it('reveals only the prompts belonging to the selected SVG group button', async () => {
+    vi.mocked(getIntelligenceTest).mockImplementation(async query => query?.answer_mode === 'svg' ? {
+      config: { prompt_text: 'Global prompt' },
+      items: [
+        { id: 1, group_id: 10, group_name: 'Shared', svg_content: '<svg/>', prompt_text: 'Saved prompt A' },
+        { id: 2, group_id: 20, group_name: 'Shared', svg_content: '<svg/>', prompt_text: 'Current prompt B', prompt_is_current: true },
+      ],
+    } : { items: [] })
+    const wrapper = mount(IntelligenceTestView, {
+      props: { inApp: true },
+      global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })], stubs: { Icon: true, RouterLink: true } },
+    })
+    try {
+      await flushPromises()
+      await wrapper.get('[data-test="test-mode-svg"]').trigger('click')
+      const [first, second] = wrapper.findAll('.group-section')
+      const firstButton = first.get('button[aria-controls]')
+      const secondButton = second.get('button[aria-controls]')
+      const firstPanel = first.get(`[id="${firstButton.attributes('aria-controls')}"]`)
+      const secondPanel = second.get(`[id="${secondButton.attributes('aria-controls')}"]`)
+      expect(firstPanel.isVisible()).toBe(false)
+      await firstButton.trigger('pointerenter', { pointerType: 'mouse' })
+      expect(firstPanel.isVisible()).toBe(true)
+      expect(firstPanel.text()).toContain('Saved prompt A')
+      expect(firstPanel.text()).not.toContain('Current prompt B')
+      expect(secondPanel.isVisible()).toBe(false)
+      await secondButton.trigger('click')
+      expect(secondPanel.isVisible()).toBe(true)
+      expect(secondPanel.text()).toContain('The original prompt was not recorded.')
+      expect(secondPanel.text()).toContain('Current prompt B')
+      expect(wrapper.text()).not.toContain('Global prompt')
+    } finally {
+      wrapper.unmount()
+      vi.clearAllMocks()
+    }
+  })
 })
