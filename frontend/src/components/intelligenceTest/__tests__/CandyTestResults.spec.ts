@@ -21,6 +21,18 @@ function render(results = items) {
 }
 
 describe('candy results', () => {
+  it('keeps a linked group selected when the history arrives asynchronously', async () => {
+    const wrapper = mount(CandyTestResults, {
+      props: { response: {}, loading: true, error: '', initialGroupId: '1' },
+      global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
+    })
+    try {
+      await wrapper.setProps({ response: { items: [...items, { ...items[0], id: 4, group_id: 2, group_name: 'Group B' }] }, loading: false })
+      expect(wrapper.get<HTMLSelectElement>('select').element.value).toBe('1')
+      expect(wrapper.findAll('[data-testid="candy-run"]')).toHaveLength(3)
+    } finally { wrapper.unmount() }
+  })
+
   it('excludes request failures from the pass rate and displays history from oldest to newest', async () => {
     const wrapper = render()
     try {

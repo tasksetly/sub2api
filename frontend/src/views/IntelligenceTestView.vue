@@ -30,7 +30,7 @@
 
       <section class="mb-10" aria-labelledby="candy-heading">
         <h2 id="candy-heading" class="mb-4 text-lg font-semibold">{{ t('intelligenceTest.candy') }}</h2>
-        <CandyTestResults :response="candyResponse" :loading="candyLoading && !candyHasLoaded" :error="candyError" @refresh="loadCandyResults" />
+        <CandyTestResults :response="candyResponse" :loading="candyLoading && !candyHasLoaded" :error="candyError" :initial-group-id="asQueryString(route.query.candy_group_id)" @refresh="loadCandyResults" />
       </section>
 
       <h2 class="mb-4 text-lg font-semibold">{{ t('intelligenceTest.svg') }}</h2>

@@ -592,19 +592,41 @@
               <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
             </template>
             <template #option="{ option, selected }">
-              <GroupOptionItem
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                :peak-start="(option as unknown as GroupOption).peakStart"
-                :peak-end="(option as unknown as GroupOption).peakEnd"
-                :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                :description="(option as unknown as GroupOption).description"
-                :selected="selected"
-              />
+              <div class="min-w-0 flex-1">
+                <GroupOptionItem
+                  :name="(option as unknown as GroupOption).label"
+                  :platform="(option as unknown as GroupOption).platform"
+                  :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                  :rate-multiplier="(option as unknown as GroupOption).rate"
+                  :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                  :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
+                  :peak-start="(option as unknown as GroupOption).peakStart"
+                  :peak-end="(option as unknown as GroupOption).peakEnd"
+                  :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
+                  :description="(option as unknown as GroupOption).description"
+                  :selected="selected"
+                />
+                <CandyHistoryStrip
+                  v-if="!showEditModal && typeof option.value === 'number' && candyHistoryByGroup.has(option.value)"
+                  class="mt-1.5"
+                  compact
+                  :items="candyHistoryByGroup.get(option.value) ?? []"
+                />
+              </div>
+            </template>
+            <template v-if="!showEditModal && candyHistoryByGroup.size" #option-action="{ option }">
+              <RouterLink
+                v-if="typeof option.value === 'number' && candyHistoryByGroup.has(option.value)"
+                :to="{ name: 'IntelligenceTestResults', query: { candy_group_id: String(option.value) } }"
+                target="_blank"
+                rel="noopener"
+                :aria-label="`${t('intelligenceTest.candy')} · ${option.label}`"
+                class="mr-2 inline-flex max-w-[45%] shrink-0 items-center gap-1 self-center rounded px-1.5 py-1 text-xs font-medium text-primary-700 hover:underline focus-visible:outline focus-visible:outline-2 dark:text-primary-300"
+                @keydown.enter.stop
+              >
+                <span class="min-w-0 break-words">{{ t('intelligenceTest.candy') }}</span>
+                <Icon name="externalLink" size="xs" class="shrink-0" aria-hidden="true" />
+              </RouterLink>
             </template>
           </Select>
         </div>
@@ -1259,6 +1281,9 @@ import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
+import CandyHistoryStrip from '@/components/intelligenceTest/CandyHistoryStrip.vue'
+import { newestCandyRunsFirst } from '@/components/intelligenceTest/candyHistory'
+import { getIntelligenceTest, type IntelligenceTestItem } from '@/api/intelligenceTest'
 	import DataTable from '@/components/common/DataTable.vue'
 	import Pagination from '@/components/common/Pagination.vue'
 	import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -1449,6 +1474,34 @@ const filterStatus = ref('')
 const filterGroupId = ref<string | number>('')
 
 const showCreateModal = ref(false)
+const candyHistoryByGroup = ref(new Map<number, IntelligenceTestItem[]>())
+const CANDY_PREVIEW_LIMIT = 12
+
+watch(showCreateModal, async (open, _, onCleanup) => {
+  if (!open) return
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  candyHistoryByGroup.value = new Map()
+
+  try {
+    const response = await getIntelligenceTest({ answer_mode: 'candy' }, { signal: controller.signal })
+    if (controller.signal.aborted) return
+
+    const history = new Map<number, IntelligenceTestItem[]>()
+    for (const item of [...(response.items ?? [])].sort(newestCandyRunsFirst)) {
+      if (item.answer_mode !== 'candy' || item.group_id == null) continue
+      const groupId = Number(item.group_id)
+      if (!Number.isSafeInteger(groupId) || groupId <= 0) continue
+      const items = history.get(groupId) ?? []
+      if (items.length >= CANDY_PREVIEW_LIMIT) continue
+      items.push(item)
+      history.set(groupId, items)
+    }
+    candyHistoryByGroup.value = history
+  } catch {
+    // Test history is optional metadata for the group picker.
+  }
+})
 const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const showResetQuotaDialog = ref(false)

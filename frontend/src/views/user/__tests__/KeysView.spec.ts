@@ -18,6 +18,7 @@ const {
   copyToClipboard,
   isCurrentStep,
   nextStep,
+  getIntelligenceTest,
 } = vi.hoisted(() => ({
   listKeys: vi.fn(),
   updateKey: vi.fn(),
@@ -30,6 +31,7 @@ const {
   copyToClipboard: vi.fn(),
   isCurrentStep: vi.fn(),
   nextStep: vi.fn(),
+  getIntelligenceTest: vi.fn(),
 }))
 
 const messages: Record<string, string> = {
@@ -78,6 +80,8 @@ vi.mock('@/api', () => ({
     getUserGroupRates,
   },
 }))
+
+vi.mock('@/api/intelligenceTest', () => ({ getIntelligenceTest }))
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
@@ -197,7 +201,15 @@ const SelectStub = {
   name: 'Select',
   props: ['modelValue', 'options'],
   emits: ['update:modelValue'],
-  template: '<select :value="modelValue" @change="$emit(\'update:modelValue\', $event.target.value)"></select>',
+  template: `<div>
+    <select :value="modelValue" @change="$emit('update:modelValue', $event.target.value)"></select>
+    <template v-if="$attrs.id === 'key-form-group'">
+      <div v-for="option in options" :key="option.value" :data-group="option.value">
+        <slot name="option" :option="option" :selected="false" />
+        <slot name="option-action" :option="option" />
+      </div>
+    </template>
+  </div>`,
 }
 
 const SearchInputStub = {
@@ -247,6 +259,8 @@ const mountView = async () => {
         EndpointPopover: true,
         GroupBadge: true,
         GroupOptionItem: true,
+        CandyHistoryStrip: true,
+        RouterLink: { name: 'RouterLink', props: ['to'], template: '<a><slot /></a>' },
         Teleport: true,
       },
     },
@@ -287,6 +301,7 @@ describe('user KeysView column settings', () => {
     copyToClipboard.mockReset()
     isCurrentStep.mockReset()
     nextStep.mockReset()
+    getIntelligenceTest.mockReset().mockResolvedValue({ items: [] })
 
     listKeys.mockResolvedValue({
       items: [createApiKey()],
@@ -683,6 +698,25 @@ describe('user KeysView column settings', () => {
       expect(wrapper.get<HTMLInputElement>('input[value="domestic"]').element.checked).toBe(true)
       expect(wrapper.get<HTMLInputElement>('input[value="anthropic"]').element.disabled).toBe(true)
       expect(optionIds(wrapper)).toEqual([6])
+    })
+
+    it('shows a capped candy history and source link only on matching group options', async () => {
+      const runs = Array.from({ length: 13 }, (_, index) => ({
+        id: index + 10, group_id: '3', answer_mode: 'candy', status: 'validated'
+      }))
+      getIntelligenceTest.mockResolvedValue({ items: [...runs, { id: 99, group_id: 4, answer_mode: 'svg' }] })
+      const wrapper = await openCreate()
+      await flushPromises()
+      await chooseProvider(wrapper, 'domestic')
+      const tested = wrapper.get('[data-group="3"]')
+      const strip = tested.findComponent({ name: 'CandyHistoryStrip' })
+      expect(strip.props('items').map((item: { id: number }) => item.id)).toEqual(runs.slice(1).reverse().map(item => item.id))
+      expect(tested.findComponent({ name: 'RouterLink' }).props('to')).toEqual({
+        name: 'IntelligenceTestResults', query: { candy_group_id: '3' }
+      })
+      expect(wrapper.get('[data-group="4"]').findComponent({ name: 'CandyHistoryStrip' }).exists()).toBe(false)
+      expect(wrapper.get('[data-group="4"]').find('a').exists()).toBe(false)
+      wrapper.unmount()
     })
 
     it('shows the empty state when no groups are available', async () => {

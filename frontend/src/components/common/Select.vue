@@ -59,6 +59,7 @@
           @click.stop
           @mousedown.stop
           @keydown="onDropdownKeyDown"
+          @focusout="onDropdownFocusOut"
         >
           <!-- Search input -->
           <div v-if="isSearchable" class="select-search">
@@ -79,35 +80,41 @@
             <div
               v-for="(option, index) in filteredOptions"
               :key="`${typeof getOptionValue(option)}:${String(getOptionValue(option) ?? '')}`"
-              role="option"
-              :aria-selected="isSelected(option)"
-              :aria-disabled="isOptionDisabled(option)"
-              @click.stop="!isOptionDisabled(option) && selectOption(option)"
-              @mouseenter="handleOptionMouseEnter(option, index)"
-              :class="[
-                'select-option',
-                isGroupHeaderOption(option) && 'select-option-group',
-                isSelected(option) && 'select-option-selected',
-                isOptionDisabled(option) && !isGroupHeaderOption(option) && 'select-option-disabled',
-                focusedIndex === index && !isGroupHeaderOption(option) && 'select-option-focused'
-              ]"
+              class="flex items-stretch"
+              role="presentation"
             >
-              <slot name="option" :option="option" :selected="isSelected(option)">
-                <Icon
-                  v-if="option._creatable"
-                  name="search"
-                  size="sm"
-                  class="flex-shrink-0 text-gray-400"
-                />
-                <span class="select-option-label" :class="option._creatable && 'italic text-gray-500 dark:text-dark-300'">{{ getOptionLabel(option) }}</span>
-                <Icon
-                  v-if="isSelected(option)"
-                  name="check"
-                  size="sm"
-                  class="text-primary-500"
-                  :stroke-width="2"
-                />
-              </slot>
+              <div
+                role="option"
+                :aria-selected="isSelected(option)"
+                :aria-disabled="isOptionDisabled(option)"
+                @click.stop="!isOptionDisabled(option) && selectOption(option)"
+                @mouseenter="handleOptionMouseEnter(option, index)"
+                :class="[
+                  'select-option min-w-0 flex-1',
+                  isGroupHeaderOption(option) && 'select-option-group',
+                  isSelected(option) && 'select-option-selected',
+                  isOptionDisabled(option) && !isGroupHeaderOption(option) && 'select-option-disabled',
+                  focusedIndex === index && !isGroupHeaderOption(option) && 'select-option-focused'
+                ]"
+              >
+                <slot name="option" :option="option" :selected="isSelected(option)">
+                  <Icon
+                    v-if="option._creatable"
+                    name="search"
+                    size="sm"
+                    class="flex-shrink-0 text-gray-400"
+                  />
+                  <span class="select-option-label" :class="option._creatable && 'italic text-gray-500 dark:text-dark-300'">{{ getOptionLabel(option) }}</span>
+                  <Icon
+                    v-if="isSelected(option)"
+                    name="check"
+                    size="sm"
+                    class="text-primary-500"
+                    :stroke-width="2"
+                  />
+                </slot>
+              </div>
+              <slot name="option-action" :option="option" />
             </div>
 
             <!-- Empty state -->
@@ -122,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, useSlots } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 
@@ -445,6 +452,13 @@ const onTriggerKeyDown = () => {
   }
 }
 
+const slots = useSlots()
+const onDropdownFocusOut = (event: FocusEvent) => {
+  if (slots['option-action'] && !dropdownRef.value?.contains(event.relatedTarget as Node | null)) {
+    isOpen.value = false
+  }
+}
+
 const onDropdownKeyDown = (e: KeyboardEvent) => {
   if (e.isComposing) return
   switch (e.key) {
@@ -471,7 +485,7 @@ const onDropdownKeyDown = (e: KeyboardEvent) => {
       triggerRef.value?.focus()
       break
     case 'Tab':
-      isOpen.value = false
+      if (!slots['option-action']) isOpen.value = false
       break
   }
 }

@@ -32,7 +32,7 @@
       </div>
       <div class="flex flex-wrap gap-4 text-xs text-gray-600 dark:text-gray-300">
         <span v-for="status in (['validated', 'incorrect', 'failed'] as const)" :key="status" class="flex items-center gap-1.5">
-          <span class="h-2.5 w-2.5 rounded-full" :class="statusColor(status)"></span>{{ statusLabel(status) }}
+          <span class="h-2.5 w-2.5 rounded-full" :class="candyStatusColor(status)"></span>{{ statusLabel(status) }}
         </span>
       </div>
       <div v-if="!visibleGroups.length" class="rounded-xl border border-dashed border-gray-300 p-10 text-center dark:border-dark-600">
@@ -50,9 +50,7 @@
           </button>
           <span v-else class="text-sm text-gray-400">{{ t('intelligenceTest.noData') }}</span>
         </div>
-        <div class="mt-4 flex gap-1 overflow-x-auto py-1" :aria-label="t('intelligenceTest.history')">
-          <button v-for="item in [...group.items].reverse()" :key="item.id" type="button" class="h-8 min-w-3 max-w-10 flex-1 rounded-sm transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500" :class="statusColor(item.status)" :title="runLabel(item)" :aria-label="runLabel(item)" data-testid="candy-run" @click="selected = item"></button>
-        </div>
+        <CandyHistoryStrip :items="group.items" @select="selected = $event" />
         <div v-if="group.items.length" class="mt-2 flex justify-between text-xs text-gray-400">
           <time>{{ formatDate(group.items[group.items.length - 1]) }}</time><time>{{ formatDate(group.items[0]) }}</time>
         </div>
@@ -81,12 +79,14 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import CandyHistoryStrip from './CandyHistoryStrip.vue'
+import { candyStatusColor, candyStatusKey, formatCandyRunDate, newestCandyRunsFirst } from './candyHistory'
 import type { IntelligenceTestItem, IntelligenceTestResponse } from '@/api/intelligenceTest'
 
-const props = defineProps<{ response: IntelligenceTestResponse; loading: boolean; error: string }>()
+const props = defineProps<{ response: IntelligenceTestResponse; loading: boolean; error: string; initialGroupId?: string }>()
 defineEmits<{ refresh: [] }>()
 const { t, locale } = useI18n()
-const selectedGroup = ref('')
+const selectedGroup = ref(props.initialGroupId ?? '')
 const selected = ref<IntelligenceTestItem | null>(null)
 
 const groups = computed(() => {
@@ -103,7 +103,7 @@ const groups = computed(() => {
     if (!result.has(key)) result.set(key, { key, name, items: [] })
     result.get(key)!.items.push(item)
   }
-  for (const group of result.values()) group.items.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '') || Number(b.id) - Number(a.id))
+  for (const group of result.values()) group.items.sort(newestCandyRunsFirst)
   return [...result.values()]
 })
 watch(groups, (value) => {
@@ -127,22 +127,9 @@ const metrics = computed(() => {
   ]
 })
 function statusLabel(status?: string) {
-  if (status === 'validated') return t('intelligenceTest.validated')
-  if (status === 'incorrect') return t('intelligenceTest.incorrect')
-  if (status === 'running') return t('intelligenceTest.running')
-  return t('intelligenceTest.failed')
-}
-function statusColor(status?: string) {
-  if (status === 'validated') return 'bg-emerald-500'
-  if (status === 'incorrect') return 'bg-red-500'
-  if (status === 'running') return 'bg-blue-300'
-  return 'bg-gray-300 dark:bg-gray-600'
+  return t(candyStatusKey(status))
 }
 function formatDate(item: IntelligenceTestItem) {
-  const date = new Date(item.created_at || '')
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString(locale.value, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
-function runLabel(item: IntelligenceTestItem) {
-  return `${formatDate(item)} · ${item.model_name || item.model_id || ''} · ${statusLabel(item.status)}`
+  return formatCandyRunDate(item, locale.value)
 }
 </script>
