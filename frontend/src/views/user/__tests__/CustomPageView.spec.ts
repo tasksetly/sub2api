@@ -86,6 +86,18 @@ describe('custom page open button', () => {
     expect(wrapper.get('iframe').attributes('src')).toContain('https://example.com/docs')
   })
 
+  it('links to the configured URL without iframe parameters when the old page URL is visited', () => {
+    Object.assign(appStore.cachedPublicSettings.custom_menu_items[0], {
+      label: 'Docs',
+      url: 'https://example.com/docs?section=help#intro',
+      open_externally: true,
+    })
+    const wrapper = mountPage()
+    expect(wrapper.find('iframe').exists()).toBe(false)
+    expect(wrapper.get('a').attributes('href')).toBe('https://example.com/docs?section=help#intro')
+    expect(wrapper.get('a').text()).toBe('Docs')
+  })
+
   it('preserves the embedded URL, secure link attributes, and normal clicks with small pointer movements', async () => {
     const { wrapper, button } = mountEmbed()
     expect(button.href).toBe(wrapper.get('iframe').attributes('src'))

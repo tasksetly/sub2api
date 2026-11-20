@@ -1303,6 +1303,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				return
 			}
 			urlTrimmed := strings.TrimSpace(item.URL)
+			if item.OpenExternally && (strings.HasPrefix(urlTrimmed, "md:") || item.PageSlug != "") {
+				response.BadRequest(c, "Custom menu items that open externally require an absolute http(s) URL")
+				return
+			}
 			if strings.HasPrefix(urlTrimmed, "md:") {
 				// Markdown page mode: URL = "md:<slug>"
 				slug := strings.TrimPrefix(urlTrimmed, "md:")

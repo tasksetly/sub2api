@@ -76,6 +76,13 @@
           ></div>
         </div>
 
+        <div v-else-if="externalUrl" class="flex h-full items-center justify-center p-10 text-center">
+          <a :href="externalUrl" rel="noreferrer" class="btn btn-secondary">
+            <Icon name="externalLink" size="sm" class="mr-1.5" :stroke-width="2" />
+            {{ menuItem.label }}
+          </a>
+        </div>
+
         <!-- URL not configured -->
         <div v-else-if="!isValidUrl" class="flex h-full items-center justify-center p-10 text-center">
           <div class="max-w-md">
@@ -137,6 +144,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { buildApiUrl } from '@/api/client'
 import { buildEmbeddedUrl, detectTheme } from '@/utils/embedded-url'
+import { sanitizeUrl } from '@/utils/url'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -234,7 +242,7 @@ const menuItem = computed(() => {
 
 const markdownSlug = computed(() => {
   const item = menuItem.value
-  if (!item) return ''
+  if (!item || item.open_externally) return ''
   if (item.page_slug) return item.page_slug
   if (item.url?.startsWith('md:')) return item.url.slice(3)
   return ''
@@ -242,8 +250,13 @@ const markdownSlug = computed(() => {
 
 const isMarkdownMode = computed(() => !!markdownSlug.value)
 
+const externalUrl = computed(() => {
+  const item = menuItem.value
+  return item?.open_externally ? sanitizeUrl(item.url) : ''
+})
+
 const embeddedUrl = computed(() => {
-  if (!menuItem.value || isMarkdownMode.value) return ''
+  if (!menuItem.value || menuItem.value.open_externally || isMarkdownMode.value) return ''
   return buildEmbeddedUrl(
     menuItem.value.url,
     authStore.user?.id,

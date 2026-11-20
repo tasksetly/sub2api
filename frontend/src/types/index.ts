@@ -192,6 +192,7 @@ export interface CustomMenuItem {
   icon_svg: string
   url: string
   page_slug?: string
+  open_externally?: boolean
   hide_open_button?: boolean
   visibility: 'user' | 'admin'
   sort_order: number
