@@ -237,6 +237,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-20 | 充值页获取兑换码提示 | 在余额卡片下方提示支付宝或微信支付用户获取兑换码，链接在新标签页打开 | `frontend/src/views/user/PaymentView.vue` | 6db2cca40 |
+| 2026-11-20 | 自定义菜单直接打开外链 | 每个菜单项可选择使用现有页面展示方式，或在当前标签页直接打开配置的 HTTP(S) 链接 | `frontend/src/views/admin/SettingsView.vue`<br>`frontend/src/components/layout/AppSidebar.vue`<br>`backend/internal/handler/admin/setting_handler_update.go` | d7e60fc57 |
 | 2026-11-19 | 已有 API Key 换组时查看糖果检测 | 列表快捷换组和编辑弹窗均显示对应分组最近 50 条检测色条及历史链接 | `frontend/src/views/user/KeysView.vue` | 6e13fff5b |
 | 2026-11-19 | 降低分组糖果检测色条密度 | 创建 API Key 时，每个分组的色条最多展示最近 50 条糖果检测记录 | `frontend/src/views/user/KeysView.vue` | f1b0d3c42 |
 | 2026-11-19 | 创建 API Key 按分组倍率排序 | 同一平台类别内按分组基础倍率从小到大排列，相同倍率沿用原顺序 | `frontend/src/views/user/KeysView.vue` | 6cb97522c |
