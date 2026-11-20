@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-20 | 调整充值页兑换码提示位置 | 将获取兑换码提示移到支付方式标题旁，无可用支付方式时仍显示 | `frontend/src/views/user/PaymentView.vue`<br>`frontend/src/components/payment/PaymentMethodSelector.vue` | 45f0726fa |
 | 2026-11-20 | 充值页获取兑换码提示 | 在余额卡片下方提示支付宝或微信支付用户获取兑换码，链接在新标签页打开。前端生产构建和后端编译通过 | `frontend/src/views/user/PaymentView.vue` | 6db2cca40 |
 | 2026-11-20 | 自定义菜单直接打开外链 | 每个菜单项可选择使用现有页面展示方式，或在当前标签页直接打开配置的 HTTP(S) 链接。前端生产构建和后端编译通过 | `frontend/src/views/admin/SettingsView.vue`<br>`frontend/src/components/layout/AppSidebar.vue`<br>`backend/internal/handler/admin/setting_handler_update.go` | d7e60fc57 |
 | 2026-11-19 | 已有 API Key 换组时查看糖果检测 | 列表快捷换组和编辑弹窗均显示对应分组最近 50 条检测色条及历史链接 | `frontend/src/views/user/KeysView.vue` | 6e13fff5b |
