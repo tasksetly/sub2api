@@ -45,26 +45,7 @@
               <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
               <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
             </div>
-            <i18n-t
-              keypath="payment.rechargeCodePaymentHint"
-              tag="p"
-              scope="global"
-              class="text-sm text-gray-600 dark:text-gray-300"
-            >
-              <template #link>
-                <a
-                  href="https://catfk.com/shop/R23FLX4Q"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="font-medium text-primary-600 underline dark:text-primary-400"
-                >{{ t('payment.getRechargeCode') }}</a>
-              </template>
-            </i18n-t>
-            <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
-              <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
-            </div>
-            <template v-else>
-            <div class="card p-6">
+            <div v-if="enabledMethods.length > 0" class="card p-6">
               <!-- 充值赠送活动文案（后台 Markdown 配置，空则不渲染） -->
               <div
                 v-if="renderedBonusNotice"
@@ -84,13 +65,35 @@
               />
               <p v-if="amountError" class="mt-2 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
             </div>
-            <div v-if="enabledMethods.length >= 1" class="card p-6">
+            <div class="card p-6">
               <PaymentMethodSelector
                 :methods="methodOptions"
                 :selected="selectedMethod"
                 @select="selectedMethod = $event"
-              />
+              >
+                <template #hint>
+                  <i18n-t
+                    keypath="payment.rechargeCodePaymentHint"
+                    tag="p"
+                    scope="global"
+                    class="text-sm text-gray-600 dark:text-gray-300"
+                  >
+                    <template #link>
+                      <a
+                        href="https://catfk.com/shop/R23FLX4Q"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-medium text-primary-600 underline dark:text-primary-400"
+                      >{{ t('payment.getRechargeCode') }}</a>
+                    </template>
+                  </i18n-t>
+                </template>
+              </PaymentMethodSelector>
+              <p v-if="enabledMethods.length === 0" class="py-10 text-center text-gray-500 dark:text-gray-400">
+                {{ t('payment.notAvailable') }}
+              </p>
             </div>
+            <template v-if="enabledMethods.length > 0">
             <div v-if="validAmount > 0" class="card p-6">
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">

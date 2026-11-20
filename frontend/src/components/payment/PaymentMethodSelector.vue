@@ -1,9 +1,13 @@
 <template>
   <div>
-    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-      {{ t('payment.paymentMethod') }}
-    </label>
+    <div class="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {{ t('payment.paymentMethod') }}
+      </span>
+      <slot name="hint" />
+    </div>
     <div
+      v-if="sortedMethods.length"
       data-testid="payment-method-grid"
       class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
     >
