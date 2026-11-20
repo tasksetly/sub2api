@@ -45,6 +45,21 @@
               <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
               <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
             </div>
+            <i18n-t
+              keypath="payment.rechargeCodePaymentHint"
+              tag="p"
+              scope="global"
+              class="text-sm text-gray-600 dark:text-gray-300"
+            >
+              <template #link>
+                <a
+                  href="https://catfk.com/shop/R23FLX4Q"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="font-medium text-primary-600 underline dark:text-primary-400"
+                >{{ t('payment.getRechargeCode') }}</a>
+              </template>
+            </i18n-t>
             <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
