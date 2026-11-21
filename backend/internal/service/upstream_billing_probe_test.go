@@ -1401,7 +1401,7 @@ type correctedNewAPIRateAdmin struct {
 	accounts []Account
 }
 
-func (a *correctedNewAPIRateAdmin) ListAccounts(context.Context, int, int, string, string, string, string, int64, string, string, string, int64) ([]Account, int64, error) {
+func (a *correctedNewAPIRateAdmin) ListAccounts(context.Context, int, int, string, string, string, string, int64, string, string, string, int64, ...string) ([]Account, int64, error) {
 	return a.accounts, int64(len(a.accounts)), nil
 }
 

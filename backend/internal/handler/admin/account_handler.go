@@ -196,6 +196,7 @@ type BulkUpdateAccountFilters struct {
 	Status      string `json:"status"`
 	Group       string `json:"group"`
 	Search      string `json:"search"`
+	Model       string `json:"model"`
 	PrivacyMode string `json:"privacy_mode"`
 	Upstream    string `json:"upstream"`
 }
@@ -715,7 +716,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 		return
 	}
 
-	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder, upstreamProviderID)
+	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder, upstreamProviderID, c.Query("model"))
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -2487,6 +2488,7 @@ func toServiceBulkUpdateAccountFilters(filters *BulkUpdateAccountFilters) *servi
 		Status:      filters.Status,
 		Group:       filters.Group,
 		Search:      filters.Search,
+		Model:       filters.Model,
 		PrivacyMode: filters.PrivacyMode,
 		Upstream:    filters.Upstream,
 	}

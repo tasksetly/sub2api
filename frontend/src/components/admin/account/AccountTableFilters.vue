@@ -8,6 +8,12 @@
       @update:model-value="$emit('update:searchQuery', $event)"
       @search="$emit('change')"
     />
+    <SearchInput
+      :model-value="filters.model ?? ''"
+      :placeholder="t('admin.accounts.filterByModel')"
+      class="col-span-2 sm:w-52"
+      @update:model-value="updateModel"
+    />
     <Select :model-value="filters.platform" class="min-w-0 sm:w-40" :options="pOpts" @update:model-value="updatePlatform" @change="$emit('change')" />
     <Select :model-value="filters.type" class="min-w-0 sm:w-40" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
     <Select :model-value="filters.status" class="min-w-0 sm:w-40" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
@@ -24,6 +30,10 @@ import type { UpstreamProviderWithStats } from '@/types/upstreamProvider'
 import { CONCRETE_PLATFORM_OPTIONS } from '@/constants/platforms'
 const props = defineProps<{ searchQuery: string; filters: Record<string, any>; groups?: AdminGroup[]; upstreamProviders?: UpstreamProviderWithStats[] }>()
 const emit = defineEmits(['update:searchQuery', 'update:filters', 'change']); const { t } = useI18n()
+const updateModel = (value: string) => {
+  emit('update:filters', { ...props.filters, model: value })
+  emit('change')
+}
 const updatePlatform = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, platform: value }) }
 const updateType = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, type: value }) }
 const updateStatus = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, status: value }) }

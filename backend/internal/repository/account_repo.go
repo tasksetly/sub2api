@@ -1164,8 +1164,13 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 	return q
 }
 
-func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, upstreamProviderID int64) ([]service.Account, *pagination.PaginationResult, error) {
+func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, upstreamProviderID int64, modelFilter ...string) ([]service.Account, *pagination.PaginationResult, error) {
 	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode, upstreamProviderID)
+	if len(modelFilter) > 0 {
+		if model := strings.TrimSpace(modelFilter[0]); model != "" {
+			return r.listAccountsMatchingModel(ctx, q, params, model)
+		}
+	}
 	// Clone before Count so interceptor-appended predicates (SoftDeleteMixin's
 	// deleted_at IS NULL) don't accumulate on the shared builder and pollute the
 	// subsequent list query. Same pattern used in group_repo/promo_code_repo/user_repo
@@ -1192,6 +1197,34 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 		return nil, nil, err
 	}
 	return outAccounts, paginationResultFromTotal(int64(total), params), nil
+}
+
+func (r *accountRepository) listAccountsMatchingModel(ctx context.Context, query *dbent.AccountQuery, params pagination.PaginationParams, model string) ([]service.Account, *pagination.PaginationResult, error) {
+	for _, order := range accountListOrder(params) {
+		query.Order(order)
+	}
+	candidates, err := query.All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	page := make([]*dbent.Account, 0, params.Limit())
+	offset := int64(params.Offset())
+	var total int64
+	for _, candidate := range candidates {
+		account := service.Account{Platform: candidate.Platform, Type: candidate.Type, Credentials: candidate.Credentials, Extra: candidate.Extra}
+		if !account.MatchesAdminModelFilter(model) {
+			continue
+		}
+		if total >= offset && len(page) < cap(page) {
+			page = append(page, candidate)
+		}
+		total++
+	}
+	accounts, err := r.accountsToService(ctx, page)
+	if err != nil {
+		return nil, nil, err
+	}
+	return accounts, paginationResultFromTotal(total, params), nil
 }
 
 func (r *accountRepository) ListGroupCandidates(ctx context.Context, params pagination.PaginationParams, groupID int64, search string) ([]service.Account, *pagination.PaginationResult, error) {

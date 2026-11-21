@@ -668,6 +668,29 @@ func (s *AccountRepoSuite) TestListByPlatform() {
 
 // --- Preload and VirtualFields ---
 
+func (s *AccountRepoSuite) TestListWithModelFilterPaginatesMatches() {
+	for _, fixture := range []struct{ name, model string }{
+		{"model-filter-a", "other-model"},
+		{"model-filter-b", "requested-model"},
+		{"model-filter-c", "requested-*"},
+		{"outside-search", "requested-model"},
+	} {
+		mustCreateAccount(s.T(), s.client, &service.Account{
+			Name:     fixture.name,
+			Platform: service.PlatformOpenAI,
+			Type:     service.AccountTypeAPIKey,
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{fixture.model: "upstream-model"},
+			},
+		})
+	}
+	accounts, page, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 2, PageSize: 1}, service.PlatformOpenAI, "", "", "model-filter", 0, "", 0, " requested-model ")
+	s.Require().NoError(err)
+	s.Require().Equal(int64(2), page.Total)
+	s.Require().Len(accounts, 1)
+	s.Require().Equal("model-filter-c", accounts[0].Name)
+}
+
 func (s *AccountRepoSuite) TestPreload_And_VirtualFields() {
 	proxy := mustCreateProxy(s.T(), s.client, &service.Proxy{Name: "p1"})
 	group := mustCreateGroup(s.T(), s.client, &service.Group{Name: "g1"})

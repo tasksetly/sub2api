@@ -653,6 +653,7 @@ type AccountBulkEditTarget =
         status?: string
         group?: string
         search?: string
+        model?: string
         privacy_mode?: string
         upstream?: string
         sort_by?: string
@@ -1209,6 +1210,7 @@ const {
     privacy_mode: '',
     group: '',
     search: '',
+    model: '',
     // ''=不筛选，'any'=所有上游建的号，数字=具体上游 id
     upstream: '',
     lite: '1',
@@ -1307,7 +1309,9 @@ const buildUpstreamBillingRateFilters = () => {
     status: typeof rawParams.status === 'string' ? rawParams.status : '',
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
+    model: typeof rawParams.model === 'string' ? rawParams.model.trim() : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
+    upstream: typeof rawParams.upstream === 'string' ? rawParams.upstream : '',
     sort_by: sortState.sort_by,
     sort_order: sortState.sort_order
   }
@@ -1593,6 +1597,7 @@ const refreshAccountsIncrementally = async () => {
         privacy_mode?: string
         group?: string
         search?: string
+        model?: string
         upstream?: string
         sort_by?: string
         sort_order?: AccountSortOrder
@@ -2263,6 +2268,7 @@ const buildBulkEditFilterSnapshot = () => {
     status: typeof rawParams.status === 'string' ? rawParams.status : '',
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
+    model: typeof rawParams.model === 'string' ? rawParams.model.trim() : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
     // 上游筛选必须进快照：批量改按这份筛选在后端重新拉一遍目标账号，
     // 漏掉它就会改到用户列表上没看到的账号。
@@ -2359,6 +2365,7 @@ const buildAccountQueryFilters = () => ({
   group: params.group || '',
   privacy_mode: params.privacy_mode || '',
   search: params.search || '',
+  model: params.model.trim(),
   upstream: params.upstream || '',
   sort_by: sortState.sort_by,
   sort_order: sortState.sort_order
@@ -2496,6 +2503,7 @@ const handleProbeUpstreamBilling = async (account: Account) => {
 const handleAccountUpdated = (updatedAccount: Account) => {
   patchAccountInList(updatedAccount)
   enterAutoRefreshSilentWindow()
+  if (params.model.trim()) void load()
 }
 const formatExportTimestamp = () => {
   const now = new Date()

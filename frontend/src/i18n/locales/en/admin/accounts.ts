@@ -148,6 +148,7 @@ export default {
       editAccount: 'Edit Account',
       deleteAccount: 'Delete Account',
       searchAccounts: 'Search accounts...',
+      filterByModel: 'Filter by model ID...',
       supplier: 'Supplier',
       supplierPlaceholder: 'e.g. Official channel or Reseller A',
       supplierHint: 'Groups multiple upstream accounts under one cost owner',

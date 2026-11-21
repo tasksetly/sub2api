@@ -147,6 +147,7 @@ export default {
       editAccount: '编辑账号',
       deleteAccount: '删除账号',
       searchAccounts: '搜索账号...',
+      filterByModel: '按模型 ID 筛选...',
       supplier: '供应商',
       supplierPlaceholder: '例如：官方渠道、代理商 A',
       supplierHint: '用于将多个上游账号归集到同一成本主体',
