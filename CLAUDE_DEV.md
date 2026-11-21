@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-22 | 账号管理按模型筛选 | 手动输入模型 ID，按账号映射和平台内置模型匹配，支持通配映射。分页、全选、批量编辑和导出沿用相同筛选条件。 | `frontend/src/views/admin/AccountsView.vue`<br>`backend/internal/repository/account_repo.go`<br>`backend/internal/service/admin_account_model_filter.go` | f788bf0d1 |
 | 2026-11-20 | 用户端 SVG 智商测试按组展示最新作品 | 每组默认只显示最新 SVG，点击可展开或收起历史记录，并放大作品卡片和预览尺寸 | `frontend/src/views/IntelligenceTestView.vue` | 358070a4f |
 | 2026-11-20 | 调整充值页兑换码提示位置 | 将获取兑换码提示移到支付方式标题旁，无可用支付方式时仍显示 | `frontend/src/views/user/PaymentView.vue`<br>`frontend/src/components/payment/PaymentMethodSelector.vue` | 45f0726fa |
 | 2026-11-20 | 充值页获取兑换码提示 | 在余额卡片下方提示支付宝或微信支付用户获取兑换码，链接在新标签页打开。前端生产构建和后端编译通过 | `frontend/src/views/user/PaymentView.vue` | 6db2cca40 |
