@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-25 | 国产模型人民币定价展示与 DeepSeek 峰值计费 | 国产平台渠道/分组价格编辑器和模型广场官方价使用人民币符号，不做汇率换算；DeepSeek 默认价固定按峰值计费，Flash 输入/输出 ¥2/¥8、Pro ¥9/¥27 每百万 token，缓存命中价同样采用峰值；其他平台价格、符号及计费逻辑不变，显式自定义渠道/分组价格保持原配置。 | `backend/internal/service/billing_service.go`<br>`frontend/src/components/admin/channel/PricingEntryCard.vue`<br>`frontend/src/components/admin/channel/IntervalRow.vue`<br>`frontend/src/components/modelPlaza/PlazaModelPricingTable.vue` | eb46887f1 |
 | 2026-11-22 | 账号管理按模型筛选 | 手动输入模型 ID，按账号映射和平台内置模型匹配，支持通配映射。分页、全选、批量编辑和导出沿用相同筛选条件。 | `frontend/src/views/admin/AccountsView.vue`<br>`backend/internal/repository/account_repo.go`<br>`backend/internal/service/admin_account_model_filter.go` | f788bf0d1 |
 | 2026-11-20 | 用户端 SVG 智商测试按组展示最新作品 | 每组默认只显示最新 SVG，点击可展开或收起历史记录，并放大作品卡片和预览尺寸 | `frontend/src/views/IntelligenceTestView.vue` | 358070a4f |
 | 2026-11-20 | 调整充值页兑换码提示位置 | 将获取兑换码提示移到支付方式标题旁，无可用支付方式时仍显示 | `frontend/src/views/user/PaymentView.vue`<br>`frontend/src/components/payment/PaymentMethodSelector.vue` | 45f0726fa |
