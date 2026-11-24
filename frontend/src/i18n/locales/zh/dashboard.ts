@@ -802,7 +802,7 @@ export default {
       timePricingRowHintPeak: '；本行价格未含高峰倍率，与高峰时段 {window} 重叠的部分实付再乘 ×{multiplier}',
       timePricingWeekdays: '工作日',
       timePricingRateHint: '生效倍率 {rate} × 时段倍率 {multiplier}',
-      pricingNote: '模型价格以对应上游 API 价格为参考。页面分别显示上游原币种基准价和人民币实付价；美元与人民币基准不能直接混作同一列。输入、输出、缓存及长上下文/高峰时段可能分别计价，具体条件见模型详情和价格来源。',
+      pricingNote: '国产模型单价按配置数值直接计费，不做汇率换算，并使用人民币符号。DeepSeek 默认参考价按峰值价计费和展示；其他模型沿用原有价格和币种符号。输入、输出、缓存及长上下文档位可能分别计价，具体条件见模型详情和价格来源。',
       paidPrice: 'Tasksetly 实付价格',
       officialPrice: '上游基准价（原币种）',
       rate: '折扣倍率',

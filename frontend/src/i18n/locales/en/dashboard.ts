@@ -798,7 +798,7 @@ export default {
         '; prices in this row exclude the peak-hour rate — where this period overlaps the peak hours {window}, the overlapping portion is additionally multiplied by ×{multiplier}',
       timePricingWeekdays: 'Weekdays',
       timePricingRateHint: 'Effective rate {rate} × period multiplier {multiplier}',
-      pricingNote: 'Model pricing references the corresponding upstream API price. The catalog separates the upstream reference currency from the Tasksetly displayed price. Input, output, cache, context-length, and peak/off-peak conditions may be priced separately; see the model details and source link.',
+      pricingNote: 'Domestic model prices are billed directly from configured numeric values with the RMB symbol and no FX conversion. DeepSeek default reference prices use peak rates. Other models retain their existing prices and currency symbols. Input, output, cache, and context tiers may be priced separately; see model details and the source link.',
       paidPrice: 'Tasksetly Price',
       officialPrice: 'Upstream Reference Price (Source Currency)',
       rate: 'Rate',

@@ -729,7 +729,7 @@ describe('PlazaModelPricingTable 分时计价', () => {
     expect(peakCells[7].text()).toContain('0.96x')
 
     // 官方列不受时段影响
-    expect(nightCells[4].text()).toContain('$3.00')
+    expect(nightCells[4].text()).toContain('￥3.00')
   })
 
   it('仅工作日生效时时段行带工作日前缀,tooltip 换用周末回落文案', () => {

@@ -24,6 +24,11 @@ export function formatScaled(value: number | null, scale: number, minFractionDig
 }
 
 import type { UserPricingInterval } from '@/api/channels'
+import { getPlatformSpec } from '@/constants/platformCatalog'
+
+export function platformCurrencySymbol(platform: string | null | undefined): '$' | '￥' {
+  return getPlatformSpec(platform)?.cn_provider ? '￥' : '$'
+}
 
 type TokenPrices = Pick<UserPricingInterval, 'input_price' | 'output_price' | 'cache_write_price' | 'cache_write_1h_price' | 'cache_write_12h_price' | 'cache_read_price'>
 

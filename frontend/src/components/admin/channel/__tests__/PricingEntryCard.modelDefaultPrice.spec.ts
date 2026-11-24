@@ -66,6 +66,18 @@ describe('PricingEntryCard default price auto-fill', () => {
     })
   })
 
+  it('uses the RMB symbol only for domestic platform pricing', () => {
+    const deepseek = shallowMount(PricingEntryCard, {
+      props: { entry: createEntry(), platform: 'deepseek' },
+    })
+    const anthropic = shallowMount(PricingEntryCard, {
+      props: { entry: createEntry(), platform: 'anthropic' },
+    })
+
+    expect(deepseek.text()).toContain('￥/MTok')
+    expect(anthropic.text()).toContain('$/MTok')
+  })
+
   it('does not overwrite prices when appending a model to an entry that already has one', async () => {
     const entry = createEntry(['claude-opus-4-7'])
     const wrapper = addModels(entry, ['claude-opus-4-7', 'claude-opus-4-8'])
