@@ -58,7 +58,7 @@ func TestGetUserGroupVisibilityIncludesActiveSubscriptions(t *testing.T) {
 			svc := &APIKeyService{
 				userRepo:    &visibilityUserRepo{user: &User{ID: 1, AllowedGroups: []int64{7}, RestrictPublicGroups: restricted}},
 				userSubRepo: subs,
-				groupRepo:   &visibilityGroupRepo{groups: []Group{{ID: 42, IsExclusive: true, SubscriptionType: "subscription"}}},
+				groupRepo:   &visibilityGroupRepo{groups: []Group{{ID: 42, IsExclusive: true, SubscriptionType: "subscription", Status: StatusActive}}},
 			}
 			available, err := svc.GetAvailableGroups(context.Background(), 1)
 			require.NoError(t, err)
@@ -70,6 +70,38 @@ func TestGetUserGroupVisibilityIncludesActiveSubscriptions(t *testing.T) {
 			require.Contains(t, visible, available[0].ID, "a subscribed group that can be bound must be visible")
 		})
 	}
+}
+
+func TestGetAvailableGroupsExcludesInactiveGroups(t *testing.T) {
+	groupRepo := &visibilityGroupRepo{groups: []Group{
+		{ID: 1, Status: StatusActive},
+		{ID: 2, Status: "inactive"},
+	}}
+	svc := &APIKeyService{
+		userRepo:    &visibilityUserRepo{user: &User{ID: 1}},
+		userSubRepo: &visibilitySubRepo{},
+		groupRepo:   groupRepo,
+	}
+
+	available, err := svc.GetAvailableGroups(context.Background(), 1)
+	require.NoError(t, err)
+	require.Len(t, available, 1)
+	require.Equal(t, int64(1), available[0].ID)
+
+	groupRepo.groups[1].Status = StatusActive
+	available, err = svc.GetAvailableGroups(context.Background(), 1)
+	require.NoError(t, err)
+	require.Len(t, available, 2)
+}
+
+func TestCanUserBindGroupRejectsInactiveGroup(t *testing.T) {
+	svc := &APIKeyService{}
+	user := &User{}
+
+	require.False(t, svc.canUserBindGroup(context.Background(), user, &Group{ID: 1, Status: "inactive"}))
+	require.False(t, svc.canUserBindGroupInternal(user, &Group{ID: 1, Status: "inactive"}, nil))
+	require.True(t, svc.canUserBindGroup(context.Background(), user, &Group{ID: 1, Status: StatusActive}))
+	require.True(t, svc.canUserBindGroupInternal(user, &Group{ID: 1, Status: StatusActive}, nil))
 }
 
 func TestGetUserGroupVisibilityEmptyAndErrors(t *testing.T) {

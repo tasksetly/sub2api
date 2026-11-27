@@ -133,7 +133,49 @@ func (s *PaymentConfigService) ListPlans(ctx context.Context) ([]*dbent.Subscrip
 }
 
 func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.ForSaleEQ(true)).Order(subscriptionplan.BySortOrder()).All(ctx)
+	plans, err := s.entClient.SubscriptionPlan.Query().
+		Where(subscriptionplan.ForSaleEQ(true)).
+		Order(subscriptionplan.BySortOrder()).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(plans) == 0 {
+		return plans, nil
+	}
+
+	groupIDs := make([]int64, 0, len(plans))
+	seen := make(map[int64]struct{}, len(plans))
+	for _, plan := range plans {
+		if _, exists := seen[plan.GroupID]; exists {
+			continue
+		}
+		seen[plan.GroupID] = struct{}{}
+		groupIDs = append(groupIDs, plan.GroupID)
+	}
+
+	activeGroups, err := s.entClient.Group.Query().
+		Where(group.IDIn(groupIDs...), group.StatusEQ(StatusActive), group.DeletedAtIsNil()).
+		Select(group.FieldID).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list active subscription groups: %w", err)
+	}
+	activeGroupIDs := make(map[int64]struct{}, len(activeGroups))
+	for _, activeGroup := range activeGroups {
+		activeGroupIDs[int64(activeGroup.ID)] = struct{}{}
+	}
+	return filterPlansByActiveGroupIDs(plans, activeGroupIDs), nil
+}
+
+func filterPlansByActiveGroupIDs(plans []*dbent.SubscriptionPlan, activeGroupIDs map[int64]struct{}) []*dbent.SubscriptionPlan {
+	filtered := make([]*dbent.SubscriptionPlan, 0, len(plans))
+	for _, plan := range plans {
+		if _, active := activeGroupIDs[plan.GroupID]; active {
+			filtered = append(filtered, plan)
+		}
+	}
+	return filtered
 }
 
 func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*dbent.SubscriptionPlan, error) {
