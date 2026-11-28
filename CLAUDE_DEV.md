@@ -237,6 +237,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 | 日期 | 功能 | 说明 | 主要文件 | Commit |
 |------|------|------|----------|--------|
+| 2026-11-28 | API 报错附加提示可配置 | 站点设置可修改网关 JSON 和流式错误末尾的提示语，未配置或留空时沿用原文。 | `backend/internal/server/middleware/api_error_details.go`<br>`frontend/src/views/admin/SettingsView.vue` | e1cbc7ef5 |
 | 2026-11-28 | 上游供应商余额汇总 | 上游管理展示全部供应商最近同步的余额合计，不受搜索、状态筛选或分页影响。 | `backend/internal/repository/upstream_provider_repo.go`<br>`frontend/src/views/admin/UpstreamProvidersView.vue` | fb1ef4118 |
 | 2026-11-27 | 分组禁用与恢复 | 禁用分组不在用户可选分组和在售订阅套餐中展示，用户创建/换绑 API Key 时不能绑定；已绑定 Key 的代理请求由现有鉴权拦截，重新启用后恢复可见和使用。 | `backend/internal/service/api_key_service.go`<br>`backend/internal/service/payment_config_plans.go`<br>`backend/internal/service/api_key_group_visibility_test.go` | ffc25c892 |
 | 2026-11-25 | 国产模型人民币定价展示与 DeepSeek 峰值计费 | 国产平台渠道/分组价格编辑器和模型广场官方价使用人民币符号，不做汇率换算；DeepSeek 默认价固定按峰值计费，Flash 输入/输出 ¥2/¥8、Pro ¥9/¥27 每百万 token，缓存命中价同样采用峰值；其他平台价格、符号及计费逻辑不变，显式自定义渠道/分组价格保持原配置。 | `backend/internal/service/billing_service.go`<br>`frontend/src/components/admin/channel/PricingEntryCard.vue`<br>`frontend/src/components/admin/channel/IntervalRow.vue`<br>`frontend/src/components/modelPlaza/PlazaModelPricingTable.vue` | eb46887f1 |
