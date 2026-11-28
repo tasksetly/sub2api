@@ -48,6 +48,7 @@ export default {
     upstreamProviders: {
       title: '上游管理',
       description: '集中管理上游 sub2api：比价、查余额、直接建号',
+      totalBalance: '所有上游供应商余额合计',
       createProvider: '添加上游',
       editProvider: '编辑上游',
       deleteProvider: '删除上游',

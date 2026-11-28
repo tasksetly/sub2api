@@ -319,6 +319,22 @@ func (r *upstreamProviderRepository) List(
 	return providers, paginationResultFromTotal(int64(total), params), nil
 }
 
+func (r *upstreamProviderRepository) SumBalances(ctx context.Context) (float64, error) {
+	var result []struct {
+		Sum *float64 `json:"sum"`
+	}
+	err := r.client.UpstreamProvider.Query().
+		Aggregate(dbent.As(dbent.Sum(upstreamprovider.FieldBalance), "sum")).
+		Scan(ctx, &result)
+	if err != nil {
+		return 0, err
+	}
+	if len(result) == 0 || result[0].Sum == nil {
+		return 0, nil
+	}
+	return *result[0].Sum, nil
+}
+
 // attachStats 补齐账号数、分组倍率区间，以及本地实际用量成本。
 //
 // 本地成本沿用成本页的请求落账公式，包含已删除账号的历史用量。

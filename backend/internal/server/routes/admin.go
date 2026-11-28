@@ -576,6 +576,7 @@ func registerUpstreamProviderRoutes(admin *gin.RouterGroup, h *handler.Handlers)
 	providers := admin.Group("/upstream-providers")
 	{
 		providers.GET("", h.Admin.UpstreamProvider.List)
+		providers.GET("/balance-summary", h.Admin.UpstreamProvider.BalanceSummary)
 		// 这两条必须注册在 /:id 之前，否则会被当成 id 匹配
 		providers.POST("/sync-all", h.Admin.UpstreamProvider.SyncAll)
 		providers.GET("/groups/compare", h.Admin.UpstreamProvider.CompareGroups)

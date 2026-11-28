@@ -48,6 +48,13 @@ export async function list(
   return data
 }
 
+export async function getBalanceSummary(): Promise<{ total_balance: number }> {
+  const { data } = await apiClient.get<{ total_balance: number }>(
+    '/admin/upstream-providers/balance-summary'
+  )
+  return data
+}
+
 export async function getByID(id: number): Promise<UpstreamProvider> {
   const { data } = await apiClient.get<UpstreamProvider>(`/admin/upstream-providers/${id}`)
   return data
@@ -153,6 +160,7 @@ export async function provisionAccounts(
 
 export const upstreamProvidersAPI = {
   list,
+  getBalanceSummary,
   getByID,
   create,
   update,

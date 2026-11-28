@@ -55,6 +55,10 @@
         <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
           {{ t('admin.upstreamProviders.readOnlyHint') }}
         </p>
+        <p class="mt-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+          {{ t('admin.upstreamProviders.totalBalance') }}
+          <span class="ml-2 tabular-nums">{{ totalBalance === null ? '—' : `$${totalBalance.toFixed(2)}` }}</span>
+        </p>
       </template>
 
       <template #table>
@@ -173,6 +177,7 @@ const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(getPersistedPageSize(20))
 const total = ref(0)
+const totalBalance = ref<number | null>(null)
 const searchQuery = ref('')
 const filters = reactive<{ status?: 'active' | 'inactive' }>({})
 
@@ -232,12 +237,19 @@ function handleSearch() {
 async function loadProviders() {
   loading.value = true
   try {
-    const response = await adminAPI.upstreamProviders.list(page.value, pageSize.value, {
-      status: filters.status || undefined,
-      search: searchQuery.value.trim() || undefined
-    })
+    const [response, balanceSummary] = await Promise.all([
+      adminAPI.upstreamProviders.list(page.value, pageSize.value, {
+        status: filters.status || undefined,
+        search: searchQuery.value.trim() || undefined
+      }),
+      adminAPI.upstreamProviders.getBalanceSummary().catch((error) => {
+        appStore.showError(resolveError(error))
+        return null
+      })
+    ])
     providers.value = response.items ?? []
     total.value = response.total ?? 0
+    totalBalance.value = balanceSummary?.total_balance ?? null
   } catch (error) {
     appStore.showError(resolveError(error))
   } finally {

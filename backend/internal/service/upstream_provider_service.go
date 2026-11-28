@@ -353,6 +353,10 @@ func (s *UpstreamProviderService) List(
 	return s.repo.List(ctx, params, status, search)
 }
 
+func (s *UpstreamProviderService) SumBalances(ctx context.Context) (float64, error) {
+	return s.repo.SumBalances(ctx)
+}
+
 func (s *UpstreamProviderService) ListGroups(ctx context.Context, providerID int64) ([]UpstreamGroup, error) {
 	return s.repo.ListGroups(ctx, providerID)
 }

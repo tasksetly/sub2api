@@ -101,6 +101,17 @@ func (h *UpstreamProviderHandler) List(c *gin.Context) {
 	response.Paginated(c, out, total, page, pageSize)
 }
 
+// BalanceSummary returns the sum of all upstream provider balance snapshots.
+// GET /api/v1/admin/upstream-providers/balance-summary
+func (h *UpstreamProviderHandler) BalanceSummary(c *gin.Context) {
+	total, err := h.svc.SumBalances(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"total_balance": total})
+}
+
 // GetByID 取单个上游。
 // GET /api/v1/admin/upstream-providers/:id
 func (h *UpstreamProviderHandler) GetByID(c *gin.Context) {

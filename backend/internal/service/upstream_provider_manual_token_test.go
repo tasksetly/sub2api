@@ -55,6 +55,10 @@ func (f *fakeUpstreamProviderRepo) List(
 	return nil, nil, nil
 }
 
+func (f *fakeUpstreamProviderRepo) SumBalances(context.Context) (float64, error) {
+	return 0, nil
+}
+
 func (f *fakeUpstreamProviderRepo) ListSyncable(context.Context) ([]UpstreamProvider, error) {
 	return nil, nil
 }

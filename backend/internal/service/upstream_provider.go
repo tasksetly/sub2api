@@ -177,6 +177,7 @@ type UpstreamProviderRepository interface {
 	Delete(ctx context.Context, id int64) error
 
 	List(ctx context.Context, params pagination.PaginationParams, status, search string) ([]UpstreamProviderWithStats, *pagination.PaginationResult, error)
+	SumBalances(ctx context.Context) (float64, error)
 	ListSyncable(ctx context.Context) ([]UpstreamProvider, error)
 	ExistsByName(ctx context.Context, name string, excludeID int64) (bool, error)
 	// ListNamesByIDs 批量取 id → 名称，供账号列表回填「来自哪个上游」。
