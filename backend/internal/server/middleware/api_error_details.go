@@ -2,19 +2,18 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"mime"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
-const (
-	apiErrorDetailsHint       = " (View error details at https://tasksetly.com.)"
-	maxAPIErrorResponseBuffer = 1 << 20
-)
+const maxAPIErrorResponseBuffer = 1 << 20
 
 type apiErrorResponseMode uint8
 
@@ -27,9 +26,11 @@ const (
 
 // APIGatewayErrorDetails adds a support link to gateway error messages while
 // preserving the response protocol and status code.
-func APIGatewayErrorDetails() gin.HandlerFunc {
+func APIGatewayErrorDetails(getHint func(context.Context) string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		writer := &apiErrorDetailsWriter{ResponseWriter: c.Writer}
+		writer := &apiErrorDetailsWriter{ResponseWriter: c.Writer, hint: sync.OnceValue(func() string {
+			return getHint(c.Request.Context())
+		})}
 		c.Writer = writer
 		defer func() {
 			c.Writer = writer.ResponseWriter
@@ -41,6 +42,7 @@ func APIGatewayErrorDetails() gin.HandlerFunc {
 
 type apiErrorDetailsWriter struct {
 	gin.ResponseWriter
+	hint       func() string
 	mode       apiErrorResponseMode
 	jsonBody   bytes.Buffer
 	ssePending []byte
@@ -142,7 +144,7 @@ func (w *apiErrorDetailsWriter) finish() {
 	w.selectMode()
 	switch w.mode {
 	case apiErrorResponseJSON:
-		body := addAPIErrorDetailsToJSON(w.jsonBody.Bytes())
+		body := w.addAPIErrorDetailsToJSON(w.jsonBody.Bytes())
 		if len(body) != w.jsonBody.Len() {
 			w.Header().Del("Content-Length")
 		}
@@ -173,7 +175,7 @@ func (w *apiErrorDetailsWriter) writeSSE(p []byte, final bool) error {
 		}
 		frame := w.ssePending[:end]
 		if len(frame) <= maxAPIErrorResponseBuffer {
-			frame = transformAPIErrorSSEFrame(frame)
+			frame = w.transformAPIErrorSSEFrame(frame)
 		}
 		w.ssePending = w.ssePending[end:]
 		if _, err := w.ResponseWriter.Write(frame); err != nil {
@@ -193,7 +195,7 @@ func (w *apiErrorDetailsWriter) writeSSE(p []byte, final bool) error {
 		if !w.ResponseWriter.Written() {
 			w.ResponseWriter.WriteHeaderNow()
 		}
-		_, err := w.ResponseWriter.Write(transformAPIErrorSSEFrame(w.ssePending))
+		_, err := w.ResponseWriter.Write(w.transformAPIErrorSSEFrame(w.ssePending))
 		w.ssePending = nil
 		return err
 	}
@@ -213,7 +215,7 @@ func sseFrameEnd(data []byte) (start, end int) {
 	}
 }
 
-func transformAPIErrorSSEFrame(frame []byte) []byte {
+func (w *apiErrorDetailsWriter) transformAPIErrorSSEFrame(frame []byte) []byte {
 	lines := bytes.Split(frame, []byte("\n"))
 	var eventType string
 	dataLine := -1
@@ -239,7 +241,7 @@ func transformAPIErrorSSEFrame(frame []byte) []byte {
 		!gjson.GetBytes(payload, "error").Exists() && !gjson.GetBytes(payload, "response.error").Exists() {
 		return frame
 	}
-	updated, changed := appendAPIErrorDetails(payload, []string{"error.message", "response.error.message", "message", "detail", "error"})
+	updated, changed := w.appendAPIErrorDetails(payload)
 	if !changed {
 		return frame
 	}
@@ -261,25 +263,29 @@ func transformAPIErrorSSEFrame(frame []byte) []byte {
 	return bytes.Join(lines, []byte("\n"))
 }
 
-func addAPIErrorDetailsToJSON(body []byte) []byte {
-	updated, changed := appendAPIErrorDetails(body, []string{"error.message", "response.error.message", "message", "detail", "error"})
+func (w *apiErrorDetailsWriter) addAPIErrorDetailsToJSON(body []byte) []byte {
+	updated, changed := w.appendAPIErrorDetails(body)
 	if !changed {
 		return body
 	}
 	return updated
 }
 
-func appendAPIErrorDetails(body []byte, paths []string) ([]byte, bool) {
-	for _, path := range paths {
+func (w *apiErrorDetailsWriter) appendAPIErrorDetails(body []byte) ([]byte, bool) {
+	for _, path := range []string{"error.message", "response.error.message", "message", "detail", "error"} {
 		value := gjson.GetBytes(body, path)
 		if !value.Exists() || value.Type != gjson.String {
 			continue
 		}
 		message := strings.TrimSpace(value.String())
-		if message == "" || strings.Contains(strings.ToLower(message), "tasksetly.com") {
+		if message == "" {
 			return body, false
 		}
-		updated, err := sjson.SetBytes(body, path, message+apiErrorDetailsHint)
+		hint := w.hint()
+		if strings.HasSuffix(message, hint) {
+			return body, false
+		}
+		updated, err := sjson.SetBytes(body, path, message+" "+hint)
 		if err != nil {
 			return body, false
 		}

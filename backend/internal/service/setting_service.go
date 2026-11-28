@@ -55,6 +55,28 @@ func GrokBaseURLForMode(mode string) string {
 	}
 }
 
+const DefaultAPIErrorHint = "(View error details at https://tasksetly.com.)"
+
+func normalizeAPIErrorHint(value string) string {
+	if hint := strings.TrimSpace(value); hint != "" {
+		return hint
+	}
+	return DefaultAPIErrorHint
+}
+
+func (s *SettingService) GetAPIErrorHint(ctx context.Context) string {
+	if s == nil || s.settingRepo == nil {
+		return DefaultAPIErrorHint
+	}
+	dbCtx, cancel := context.WithTimeout(ctx, gatewayForwardingDBTimeout)
+	defer cancel()
+	value, err := s.settingRepo.GetValue(dbCtx, SettingKeyAPIErrorHint)
+	if err != nil {
+		return DefaultAPIErrorHint
+	}
+	return normalizeAPIErrorHint(value)
+}
+
 func (s *SettingService) GetGrokDefaultBaseURLMode(ctx context.Context) string {
 	if s == nil || s.settingRepo == nil {
 		return GrokDefaultBaseURLModeCLI

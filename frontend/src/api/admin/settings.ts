@@ -489,6 +489,7 @@ export interface SystemSettings {
   site_subtitle: string;
   api_base_url: string;
   contact_info: string;
+  api_error_hint?: string;
   doc_url: string;
   home_content: string;
   redeem_store_html: string;
@@ -845,6 +846,7 @@ export interface UpdateSettingsRequest {
   site_subtitle?: string;
   api_base_url?: string;
   contact_info?: string;
+  api_error_hint?: string;
   doc_url?: string;
   home_content?: string;
   redeem_store_html?: string;

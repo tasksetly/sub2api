@@ -368,6 +368,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		SiteFavicon:                            settings[SettingKeySiteFavicon],
 		SiteSubtitle:                           s.getStringOrDefault(settings, SettingKeySiteSubtitle, "API access for AI coding tools"),
 		APIBaseURL:                             settings[SettingKeyAPIBaseURL],
+		APIErrorHint:                           normalizeAPIErrorHint(settings[SettingKeyAPIErrorHint]),
 		ContactInfo:                            settings[SettingKeyContactInfo],
 		DocURL:                                 settings[SettingKeyDocURL],
 		HomeContent:                            settings[SettingKeyHomeContent],

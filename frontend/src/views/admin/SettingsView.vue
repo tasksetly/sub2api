@@ -6614,6 +6614,16 @@
                 </button>
               </div>
 
+              <div>
+                <label for="api-error-hint" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t("admin.settings.site.apiErrorHint") }}
+                </label>
+                <input id="api-error-hint" v-model="form.api_error_hint" type="text" maxlength="500" class="input" />
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.site.apiErrorHintHelp") }}
+                </p>
+              </div>
+
               <!-- Contact Info -->
               <div>
                 <label
@@ -9790,6 +9800,7 @@ const form = reactive<SettingsForm>({
   site_subtitle: "API access for AI coding tools",
   api_base_url: "",
   contact_info: "",
+  api_error_hint: "",
   doc_url: "",
   home_content: "",
   redeem_store_html: "",
@@ -11496,6 +11507,7 @@ async function saveSettings() {
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
+      api_error_hint: form.api_error_hint,
       doc_url: form.doc_url,
       home_content: form.home_content,
       redeem_store_html: form.redeem_store_html,

@@ -332,6 +332,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.APIBaseURL != after.APIBaseURL {
 		changed = append(changed, "api_base_url")
 	}
+	if before.APIErrorHint != after.APIErrorHint {
+		changed = append(changed, "api_error_hint")
+	}
 	if before.ContactInfo != after.ContactInfo {
 		changed = append(changed, "contact_info")
 	}

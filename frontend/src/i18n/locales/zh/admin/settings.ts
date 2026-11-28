@@ -783,6 +783,8 @@ export default {
           descriptionPlaceholder: '如：支持 OpenAI 格式请求',
           add: '添加端点',
         },
+        apiErrorHint: 'API 报错附加提示',
+        apiErrorHintHelp: '追加到网关错误消息末尾。留空保存可恢复默认提示。',
         contactInfo: '客服联系方式',
         contactInfoPlaceholder: '例如：QQ: 123456789',
         contactInfoHint: '填写客服联系方式，将展示在兑换页面、个人资料等位置',

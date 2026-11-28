@@ -159,6 +159,7 @@ type UpdateSettingsRequest struct {
 	SiteFavicon                 string                `json:"site_favicon"`
 	SiteSubtitle                string                `json:"site_subtitle"`
 	APIBaseURL                  string                `json:"api_base_url"`
+	APIErrorHint                *string               `json:"api_error_hint" binding:"omitempty,max=500"`
 	ContactInfo                 string                `json:"contact_info"`
 	DocURL                      string                `json:"doc_url"`
 	HomeContent                 string                `json:"home_content"`
@@ -521,6 +522,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 	// 两个安全开关的请求字段为指针：省略字段=保持现值，避免旧客户端/脚本
 	// 用不含新字段的全量 payload 保存设置时把安全开关静默重置。
+	apiErrorHint := previousSettings.APIErrorHint
+	if req.APIErrorHint != nil {
+		apiErrorHint = *req.APIErrorHint
+	}
 	sessionBindingEnabled := previousSettings.SessionBindingEnabled
 	if req.SessionBindingEnabled != nil {
 		sessionBindingEnabled = *req.SessionBindingEnabled
@@ -1662,6 +1667,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteFavicon:                            req.SiteFavicon,
 		SiteSubtitle:                           req.SiteSubtitle,
 		APIBaseURL:                             req.APIBaseURL,
+		APIErrorHint:                           apiErrorHint,
 		ContactInfo:                            req.ContactInfo,
 		DocURL:                                 req.DocURL,
 		HomeContent:                            req.HomeContent,
@@ -2330,6 +2336,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteFavicon:                                            updatedSettings.SiteFavicon,
 		SiteSubtitle:                                           updatedSettings.SiteSubtitle,
 		APIBaseURL:                                             updatedSettings.APIBaseURL,
+		APIErrorHint:                                           updatedSettings.APIErrorHint,
 		ContactInfo:                                            updatedSettings.ContactInfo,
 		DocURL:                                                 updatedSettings.DocURL,
 		HomeContent:                                            updatedSettings.HomeContent,

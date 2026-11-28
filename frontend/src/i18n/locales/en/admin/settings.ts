@@ -791,6 +791,8 @@ export default {
           descriptionPlaceholder: 'e.g., Supports OpenAI format requests',
           add: 'Add Endpoint',
         },
+        apiErrorHint: 'API error hint',
+        apiErrorHintHelp: 'Appended to gateway error messages. Leave blank and save to restore the default.',
         contactInfo: 'Contact Info',
         contactInfoPlaceholder: 'e.g., QQ: 123456789',
         contactInfoHint: 'Customer support contact info, displayed on redeem page, profile, etc.',

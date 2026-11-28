@@ -253,6 +253,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		SiteFavicon:                                            settings.SiteFavicon,
 		SiteSubtitle:                                           settings.SiteSubtitle,
 		APIBaseURL:                                             settings.APIBaseURL,
+		APIErrorHint:                                           settings.APIErrorHint,
 		ContactInfo:                                            settings.ContactInfo,
 		DocURL:                                                 settings.DocURL,
 		HomeContent:                                            settings.HomeContent,

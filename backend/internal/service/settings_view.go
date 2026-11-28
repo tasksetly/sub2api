@@ -155,6 +155,7 @@ type SystemSettings struct {
 	SiteFavicon                 string
 	SiteSubtitle                string
 	APIBaseURL                  string
+	APIErrorHint                string
 	ContactInfo                 string
 	DocURL                      string
 	HomeContent                 string

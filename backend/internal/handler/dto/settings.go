@@ -156,6 +156,7 @@ type SystemSettings struct {
 	SiteFavicon                 string           `json:"site_favicon"`
 	SiteSubtitle                string           `json:"site_subtitle"`
 	APIBaseURL                  string           `json:"api_base_url"`
+	APIErrorHint                string           `json:"api_error_hint"`
 	ContactInfo                 string           `json:"contact_info"`
 	DocURL                      string           `json:"doc_url"`
 	HomeContent                 string           `json:"home_content"`
